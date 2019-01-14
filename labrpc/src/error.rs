@@ -1,13 +1,16 @@
-use std::error;
-use std::fmt;
+use std::sync::mpsc::{RecvError, SendError};
+use std::{error, fmt, result};
 
 use labcodec::{DecodeError, EncodeError};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     Unimplemented(String),
     Encode(EncodeError),
     Decode(DecodeError),
+    Recv(RecvError),
+    Timeout,
+    Stopped,
 }
 
 impl fmt::Display for Error {
@@ -21,7 +24,10 @@ impl error::Error for Error {
         match *self {
             Error::Encode(ref e) => Some(e),
             Error::Decode(ref e) => Some(e),
-            Error::Unimplemented(_) => None,
+            Error::Recv(ref e) => Some(e),
+            _ => None,
         }
     }
 }
+
+pub type Result<T> = result::Result<T, Error>;
