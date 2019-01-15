@@ -1,3 +1,10 @@
+#![allow(unused_attributes)]
+#![allow(clippy::new_without_default)]
+#![allow(clippy::if_same_then_else)]
+#![feature(test)]
+#[cfg(test)]
+extern crate test;
+
 extern crate bytes;
 #[macro_use]
 extern crate log;
@@ -5,22 +12,22 @@ extern crate log;
 extern crate futures;
 extern crate futures_cpupool;
 extern crate futures_timer;
+extern crate hashbrown;
 extern crate labcodec;
 extern crate prost;
 extern crate rand;
 
 #[cfg(test)]
-extern crate env_logger;
-#[cfg(test)]
 #[macro_use]
 extern crate prost_derive;
+#[cfg(test)]
+extern crate env_logger;
 #[cfg(test)]
 #[macro_use]
 extern crate lazy_static;
 
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
-use std::sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender};
+use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::{fmt, time};
 
@@ -28,24 +35,54 @@ use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures::{Async, Future, Poll, Stream};
 use futures_cpupool::CpuPool;
 use futures_timer::Delay;
+use hashbrown::HashMap;
 use rand::Rng;
 
 mod error;
+#[macro_use]
+mod macros;
 
 pub use error::{Error, Result};
 
-pub trait Service: 'static + Sync + Send {
-    fn name(&self) -> &'static str;
-    fn dispatch(&self, method: &str, req: &[u8], rsp: &mut Vec<u8>) -> Result<()>;
+static ID_ALLOC: AtomicUsize = ATOMIC_USIZE_INIT;
+
+type Handler = Fn(&[u8], &mut Vec<u8>) -> Result<()> + Send + Sync + 'static;
+
+pub struct ServerBuilder {
+    name: String,
+    services: HashMap<&'static str, Box<Handler>>,
 }
 
-static ID_ALLOC: AtomicUsize = ATOMIC_USIZE_INIT;
+impl ServerBuilder {
+    pub fn new(name: String) -> ServerBuilder {
+        ServerBuilder {
+            name,
+            services: HashMap::new(),
+        }
+    }
+
+    pub fn add_handler(&mut self, fq_name: &'static str, handler: Box<Handler>) -> Result<()> {
+        self.services.insert(fq_name, handler);
+        Ok(())
+    }
+
+    pub fn build(self) -> Server {
+        Server {
+            core: Arc::new(ServerCore {
+                name: self.name,
+                services: self.services,
+                id: ID_ALLOC.fetch_add(1, Ordering::Relaxed),
+                count: AtomicUsize::new(0),
+            }),
+        }
+    }
+}
 
 struct ServerCore {
     name: String,
     id: usize,
 
-    services: HashMap<&'static str, Box<dyn Service>>,
+    services: HashMap<&'static str, Box<Handler>>,
     count: AtomicUsize,
 }
 
@@ -55,21 +92,6 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(name: String, svcs: Vec<Box<dyn Service>>) -> Server {
-        let mut services = HashMap::with_capacity(svcs.len());
-        for svc in svcs {
-            services.insert(svc.name(), svc);
-        }
-        Server {
-            core: Arc::new(ServerCore {
-                name,
-                services,
-                id: ID_ALLOC.fetch_add(1, Ordering::Relaxed),
-                count: AtomicUsize::new(0),
-            }),
-        }
-    }
-
     pub fn count(&self) -> usize {
         self.core.count.load(Ordering::SeqCst)
     }
@@ -80,17 +102,10 @@ impl Server {
 
     fn dispatch(&self, fq_name: &str, req: &[u8], rsp: &mut Vec<u8>) -> Result<()> {
         self.core.count.fetch_add(1, Ordering::SeqCst);
-        let mut parts = fq_name.split('.');
-        let svc_name = parts.next().unwrap();
-        let method_name = parts.next().unwrap();
-
-        if let Some(svc) = self.core.services.get(&svc_name) {
-            svc.dispatch(method_name, req, rsp)
+        if let Some(handle) = self.core.services.get(fq_name) {
+            handle(req, rsp)
         } else {
-            Err(Error::Unimplemented(format!(
-                "unknown service {} in {}",
-                svc_name, fq_name
-            )))
+            Err(Error::Unimplemented(format!("unknown {}", fq_name)))
         }
     }
 }
@@ -282,12 +297,7 @@ impl Network {
 
     pub fn count(&self, server_name: &str) -> usize {
         let eps = self.core.endpoints.lock().unwrap();
-        eps.servers
-            .get(server_name)
-            .unwrap()
-            .as_ref()
-            .unwrap()
-            .count()
+        eps.servers[server_name].as_ref().unwrap().count()
     }
 
     pub fn total_count(&self) -> usize {
@@ -298,10 +308,10 @@ impl Network {
         let eps = self.core.endpoints.lock().unwrap();
         let mut server = None;
         if let Some(Some(server_name)) = eps.connections.get(end_name) {
-            server = eps.servers.get(server_name).unwrap().clone();
+            server = eps.servers[server_name].clone();
         }
         EndInfo {
-            enabled: *eps.enabled.get(end_name).unwrap(),
+            enabled: eps.enabled[end_name],
             reliable: self.core.reliable.load(Ordering::SeqCst),
             long_reordering: self.core.long_reordering.load(Ordering::SeqCst),
             server,
@@ -310,7 +320,7 @@ impl Network {
 
     fn is_server_dead(&self, end_name: &str, server_name: &str, server_id: usize) -> bool {
         let eps = self.core.endpoints.lock().unwrap();
-        !eps.enabled.get(end_name).unwrap()
+        !eps.enabled[end_name]
             || eps.servers.get(server_name).map_or(true, |o| {
                 o.as_ref().map(|s| s.core.id != server_id).unwrap_or(true)
             })
@@ -532,26 +542,38 @@ impl Future for ProcessRpc {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::mpsc::RecvError;
     use std::sync::{mpsc, Mutex};
     use std::thread;
 
+    use test;
+
     use super::*;
+
+    service! {
+        /// A simple test-purpose service.
+        service junk {
+            /// Doc comments.
+            rpc handler2(JunkArgs) returns JunkReply;
+            rpc handler4(JunkArgs) returns JunkReply;
+        }
+    }
+    use tests::junk::{add_service, Client as JunkClient, Service as JunkService};
 
     // Hand-written protobuf messages.
     #[derive(Clone, PartialEq, Message)]
-    struct JunkArgs {
+    pub struct JunkArgs {
         #[prost(int64, tag = "1")]
         pub x: i64,
     }
     #[derive(Clone, PartialEq, Message)]
-    struct JunkReply {
+    pub struct JunkReply {
         #[prost(string, tag = "1")]
         pub x: String,
     }
 
     #[derive(Default)]
     struct JunkInner {
-        log1: Vec<String>,
         log2: Vec<i64>,
     }
     #[derive(Clone)]
@@ -579,53 +601,6 @@ mod tests {
         }
     }
 
-    trait JunkService: Service {
-        // We only supports protobuf messages.
-        fn handler2(&self, args: JunkArgs) -> JunkReply;
-        fn handler4(&self, args: JunkArgs) -> JunkReply;
-    }
-    impl<T: ?Sized + JunkService> Service for T {
-        fn name(&self) -> &'static str {
-            "junk"
-        }
-        fn dispatch(&self, method_name: &str, req: &[u8], rsp: &mut Vec<u8>) -> Result<()> {
-            match method_name {
-                "handler2" => {
-                    let request = labcodec::decode(req).map_err(Error::Decode)?;
-                    let response = self.handler2(request);
-                    labcodec::encode(&response, rsp).map_err(Error::Encode)
-                }
-                "handler4" => {
-                    let request = labcodec::decode(req).map_err(Error::Decode)?;
-                    let response = self.handler4(request);
-                    labcodec::encode(&response, rsp).map_err(Error::Encode)
-                }
-                other => Err(Error::Unimplemented(format!(
-                    "unknown method {} in {}",
-                    other,
-                    self.name()
-                ))),
-            }
-        }
-    }
-
-    #[derive(Clone)]
-    struct JunkClient {
-        client: ClientEnd,
-    }
-
-    impl JunkClient {
-        fn new(client: ClientEnd) -> JunkClient {
-            JunkClient { client }
-        }
-        fn handler2(&self, args: &JunkArgs) -> Result<JunkReply> {
-            self.client.call("junk.handler2", args)
-        }
-        fn handler4(&self, args: &JunkArgs) -> Result<JunkReply> {
-            self.client.call("junk.handler4", args)
-        }
-    }
-
     lazy_static! {
         static ref LOGGER_INIT: () = env_logger::init();
     }
@@ -634,8 +609,10 @@ mod tests {
     fn test_service_dispatch() {
         *LOGGER_INIT;
 
-        let junk_server = JunkServer::new();
-        let server = Server::new("test".to_owned(), vec![Box::new(junk_server)]);
+        let mut builder = ServerBuilder::new("test".to_owned());
+        let junk = JunkServer::new();
+        add_service(&junk, &mut builder).unwrap();
+        let server = builder.build();
 
         let mut buf = Vec::new();
         server.dispatch("junk.handler4", &[], &mut buf).unwrap();
@@ -670,12 +647,12 @@ mod tests {
     fn test_network_client_rpc() {
         *LOGGER_INIT;
 
-        use std::sync::mpsc::RecvError;
+        let mut builder = ServerBuilder::new("test".to_owned());
+        let junk = JunkServer::new();
+        add_service(&junk, &mut builder).unwrap();
+        let server = builder.build();
 
         let (rn, incoming) = Network::create();
-
-        let junk_server = JunkServer::new();
-        let server = Server::new("test_server".to_owned(), vec![Box::new(junk_server)]);
         rn.add_server(server);
 
         let client = JunkClient::new(rn.create_end("test_client".to_owned()));
@@ -713,7 +690,7 @@ mod tests {
     fn test_basic() {
         *LOGGER_INIT;
 
-        let (rn, server, _) = junk_suit();
+        let (rn, _server, _) = junk_suit();
 
         let client = JunkClient::new(rn.create_end("test_client".to_owned()));
         rn.connect("test_client".to_owned(), "test_server".to_owned());
@@ -733,7 +710,7 @@ mod tests {
     fn test_disconnect() {
         // *LOGGER_INIT;
 
-        let (rn, server, _) = junk_suit();
+        let (rn, _server, _) = junk_suit();
 
         let client = JunkClient::new(rn.create_end("test_client".to_owned()));
         rn.connect("test_client".to_owned(), "test_server".to_owned());
@@ -756,7 +733,7 @@ mod tests {
     fn test_count() {
         // *LOGGER_INIT;
 
-        let (rn, server, _) = junk_suit();
+        let (rn, _server, _) = junk_suit();
 
         let client = JunkClient::new(rn.create_end("test_client".to_owned()));
         rn.connect("test_client".to_owned(), "test_server".to_owned());
@@ -819,9 +796,10 @@ mod tests {
     fn junk_suit() -> (Network, Server, JunkServer) {
         let rn = Network::new();
         let server_name = "test_server".to_owned();
+        let mut builder = ServerBuilder::new(server_name.clone());
         let junk_server = JunkServer::new();
-        let svc = Box::new(junk_server.clone());
-        let server = Server::new(server_name.to_owned(), vec![svc]);
+        add_service(&junk_server, &mut builder).unwrap();
+        let server = builder.build();
         rn.add_server(server.clone());
         (rn, server, junk_server)
     }
@@ -981,5 +959,28 @@ mod tests {
 
         let n = rn.count(server.name());
         assert!(n == 1, "wrong count() {}, expected 1", n);
+    }
+
+    // if an RPC is stuck in a server, and the server
+    // is killed with DeleteServer(), does the RPC
+    // get un-stuck?
+    // #[test]
+    // fn test_killed() {
+    //     unimplemented!();
+    // }
+
+    #[bench]
+    fn bench_rpc(b: &mut test::Bencher) {
+        let (rn, server, _junk_server) = junk_suit();
+        let server_name = server.name();
+        let client_name = format!("client");
+        let client = JunkClient::new(rn.create_end(client_name.clone()));
+        rn.connect(client_name.clone(), server_name.to_owned());
+        rn.enable(client_name.clone(), true);
+
+        b.iter(|| {
+            client.handler2(&JunkArgs { x: 111 }).unwrap();
+        });
+        // i5-4200U, 19.4 microseconds per RPC
     }
 }
