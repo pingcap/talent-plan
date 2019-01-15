@@ -1,4 +1,4 @@
-use std::sync::mpsc::{RecvError, SendError};
+use std::sync::mpsc::RecvError;
 use std::{error, fmt, result};
 
 use labcodec::{DecodeError, EncodeError};

@@ -74,6 +74,10 @@ impl Server {
         self.core.count.load(Ordering::SeqCst)
     }
 
+    pub fn name(&self) -> &str {
+        &self.core.name
+    }
+
     fn dispatch(&self, fq_name: &str, req: &[u8], rsp: &mut Vec<u8>) -> Result<()> {
         self.core.count.fetch_add(1, Ordering::SeqCst);
         let mut parts = fq_name.split('.');
@@ -255,6 +259,11 @@ impl Network {
 
     /// Enable/disable a ClientEnd.
     pub fn enable(&self, end_name: String, enabled: bool) {
+        debug!(
+            "client {} is {}",
+            end_name,
+            if enabled { "enabled" } else { "disbaled" }
+        );
         let mut eps = self.core.endpoints.lock().unwrap();
         eps.enabled.insert(end_name, enabled);
     }
@@ -523,7 +532,7 @@ impl Future for ProcessRpc {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use std::sync::{mpsc, Mutex};
     use std::thread;
 
     use super::*;
@@ -545,17 +554,24 @@ mod tests {
         log1: Vec<String>,
         log2: Vec<i64>,
     }
+    #[derive(Clone)]
     struct JunkServer {
-        inner: Mutex<JunkInner>,
+        inner: Arc<Mutex<JunkInner>>,
     }
     impl JunkServer {
         fn new() -> JunkServer {
             JunkServer {
-                inner: Mutex::new(JunkInner::default()),
+                inner: Arc::default(),
             }
         }
     }
     impl JunkService for JunkServer {
+        fn handler2(&self, args: JunkArgs) -> JunkReply {
+            self.inner.lock().unwrap().log2.push(args.x);
+            JunkReply {
+                x: format!("handler2-{}", args.x),
+            }
+        }
         fn handler4(&self, _: JunkArgs) -> JunkReply {
             JunkReply {
                 x: "pointer".to_owned(),
@@ -565,6 +581,7 @@ mod tests {
 
     trait JunkService: Service {
         // We only supports protobuf messages.
+        fn handler2(&self, args: JunkArgs) -> JunkReply;
         fn handler4(&self, args: JunkArgs) -> JunkReply;
     }
     impl<T: ?Sized + JunkService> Service for T {
@@ -573,6 +590,11 @@ mod tests {
         }
         fn dispatch(&self, method_name: &str, req: &[u8], rsp: &mut Vec<u8>) -> Result<()> {
             match method_name {
+                "handler2" => {
+                    let request = labcodec::decode(req).map_err(Error::Decode)?;
+                    let response = self.handler2(request);
+                    labcodec::encode(&response, rsp).map_err(Error::Encode)
+                }
                 "handler4" => {
                     let request = labcodec::decode(req).map_err(Error::Decode)?;
                     let response = self.handler4(request);
@@ -595,6 +617,9 @@ mod tests {
     impl JunkClient {
         fn new(client: ClientEnd) -> JunkClient {
             JunkClient { client }
+        }
+        fn handler2(&self, args: &JunkArgs) -> Result<JunkReply> {
+            self.client.call("junk.handler2", args)
         }
         fn handler4(&self, args: &JunkArgs) -> Result<JunkReply> {
             self.client.call("junk.handler4", args)
@@ -688,12 +713,7 @@ mod tests {
     fn test_basic() {
         *LOGGER_INIT;
 
-        let (rn, incoming) = Network::create();
-        rn.start(incoming);
-
-        let junk_server = JunkServer::new();
-        let server = Server::new("test_server".to_owned(), vec![Box::new(junk_server)]);
-        rn.add_server(server);
+        let (rn, server, _) = junk_suit();
 
         let client = JunkClient::new(rn.create_end("test_client".to_owned()));
         rn.connect("test_client".to_owned(), "test_server".to_owned());
@@ -708,32 +728,258 @@ mod tests {
         );
     }
 
+    // does net.Enable(endname, false) really disconnect a client?
     #[test]
     fn test_disconnect() {
-        *LOGGER_INIT;
+        // *LOGGER_INIT;
 
-        let (rn, incoming) = Network::create();
-        rn.start(incoming);
-
-        let junk_server = JunkServer::new();
-        let server = Server::new("test_server".to_owned(), vec![Box::new(junk_server)]);
-        rn.add_server(server);
+        let (rn, server, _) = junk_suit();
 
         let client = JunkClient::new(rn.create_end("test_client".to_owned()));
         rn.connect("test_client".to_owned(), "test_server".to_owned());
-        println!("{}", line!());
 
         client.handler4(&JunkArgs::default()).unwrap_err();
-        println!("{}", line!());
 
         rn.enable("test_client".to_owned(), true);
         let rsp = client.handler4(&JunkArgs::default()).unwrap();
-        println!("{}", line!());
+
         assert_eq!(
             JunkReply {
                 x: "pointer".to_owned(),
             },
             rsp,
         );
+    }
+
+    // test net.GetCount()
+    #[test]
+    fn test_count() {
+        // *LOGGER_INIT;
+
+        let (rn, server, _) = junk_suit();
+
+        let client = JunkClient::new(rn.create_end("test_client".to_owned()));
+        rn.connect("test_client".to_owned(), "test_server".to_owned());
+        rn.enable("test_client".to_owned(), true);
+
+        for i in 0..=16 {
+            let reply = client.handler2(&JunkArgs { x: i }).unwrap();
+            assert_eq!(reply.x, format!("handler2-{}", i));
+        }
+
+        assert_eq!(rn.count("test_server"), 17,);
+    }
+
+    // test RPCs from concurrent ClientEnds
+    #[test]
+    fn test_concurrent_many() {
+        *LOGGER_INIT;
+
+        let (rn, server, _) = junk_suit();
+        let server_name = server.name();
+
+        let pool = futures_cpupool::CpuPool::new_num_cpus();
+        let (tx, rx) = mpsc::channel::<usize>();
+
+        let nclients = 20usize;
+        let nrpcs = 10usize;
+        for i in 0..nclients {
+            let net = rn.clone();
+            let sender = tx.clone();
+            let server_name_ = server_name.to_string();
+
+            pool.spawn_fn(move || {
+                let mut n = 0;
+                let client_name = format!("client-{}", i);
+                let client = JunkClient::new(net.create_end(client_name.clone()));
+                net.enable(client_name.clone(), true);
+                net.connect(client_name.clone(), server_name_);
+
+                for j in 0..nrpcs {
+                    let x = (i * 100 + j) as i64;
+                    let reply = client.handler2(&JunkArgs { x }).unwrap();
+                    assert_eq!(reply.x, format!("handler2-{}", x));
+                    n += 1;
+                }
+
+                sender.send(n)
+            })
+            .forget();
+        }
+
+        let mut total = 0;
+        for _ in 0..nclients {
+            total += rx.recv().unwrap();
+        }
+        assert_eq!(total, nrpcs * nclients);
+        let n = rn.count(&server_name);
+        assert_eq!(n, total);
+    }
+
+    fn junk_suit() -> (Network, Server, JunkServer) {
+        let rn = Network::new();
+        let server_name = "test_server".to_owned();
+        let junk_server = JunkServer::new();
+        let svc = Box::new(junk_server.clone());
+        let server = Server::new(server_name.to_owned(), vec![svc]);
+        rn.add_server(server.clone());
+        (rn, server, junk_server)
+    }
+
+    #[test]
+    fn test_unreliable() {
+        *LOGGER_INIT;
+
+        let (rn, server, _) = junk_suit();
+        let server_name = server.name();
+        rn.set_reliable(false);
+
+        let pool = futures_cpupool::CpuPool::new_num_cpus();
+        let (tx, rx) = mpsc::channel::<usize>();
+        let nclients = 300;
+        for i in 0..nclients {
+            let sender = tx.clone();
+            let mut n = 0;
+            let server_name_ = server_name.to_owned();
+            let net = rn.clone();
+
+            pool.spawn_fn(move || {
+                let client_name = format!("client-{}", i);
+                let client = JunkClient::new(net.create_end(client_name.clone()));
+                net.enable(client_name.clone(), true);
+                net.connect(client_name.clone(), server_name_);
+
+                let x = i * 100;
+                if let Ok(reply) = client.handler2(&JunkArgs { x }) {
+                    assert_eq!(reply.x, format!("handler2-{}", x));
+                    n += 1;
+                }
+                sender.send(n)
+            })
+            .forget();
+        }
+        let mut total = 0;
+        for _ in 0..nclients {
+            total += rx.recv().unwrap();
+        }
+        assert!(
+            !(total == nclients as _ || total == 0),
+            "all RPCs succeeded despite unreliable total {}, nclients {}",
+            total,
+            nclients
+        );
+    }
+
+    // test concurrent RPCs from a single ClientEnd
+    #[test]
+    fn test_concurrent_one() {
+        *LOGGER_INIT;
+
+        let (rn, server, junk_server) = junk_suit();
+        let server_name = server.name();
+
+        let pool = futures_cpupool::CpuPool::new_num_cpus();
+        let (tx, rx) = mpsc::channel::<usize>();
+        let nrpcs = 20;
+        for i in 0..20 {
+            let sender = tx.clone();
+            let client_name = format!("client-{}", i);
+            let client = JunkClient::new(rn.create_end(client_name.clone()));
+            rn.enable(client_name.clone(), true);
+            rn.connect(client_name.clone(), server_name.to_owned());
+
+            pool.spawn_fn(move || {
+                let mut n = 0;
+                let x = i + 100;
+                let reply = client.handler2(&JunkArgs { x }).unwrap();
+                assert_eq!(reply.x, format!("handler2-{}", x));
+                n += 1;
+                sender.send(n)
+            })
+            .forget();
+        }
+
+        let mut total = 0;
+        for _ in 0..nrpcs {
+            total += rx.recv().unwrap();
+        }
+        assert!(
+            total == nrpcs,
+            "wrong number of RPCs completed, got {}, expected {}",
+            total,
+            nrpcs
+        );
+
+        assert_eq!(
+            junk_server.inner.lock().unwrap().log2.len(),
+            nrpcs,
+            "wrong number of RPCs delivered"
+        );
+
+        let n = rn.count(server.name());
+        assert_eq!(n, total, "wrong count() {}, expected {}", n, total);
+    }
+
+    // regression: an RPC that's delayed during Enabled=false
+    // should not delay subsequent RPCs (e.g. after Enabled=true).
+    #[test]
+    fn test_regression1() {
+        *LOGGER_INIT;
+
+        let (rn, server, junk_server) = junk_suit();
+        let server_name = server.name();
+
+        let client_name = format!("client");
+        let client = JunkClient::new(rn.create_end(client_name.clone()));
+        rn.connect(client_name.clone(), server_name.to_owned());
+
+        // start some RPCs while the ClientEnd is disabled.
+        // they'll be delayed.
+        rn.enable(client_name.clone(), false);
+
+        let pool = futures_cpupool::CpuPool::new_num_cpus();
+        let (tx, rx) = mpsc::channel::<bool>();
+        let nrpcs = 20;
+        for i in 0..20 {
+            let sender = tx.clone();
+            let client_ = client.clone();
+            pool.spawn_fn(move || {
+                let x = i + 100;
+                // this call ought to return false.
+                let _ = client_.handler2(&JunkArgs { x });
+                sender.send(true)
+            })
+            .forget();
+        }
+
+        // FIXME: have to sleep 300ms to pass the test
+        //        in my computer (i5-4200U, 4 threads).
+        thread::sleep(time::Duration::from_millis(100 * 3));
+
+        let t0 = time::Instant::now();
+        rn.enable(client_name.clone(), true);
+        let x = 99;
+        let reply = client.handler2(&JunkArgs { x }).unwrap();
+        assert_eq!(reply.x, format!("handler2-{}", x));
+        let dur = t0.elapsed();
+        assert!(
+            dur < time::Duration::from_millis(30),
+            "RPC took too long ({:?}) after Enable",
+            dur
+        );
+
+        for _ in 0..nrpcs {
+            rx.recv().unwrap();
+        }
+
+        let len = junk_server.inner.lock().unwrap().log2.len();
+        assert!(
+            len == 1,
+            "wrong number ({}) of RPCs delivered, expected 1",
+            len
+        );
+
+        let n = rn.count(server.name());
+        assert!(n == 1, "wrong count() {}, expected 1", n);
     }
 }
