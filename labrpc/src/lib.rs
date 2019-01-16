@@ -152,8 +152,8 @@ pub struct ClientEnd {
 impl ClientEnd {
     pub fn call<Req, Rsp>(&self, fq_name: &'static str, req: &Req) -> Result<Rsp>
     where
-        Req: prost::Message,
-        Rsp: prost::Message + Default,
+        Req: labcodec::Message,
+        Rsp: labcodec::Message,
     {
         let mut buf = vec![];
         labcodec::encode(req, &mut buf).map_err(Error::Encode)?;
