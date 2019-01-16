@@ -612,7 +612,7 @@ impl Future for ServerDead {
                 .is_server_dead(&self.client_name, &self.server_name, self.server_id)
             {
                 debug!("{:?} is dead", self.server_name);
-                return Err(Error::Timeout);
+                return Err(Error::Stopped);
             }
         }
     }
@@ -1072,7 +1072,7 @@ mod tests {
 
         rn.delete_server(server_name.to_owned());
         let reply = rx.recv_timeout(time::Duration::from_millis(100)).unwrap();
-        assert_eq!(reply, Err(Error::Timeout));
+        assert_eq!(reply, Err(Error::Stopped));
     }
 
     #[bench]
