@@ -120,7 +120,7 @@ impl fmt::Debug for Server {
 }
 
 pub struct Rpc {
-    end_name: String,
+    client_name: String,
     fq_name: &'static str,
     req: Option<Vec<u8>>,
     resp: Option<SyncSender<Result<Vec<u8>>>>,
@@ -135,7 +135,7 @@ impl Rpc {
 impl fmt::Debug for Rpc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Rpc")
-            .field("end_name", &self.end_name)
+            .field("client_name", &self.client_name)
             .field("fq_name", &self.fq_name)
             .finish()
     }
@@ -144,7 +144,7 @@ impl fmt::Debug for Rpc {
 #[derive(Clone)]
 pub struct ClientEnd {
     // this end-point's name
-    end_name: String,
+    client_name: String,
     // copy of Network.sender
     sender: UnboundedSender<Rpc>,
 }
@@ -160,7 +160,7 @@ impl ClientEnd {
 
         let (tx, rx) = sync_channel(1);
         let rpc = Rpc {
-            end_name: self.end_name.clone(),
+            client_name: self.client_name.clone(),
             fq_name,
             req: Some(buf),
             resp: Some(tx),
@@ -186,13 +186,11 @@ struct EndInfo {
 }
 
 struct Endpoints {
-    // ends, by name
-    // ends: HashMap<String, ClientEnd>,
     // by end name
     enabled: HashMap<String, bool>,
     // servers, by name
     servers: HashMap<String, Option<Server>>,
-    // end_name -> server_name
+    // client_name -> server_name
     connections: HashMap<String, Option<String>>,
 }
 
@@ -273,30 +271,33 @@ impl Network {
         eps.servers.insert(name, None);
     }
 
-    pub fn create_end(&self, end_name: String) -> ClientEnd {
+    pub fn create_end(&self, client_name: String) -> ClientEnd {
         let sender = self.core.sender.clone();
         let mut eps = self.core.endpoints.lock().unwrap();
-        eps.enabled.insert(end_name.clone(), false);
-        eps.connections.insert(end_name.clone(), None);
-        ClientEnd { end_name, sender }
+        eps.enabled.insert(client_name.clone(), false);
+        eps.connections.insert(client_name.clone(), None);
+        ClientEnd {
+            client_name,
+            sender,
+        }
     }
 
     /// Connects a ClientEnd to a server.
     /// a ClientEnd can only be connected once in its lifetime.
-    pub fn connect(&self, end_name: String, server_name: String) {
+    pub fn connect(&self, client_name: String, server_name: String) {
         let mut eps = self.core.endpoints.lock().unwrap();
-        eps.connections.insert(end_name, Some(server_name));
+        eps.connections.insert(client_name, Some(server_name));
     }
 
     /// Enable/disable a ClientEnd.
-    pub fn enable(&self, end_name: String, enabled: bool) {
+    pub fn enable(&self, client_name: String, enabled: bool) {
         debug!(
             "client {} is {}",
-            end_name,
+            client_name,
             if enabled { "enabled" } else { "disbaled" }
         );
         let mut eps = self.core.endpoints.lock().unwrap();
-        eps.enabled.insert(end_name, enabled);
+        eps.enabled.insert(client_name, enabled);
     }
 
     pub fn set_reliable(&self, yes: bool) {
@@ -320,23 +321,23 @@ impl Network {
         self.core.count.load(Ordering::SeqCst)
     }
 
-    fn end_info(&self, end_name: &str) -> EndInfo {
+    fn end_info(&self, client_name: &str) -> EndInfo {
         let eps = self.core.endpoints.lock().unwrap();
         let mut server = None;
-        if let Some(Some(server_name)) = eps.connections.get(end_name) {
+        if let Some(Some(server_name)) = eps.connections.get(client_name) {
             server = eps.servers[server_name].clone();
         }
         EndInfo {
-            enabled: eps.enabled[end_name],
+            enabled: eps.enabled[client_name],
             reliable: self.core.reliable.load(Ordering::SeqCst),
             long_reordering: self.core.long_reordering.load(Ordering::SeqCst),
             server,
         }
     }
 
-    fn is_server_dead(&self, end_name: &str, server_name: &str, server_id: usize) -> bool {
+    fn is_server_dead(&self, client_name: &str, server_name: &str, server_id: usize) -> bool {
         let eps = self.core.endpoints.lock().unwrap();
-        !eps.enabled[end_name]
+        !eps.enabled[client_name]
             || eps.servers.get(server_name).map_or(true, |o| {
                 o.as_ref().map(|s| s.core.id != server_id).unwrap_or(true)
             })
@@ -346,7 +347,7 @@ impl Network {
         self.core.count.fetch_add(1, Ordering::SeqCst);
         let mut random = rand::thread_rng();
         let network = self.clone();
-        let end_info = self.end_info(&rpc.end_name);
+        let end_info = self.end_info(&rpc.client_name);
         debug!("{:?} process with {:?}", rpc, end_info);
         let EndInfo {
             enabled,
@@ -540,7 +541,7 @@ impl Future for ProcessRpc {
                         .select(ServerDead {
                             interval: Interval::new(time::Duration::from_millis(100)),
                             net: self.network.clone(),
-                            end_name: self.rpc.end_name.clone(),
+                            client_name: self.rpc.client_name.clone(),
                             server_name: server.core.name.clone(),
                             server_id: server.core.id,
                         });
@@ -594,7 +595,7 @@ impl Future for ProcessRpc {
 struct ServerDead {
     interval: Interval,
     net: Network,
-    end_name: String,
+    client_name: String,
     server_name: String,
     server_id: usize,
 }
@@ -608,7 +609,7 @@ impl Future for ServerDead {
             try_ready!(self.interval.poll().map_err(|e| panic!("{:?}", e)));
             if self
                 .net
-                .is_server_dead(&self.end_name, &self.server_name, self.server_id)
+                .is_server_dead(&self.client_name, &self.server_name, self.server_id)
             {
                 debug!("{:?} is dead", self.server_name);
                 return Err(Error::Timeout);
@@ -753,7 +754,7 @@ mod tests {
         labcodec::encode(&reply, &mut buf).unwrap();
         let resp = rpc.take_resp_sender().unwrap();
         resp.send(Ok(buf)).unwrap();
-        assert_eq!(rpc.end_name, "test_client");
+        assert_eq!(rpc.client_name, "test_client");
         assert_eq!(rpc.fq_name, "junk.handler4");
         assert!(!rpc.req.as_ref().unwrap().is_empty());
         assert_eq!(handler.join().unwrap(), Ok(reply));
