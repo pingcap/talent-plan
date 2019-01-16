@@ -151,7 +151,7 @@ impl fmt::Debug for Rpc {
 #[derive(Clone)]
 pub struct Client {
     // this end-point's name
-    client_name: String,
+    name: String,
     // copy of Network.sender
     sender: UnboundedSender<Rpc>,
 }
@@ -167,7 +167,7 @@ impl Client {
 
         let (tx, rx) = sync_channel(1);
         let rpc = Rpc {
-            client_name: self.client_name.clone(),
+            client_name: self.name.clone(),
             fq_name,
             req: Some(buf),
             resp: Some(tx),
@@ -273,38 +273,36 @@ impl Network {
         eps.servers.insert(server.core.name.clone(), Some(server));
     }
 
-    pub fn delete_server(&self, name: String) {
+    pub fn delete_server(&self, name: &str) {
         let mut eps = self.core.endpoints.lock().unwrap();
-        eps.servers.insert(name, None);
+        eps.servers.get_mut(name).map(|s| *s = None);
     }
 
-    pub fn create_end(&self, client_name: String) -> Client {
+    pub fn create_client(&self, name: String) -> Client {
         let sender = self.core.sender.clone();
         let mut eps = self.core.endpoints.lock().unwrap();
-        eps.enabled.insert(client_name.clone(), false);
-        eps.connections.insert(client_name.clone(), None);
-        Client {
-            client_name,
-            sender,
-        }
+        eps.enabled.insert(name.clone(), false);
+        eps.connections.insert(name.clone(), None);
+        Client { name, sender }
     }
 
     /// Connects a Client to a server.
     /// a Client can only be connected once in its lifetime.
-    pub fn connect(&self, client_name: String, server_name: String) {
+    pub fn connect(&self, client_name: &str, server_name: &str) {
         let mut eps = self.core.endpoints.lock().unwrap();
-        eps.connections.insert(client_name, Some(server_name));
+        eps.connections
+            .insert(client_name.to_owned(), Some(server_name.to_owned()));
     }
 
     /// Enable/disable a Client.
-    pub fn enable(&self, client_name: String, enabled: bool) {
+    pub fn enable(&self, client_name: &str, enabled: bool) {
         debug!(
             "client {} is {}",
             client_name,
             if enabled { "enabled" } else { "disbaled" }
         );
         let mut eps = self.core.endpoints.lock().unwrap();
-        eps.enabled.insert(client_name, enabled);
+        eps.enabled.insert(client_name.to_owned(), enabled);
     }
 
     pub fn set_reliable(&self, yes: bool) {
@@ -750,7 +748,7 @@ mod tests {
         let (net, incoming) = Network::create();
         net.add_server(server);
 
-        let client = JunkClient::new(net.create_end("test_client".to_owned()));
+        let client = JunkClient::new(net.create_client("test_client".to_owned()));
         let client_ = client.clone();
         let handler = thread::spawn(move || client_.handler4(&JunkArgs { x: 777 }));
         let (mut rpc, incoming) = match incoming.into_future().wait() {
@@ -788,9 +786,9 @@ mod tests {
 
         let (net, _, _) = junk_suit();
 
-        let client = JunkClient::new(net.create_end("test_client".to_owned()));
-        net.connect("test_client".to_owned(), "test_server".to_owned());
-        net.enable("test_client".to_owned(), true);
+        let client = JunkClient::new(net.create_client("test_client".to_owned()));
+        net.connect("test_client", "test_server");
+        net.enable("test_client", true);
 
         let rsp = client.handler4(&JunkArgs::default()).unwrap();
         assert_eq!(
@@ -808,12 +806,12 @@ mod tests {
 
         let (net, _, _) = junk_suit();
 
-        let client = JunkClient::new(net.create_end("test_client".to_owned()));
-        net.connect("test_client".to_owned(), "test_server".to_owned());
+        let client = JunkClient::new(net.create_client("test_client".to_owned()));
+        net.connect("test_client", "test_server");
 
         client.handler4(&JunkArgs::default()).unwrap_err();
 
-        net.enable("test_client".to_owned(), true);
+        net.enable("test_client", true);
         let rsp = client.handler4(&JunkArgs::default()).unwrap();
 
         assert_eq!(
@@ -831,9 +829,9 @@ mod tests {
 
         let (net, _, _) = junk_suit();
 
-        let client = JunkClient::new(net.create_end("test_client".to_owned()));
-        net.connect("test_client".to_owned(), "test_server".to_owned());
-        net.enable("test_client".to_owned(), true);
+        let client = JunkClient::new(net.create_client("test_client".to_owned()));
+        net.connect("test_client", "test_server");
+        net.enable("test_client", true);
 
         for i in 0..=16 {
             let reply = client.handler2(&JunkArgs { x: i }).unwrap();
@@ -864,9 +862,9 @@ mod tests {
             pool.spawn_fn(move || {
                 let mut n = 0;
                 let client_name = format!("client-{}", i);
-                let client = JunkClient::new(net.create_end(client_name.clone()));
-                net.enable(client_name.clone(), true);
-                net.connect(client_name.clone(), server_name_);
+                let client = JunkClient::new(net.create_client(client_name.clone()));
+                net.enable(&client_name, true);
+                net.connect(&client_name, &server_name_);
 
                 for j in 0..nrpcs {
                     let x = (i * 100 + j) as i64;
@@ -919,9 +917,9 @@ mod tests {
 
             pool.spawn_fn(move || {
                 let client_name = format!("client-{}", i);
-                let client = JunkClient::new(net.create_end(client_name.clone()));
-                net.enable(client_name.clone(), true);
-                net.connect(client_name.clone(), server_name_);
+                let client = JunkClient::new(net.create_client(client_name.clone()));
+                net.enable(&client_name, true);
+                net.connect(&client_name, &server_name_);
 
                 let x = i * 100;
                 if let Ok(reply) = client.handler2(&JunkArgs { x }) {
@@ -958,9 +956,9 @@ mod tests {
         for i in 0..20 {
             let sender = tx.clone();
             let client_name = format!("client-{}", i);
-            let client = JunkClient::new(net.create_end(client_name.clone()));
-            net.enable(client_name.clone(), true);
-            net.connect(client_name.clone(), server_name.to_owned());
+            let client = JunkClient::new(net.create_client(client_name.clone()));
+            net.enable(&client_name, true);
+            net.connect(&client_name, server_name);
 
             pool.spawn_fn(move || {
                 let mut n = 0;
@@ -1003,13 +1001,13 @@ mod tests {
         let (net, server, junk_server) = junk_suit();
         let server_name = server.name();
 
-        let client_name = format!("client");
-        let client = JunkClient::new(net.create_end(client_name.clone()));
-        net.connect(client_name.clone(), server_name.to_owned());
+        let client_name = "client";
+        let client = JunkClient::new(net.create_client(client_name.to_owned()));
+        net.connect(client_name, server_name);
 
         // start some RPCs while the Client is disabled.
         // they'll be delayed.
-        net.enable(client_name.clone(), false);
+        net.enable(client_name, false);
 
         let pool = futures_cpupool::CpuPool::new_num_cpus();
         let (tx, rx) = mpsc::channel::<bool>();
@@ -1067,10 +1065,10 @@ mod tests {
         let (net, server, _junk_server) = junk_suit();
         let server_name = server.name();
 
-        let client_name = format!("client");
-        let client = JunkClient::new(net.create_end(client_name.clone()));
-        net.connect(client_name.clone(), server_name.to_owned());
-        net.enable(client_name.clone(), true);
+        let client_name = "client";
+        let client = JunkClient::new(net.create_client(client_name.to_owned()));
+        net.connect(client_name, &server_name);
+        net.enable(client_name, true);
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
             let reply = client.handler3(&JunkArgs { x: 99 });
@@ -1080,7 +1078,7 @@ mod tests {
         rx.recv_timeout(time::Duration::from_millis(100))
             .unwrap_err();
 
-        net.delete_server(server_name.to_owned());
+        net.delete_server(server_name);
         let reply = rx.recv_timeout(time::Duration::from_millis(100)).unwrap();
         assert_eq!(reply, Err(Error::Stopped));
     }
@@ -1089,10 +1087,10 @@ mod tests {
     fn bench_rpc(b: &mut test::Bencher) {
         let (net, server, _junk_server) = junk_suit();
         let server_name = server.name();
-        let client_name = format!("client");
-        let client = JunkClient::new(net.create_end(client_name.clone()));
-        net.connect(client_name.clone(), server_name.to_owned());
-        net.enable(client_name.clone(), true);
+        let client_name = "client";
+        let client = JunkClient::new(net.create_client(client_name.to_owned()));
+        net.connect(client_name, server_name);
+        net.enable(client_name, true);
 
         b.iter(|| {
             client.handler2(&JunkArgs { x: 111 }).unwrap();

@@ -30,17 +30,17 @@ impl Service for EchoService {
 
 fn main() {
     let rn = Network::new();
-    let server_name = "echo_server".to_owned();
-    let mut builder = ServerBuilder::new(server_name.clone());
+    let server_name = "echo_server";
+    let mut builder = ServerBuilder::new(server_name.to_owned());
     let service = EchoService;
     add_service(&service, &mut builder).unwrap();
     let server = builder.build();
     rn.add_server(server.clone());
 
-    let client_name = "client".to_owned();
-    let client = Client::new(rn.create_end(client_name.clone()));
-    rn.enable(client_name.clone(), true);
-    rn.connect(client_name.clone(), server_name.clone());
+    let client_name = "client";
+    let client = Client::new(rn.create_client(client_name.to_owned()));
+    rn.enable(client_name, true);
+    rn.connect(client_name, server_name);
 
     let reply = client.ping(&Echo { x: 777 }).unwrap();
     assert_eq!(reply, Echo { x: 777 });
