@@ -28,10 +28,10 @@ macro_rules! service {
 
             #[derive(Clone)]
             pub struct Client {
-                client: $crate::ClientEnd,
+                client: $crate::Client,
             }
             impl Client {
-                pub fn new(client: $crate::ClientEnd) -> Client {
+                pub fn new(client: $crate::Client) -> Client {
                     Client { client }
                 }
                 $(

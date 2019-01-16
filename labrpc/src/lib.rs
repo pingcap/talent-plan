@@ -142,14 +142,14 @@ impl fmt::Debug for Rpc {
 }
 
 #[derive(Clone)]
-pub struct ClientEnd {
+pub struct Client {
     // this end-point's name
     client_name: String,
     // copy of Network.sender
     sender: UnboundedSender<Rpc>,
 }
 
-impl ClientEnd {
+impl Client {
     pub fn call<Req, Rsp>(&self, fq_name: &'static str, req: &Req) -> Result<Rsp>
     where
         Req: labcodec::Message,
@@ -186,7 +186,7 @@ struct EndInfo {
 }
 
 struct Endpoints {
-    // by end name
+    // by client name
     enabled: HashMap<String, bool>,
     // servers, by name
     servers: HashMap<String, Option<Server>>,
@@ -271,25 +271,25 @@ impl Network {
         eps.servers.insert(name, None);
     }
 
-    pub fn create_end(&self, client_name: String) -> ClientEnd {
+    pub fn create_end(&self, client_name: String) -> Client {
         let sender = self.core.sender.clone();
         let mut eps = self.core.endpoints.lock().unwrap();
         eps.enabled.insert(client_name.clone(), false);
         eps.connections.insert(client_name.clone(), None);
-        ClientEnd {
+        Client {
             client_name,
             sender,
         }
     }
 
-    /// Connects a ClientEnd to a server.
-    /// a ClientEnd can only be connected once in its lifetime.
+    /// Connects a Client to a server.
+    /// a Client can only be connected once in its lifetime.
     pub fn connect(&self, client_name: String, server_name: String) {
         let mut eps = self.core.endpoints.lock().unwrap();
         eps.connections.insert(client_name, Some(server_name));
     }
 
-    /// Enable/disable a ClientEnd.
+    /// Enable/disable a Client.
     pub fn enable(&self, client_name: String, enabled: bool) {
         debug!(
             "client {} is {}",
@@ -833,7 +833,7 @@ mod tests {
         assert_eq!(rn.count("test_server"), 17,);
     }
 
-    // test RPCs from concurrent ClientEnds
+    // test RPCs from concurrent Clients
     #[test]
     fn test_concurrent_many() {
         *LOGGER_INIT;
@@ -934,7 +934,7 @@ mod tests {
         );
     }
 
-    // test concurrent RPCs from a single ClientEnd
+    // test concurrent RPCs from a single Client
     #[test]
     fn test_concurrent_one() {
         *LOGGER_INIT;
@@ -997,7 +997,7 @@ mod tests {
         let client = JunkClient::new(rn.create_end(client_name.clone()));
         rn.connect(client_name.clone(), server_name.to_owned());
 
-        // start some RPCs while the ClientEnd is disabled.
+        // start some RPCs while the Client is disabled.
         // they'll be delayed.
         rn.enable(client_name.clone(), false);
 
