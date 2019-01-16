@@ -214,9 +214,9 @@ pub struct Network {
 
 impl Network {
     pub fn new() -> Network {
-        let (rn, incoming) = Network::create();
-        rn.start(incoming);
-        rn
+        let (net, incoming) = Network::create();
+        net.start(incoming);
+        net
     }
 
     fn create() -> (Network, UnboundedReceiver<Rpc>) {
@@ -637,7 +637,7 @@ mod tests {
             rpc handler4(JunkArgs) returns JunkReply;
         }
     }
-    use tests::junk::{add_service, Client as JunkClient, Service as JunkService};
+    use tests::junk::{add_service, Client as JunkClient, Service as Junk};
 
     // Hand-written protobuf messages.
     #[derive(Clone, PartialEq, Message)]
@@ -656,17 +656,17 @@ mod tests {
         log2: Vec<i64>,
     }
     #[derive(Clone)]
-    struct JunkServer {
+    struct JunkService {
         inner: Arc<Mutex<JunkInner>>,
     }
-    impl JunkServer {
-        fn new() -> JunkServer {
-            JunkServer {
+    impl JunkService {
+        fn new() -> JunkService {
+            JunkService {
                 inner: Arc::default(),
             }
         }
     }
-    impl JunkService for JunkServer {
+    impl Junk for JunkService {
         fn handler2(&self, args: JunkArgs) -> JunkReply {
             self.inner.lock().unwrap().log2.push(args.x);
             JunkReply {
@@ -695,7 +695,7 @@ mod tests {
         *LOGGER_INIT;
 
         let mut builder = ServerBuilder::new("test".to_owned());
-        let junk = JunkServer::new();
+        let junk = JunkService::new();
         add_service(&junk, &mut builder).unwrap();
         let server = builder.build();
 
@@ -733,14 +733,14 @@ mod tests {
         *LOGGER_INIT;
 
         let mut builder = ServerBuilder::new("test".to_owned());
-        let junk = JunkServer::new();
+        let junk = JunkService::new();
         add_service(&junk, &mut builder).unwrap();
         let server = builder.build();
 
-        let (rn, incoming) = Network::create();
-        rn.add_server(server);
+        let (net, incoming) = Network::create();
+        net.add_server(server);
 
-        let client = JunkClient::new(rn.create_end("test_client".to_owned()));
+        let client = JunkClient::new(net.create_end("test_client".to_owned()));
         let client_ = client.clone();
         let handler = thread::spawn(move || client_.handler4(&JunkArgs { x: 777 }));
         let (mut rpc, incoming) = match incoming.into_future().wait() {
@@ -776,11 +776,11 @@ mod tests {
     fn test_basic() {
         *LOGGER_INIT;
 
-        let (rn, _server, _) = junk_suit();
+        let (net, _, _) = junk_suit();
 
-        let client = JunkClient::new(rn.create_end("test_client".to_owned()));
-        rn.connect("test_client".to_owned(), "test_server".to_owned());
-        rn.enable("test_client".to_owned(), true);
+        let client = JunkClient::new(net.create_end("test_client".to_owned()));
+        net.connect("test_client".to_owned(), "test_server".to_owned());
+        net.enable("test_client".to_owned(), true);
 
         let rsp = client.handler4(&JunkArgs::default()).unwrap();
         assert_eq!(
@@ -796,14 +796,14 @@ mod tests {
     fn test_disconnect() {
         // *LOGGER_INIT;
 
-        let (rn, _server, _) = junk_suit();
+        let (net, _, _) = junk_suit();
 
-        let client = JunkClient::new(rn.create_end("test_client".to_owned()));
-        rn.connect("test_client".to_owned(), "test_server".to_owned());
+        let client = JunkClient::new(net.create_end("test_client".to_owned()));
+        net.connect("test_client".to_owned(), "test_server".to_owned());
 
         client.handler4(&JunkArgs::default()).unwrap_err();
 
-        rn.enable("test_client".to_owned(), true);
+        net.enable("test_client".to_owned(), true);
         let rsp = client.handler4(&JunkArgs::default()).unwrap();
 
         assert_eq!(
@@ -819,18 +819,18 @@ mod tests {
     fn test_count() {
         // *LOGGER_INIT;
 
-        let (rn, _server, _) = junk_suit();
+        let (net, _, _) = junk_suit();
 
-        let client = JunkClient::new(rn.create_end("test_client".to_owned()));
-        rn.connect("test_client".to_owned(), "test_server".to_owned());
-        rn.enable("test_client".to_owned(), true);
+        let client = JunkClient::new(net.create_end("test_client".to_owned()));
+        net.connect("test_client".to_owned(), "test_server".to_owned());
+        net.enable("test_client".to_owned(), true);
 
         for i in 0..=16 {
             let reply = client.handler2(&JunkArgs { x: i }).unwrap();
             assert_eq!(reply.x, format!("handler2-{}", i));
         }
 
-        assert_eq!(rn.count("test_server"), 17,);
+        assert_eq!(net.count("test_server"), 17,);
     }
 
     // test RPCs from concurrent Clients
@@ -838,7 +838,7 @@ mod tests {
     fn test_concurrent_many() {
         *LOGGER_INIT;
 
-        let (rn, server, _) = junk_suit();
+        let (net, server, _) = junk_suit();
         let server_name = server.name();
 
         let pool = futures_cpupool::CpuPool::new_num_cpus();
@@ -847,7 +847,7 @@ mod tests {
         let nclients = 20usize;
         let nrpcs = 10usize;
         for i in 0..nclients {
-            let net = rn.clone();
+            let net = net.clone();
             let sender = tx.clone();
             let server_name_ = server_name.to_string();
 
@@ -875,28 +875,28 @@ mod tests {
             total += rx.recv().unwrap();
         }
         assert_eq!(total, nrpcs * nclients);
-        let n = rn.count(&server_name);
+        let n = net.count(&server_name);
         assert_eq!(n, total);
     }
 
-    fn junk_suit() -> (Network, Server, JunkServer) {
-        let rn = Network::new();
+    fn junk_suit() -> (Network, Server, JunkService) {
+        let net = Network::new();
         let server_name = "test_server".to_owned();
         let mut builder = ServerBuilder::new(server_name.clone());
-        let junk_server = JunkServer::new();
+        let junk_server = JunkService::new();
         add_service(&junk_server, &mut builder).unwrap();
         let server = builder.build();
-        rn.add_server(server.clone());
-        (rn, server, junk_server)
+        net.add_server(server.clone());
+        (net, server, junk_server)
     }
 
     #[test]
     fn test_unreliable() {
         *LOGGER_INIT;
 
-        let (rn, server, _) = junk_suit();
+        let (net, server, _) = junk_suit();
         let server_name = server.name();
-        rn.set_reliable(false);
+        net.set_reliable(false);
 
         let pool = futures_cpupool::CpuPool::new_num_cpus();
         let (tx, rx) = mpsc::channel::<usize>();
@@ -905,7 +905,7 @@ mod tests {
             let sender = tx.clone();
             let mut n = 0;
             let server_name_ = server_name.to_owned();
-            let net = rn.clone();
+            let net = net.clone();
 
             pool.spawn_fn(move || {
                 let client_name = format!("client-{}", i);
@@ -939,7 +939,7 @@ mod tests {
     fn test_concurrent_one() {
         *LOGGER_INIT;
 
-        let (rn, server, junk_server) = junk_suit();
+        let (net, server, junk_server) = junk_suit();
         let server_name = server.name();
 
         let pool = futures_cpupool::CpuPool::new_num_cpus();
@@ -948,9 +948,9 @@ mod tests {
         for i in 0..20 {
             let sender = tx.clone();
             let client_name = format!("client-{}", i);
-            let client = JunkClient::new(rn.create_end(client_name.clone()));
-            rn.enable(client_name.clone(), true);
-            rn.connect(client_name.clone(), server_name.to_owned());
+            let client = JunkClient::new(net.create_end(client_name.clone()));
+            net.enable(client_name.clone(), true);
+            net.connect(client_name.clone(), server_name.to_owned());
 
             pool.spawn_fn(move || {
                 let mut n = 0;
@@ -980,7 +980,7 @@ mod tests {
             "wrong number of RPCs delivered"
         );
 
-        let n = rn.count(server.name());
+        let n = net.count(server.name());
         assert_eq!(n, total, "wrong count() {}, expected {}", n, total);
     }
 
@@ -990,16 +990,16 @@ mod tests {
     fn test_regression1() {
         *LOGGER_INIT;
 
-        let (rn, server, junk_server) = junk_suit();
+        let (net, server, junk_server) = junk_suit();
         let server_name = server.name();
 
         let client_name = format!("client");
-        let client = JunkClient::new(rn.create_end(client_name.clone()));
-        rn.connect(client_name.clone(), server_name.to_owned());
+        let client = JunkClient::new(net.create_end(client_name.clone()));
+        net.connect(client_name.clone(), server_name.to_owned());
 
         // start some RPCs while the Client is disabled.
         // they'll be delayed.
-        rn.enable(client_name.clone(), false);
+        net.enable(client_name.clone(), false);
 
         let pool = futures_cpupool::CpuPool::new_num_cpus();
         let (tx, rx) = mpsc::channel::<bool>();
@@ -1021,7 +1021,7 @@ mod tests {
         thread::sleep(time::Duration::from_millis(100 * 3));
 
         let t0 = time::Instant::now();
-        rn.enable(client_name.clone(), true);
+        net.enable(client_name.clone(), true);
         let x = 99;
         let reply = client.handler2(&JunkArgs { x }).unwrap();
         assert_eq!(reply.x, format!("handler2-{}", x));
@@ -1043,7 +1043,7 @@ mod tests {
             len
         );
 
-        let n = rn.count(server.name());
+        let n = net.count(server.name());
         assert!(n == 1, "wrong count() {}, expected 1", n);
     }
 
@@ -1054,13 +1054,13 @@ mod tests {
     fn test_killed() {
         *LOGGER_INIT;
 
-        let (rn, server, _junk_server) = junk_suit();
+        let (net, server, _junk_server) = junk_suit();
         let server_name = server.name();
 
         let client_name = format!("client");
-        let client = JunkClient::new(rn.create_end(client_name.clone()));
-        rn.connect(client_name.clone(), server_name.to_owned());
-        rn.enable(client_name.clone(), true);
+        let client = JunkClient::new(net.create_end(client_name.clone()));
+        net.connect(client_name.clone(), server_name.to_owned());
+        net.enable(client_name.clone(), true);
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {
             let reply = client.handler3(&JunkArgs { x: 99 });
@@ -1070,19 +1070,19 @@ mod tests {
         rx.recv_timeout(time::Duration::from_millis(100))
             .unwrap_err();
 
-        rn.delete_server(server_name.to_owned());
+        net.delete_server(server_name.to_owned());
         let reply = rx.recv_timeout(time::Duration::from_millis(100)).unwrap();
         assert_eq!(reply, Err(Error::Stopped));
     }
 
     #[bench]
     fn bench_rpc(b: &mut test::Bencher) {
-        let (rn, server, _junk_server) = junk_suit();
+        let (net, server, _junk_server) = junk_suit();
         let server_name = server.name();
         let client_name = format!("client");
-        let client = JunkClient::new(rn.create_end(client_name.clone()));
-        rn.connect(client_name.clone(), server_name.to_owned());
-        rn.enable(client_name.clone(), true);
+        let client = JunkClient::new(net.create_end(client_name.clone()));
+        net.connect(client_name.clone(), server_name.to_owned());
+        net.enable(client_name.clone(), true);
 
         b.iter(|| {
             client.handler2(&JunkArgs { x: 111 }).unwrap();
