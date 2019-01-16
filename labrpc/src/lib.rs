@@ -93,7 +93,7 @@ pub struct Server {
 
 impl Server {
     pub fn count(&self) -> usize {
-        self.core.count.load(Ordering::SeqCst)
+        self.core.count.load(Ordering::Relaxed)
     }
 
     pub fn name(&self) -> &str {
@@ -101,7 +101,7 @@ impl Server {
     }
 
     fn dispatch(&self, fq_name: &str, req: &[u8], rsp: &mut Vec<u8>) -> Result<()> {
-        self.core.count.fetch_add(1, Ordering::SeqCst);
+        self.core.count.fetch_add(1, Ordering::Relaxed);
         if let Some(handle) = self.core.services.get(fq_name) {
             handle(req, rsp)
         } else {
@@ -301,15 +301,15 @@ impl Network {
     }
 
     pub fn set_reliable(&self, yes: bool) {
-        self.core.reliable.store(yes, Ordering::SeqCst);
+        self.core.reliable.store(yes, Ordering::Release);
     }
 
     pub fn set_long_reordering(&self, yes: bool) {
-        self.core.long_reordering.store(yes, Ordering::SeqCst);
+        self.core.long_reordering.store(yes, Ordering::Release);
     }
 
     pub fn set_long_delays(&self, yes: bool) {
-        self.core.long_delays.store(yes, Ordering::SeqCst);
+        self.core.long_delays.store(yes, Ordering::Release);
     }
 
     pub fn count(&self, server_name: &str) -> usize {
@@ -318,7 +318,7 @@ impl Network {
     }
 
     pub fn total_count(&self) -> usize {
-        self.core.count.load(Ordering::SeqCst)
+        self.core.count.load(Ordering::Relaxed)
     }
 
     fn end_info(&self, client_name: &str) -> EndInfo {
@@ -329,8 +329,8 @@ impl Network {
         }
         EndInfo {
             enabled: eps.enabled[client_name],
-            reliable: self.core.reliable.load(Ordering::SeqCst),
-            long_reordering: self.core.long_reordering.load(Ordering::SeqCst),
+            reliable: self.core.reliable.load(Ordering::Acquire),
+            long_reordering: self.core.long_reordering.load(Ordering::Acquire),
             server,
         }
     }
@@ -344,7 +344,7 @@ impl Network {
     }
 
     fn process_rpc(&self, rpc: Rpc) -> ProcessRpc {
-        self.core.count.fetch_add(1, Ordering::SeqCst);
+        self.core.count.fetch_add(1, Ordering::Relaxed);
         let mut random = rand::thread_rng();
         let network = self.clone();
         let end_info = self.end_info(&rpc.client_name);
@@ -398,7 +398,7 @@ impl Network {
             }
         } else {
             // simulate no reply and eventual timeout.
-            let ms = if self.core.long_delays.load(Ordering::SeqCst) {
+            let ms = if self.core.long_delays.load(Ordering::Acquire) {
                 // let Raft tests check that leader doesn't send
                 // RPCs synchronously.
                 random.gen::<u64>() % 7000
