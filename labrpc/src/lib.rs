@@ -32,9 +32,9 @@ use std::sync::{Arc, Mutex};
 use std::{fmt, time};
 
 use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
-use futures::{Async, Future, Poll, Stream};
-use futures_cpupool::CpuPool;
-use futures_timer::Delay;
+use futures::{Async, Future, Poll, Select, Stream};
+use futures_cpupool::{CpuFuture, CpuPool};
+use futures_timer::{Delay, Interval};
 use hashbrown::HashMap;
 use rand::Rng;
 
@@ -122,8 +122,14 @@ impl fmt::Debug for Server {
 pub struct Rpc {
     end_name: String,
     fq_name: &'static str,
-    req: Vec<u8>,
-    resp: SyncSender<Result<Vec<u8>>>,
+    req: Option<Vec<u8>>,
+    resp: Option<SyncSender<Result<Vec<u8>>>>,
+}
+
+impl Rpc {
+    fn take_resp_sender(&mut self) -> Option<SyncSender<Result<Vec<u8>>>> {
+        self.resp.take()
+    }
 }
 
 impl fmt::Debug for Rpc {
@@ -156,8 +162,8 @@ impl ClientEnd {
         let rpc = Rpc {
             end_name: self.end_name.clone(),
             fq_name,
-            req: buf,
-            resp: tx,
+            req: Some(buf),
+            resp: Some(tx),
         };
 
         // Sends requets and waits responses.
@@ -199,7 +205,8 @@ struct Core {
     endpoints: Mutex<Endpoints>,
     count: AtomicUsize,
     sender: UnboundedSender<Rpc>,
-    pool: CpuPool,
+    poller: CpuPool,
+    worker: CpuPool,
 }
 
 #[derive(Clone)]
@@ -227,7 +234,8 @@ impl Network {
                     connections: HashMap::new(),
                 }),
                 count: AtomicUsize::new(0),
-                pool: CpuPool::new_num_cpus(),
+                poller: CpuPool::new(2),
+                worker: CpuPool::new_num_cpus(),
                 sender,
             }),
         };
@@ -238,10 +246,18 @@ impl Network {
     fn start(&self, incoming: UnboundedReceiver<Rpc>) {
         let net = self.clone();
         self.core
-            .pool
-            .spawn(incoming.for_each(move |rpc| {
-                let fut = net.process_rpc(rpc);
-                net.core.pool.spawn(fut).forget();
+            .poller
+            .spawn(incoming.for_each(move |mut rpc| {
+                let resp = rpc.take_resp_sender().unwrap();
+                net.core
+                    .poller
+                    .spawn(net.process_rpc(rpc).then(move |res| {
+                        if let Err(e) = resp.send(res) {
+                            error!("fail to send resp: {:?}", e);
+                        }
+                        Ok::<_, ()>(())
+                    }))
+                    .forget();
                 Ok(())
             }))
             .forget();
@@ -357,20 +373,9 @@ impl Network {
                     }),
                     rpc,
                     network,
+                    server: None,
                 };
             }
-
-            // execute the request (call the RPC handler).
-            // in a separate thread so that we can periodically check
-            // if the server has been killed and the RPC should get a
-            // failure reply.
-
-            // do not reply if DeleteServer() has been called, i.e.
-            // the server has been killed. this is needed to avoid
-            // situation in which a client gets a positive reply
-            // to an Append, but the server persisted the update
-            // into the old Persister. config.go is careful to call
-            // DeleteServer() before superseding the Persister.
 
             let drop_reply = !reliable && random.gen::<u64>() % 1000 < 100;
             let long_reordering = if long_reordering && random.gen_range(0, 900) < 600i32 {
@@ -383,12 +388,12 @@ impl Network {
             ProcessRpc {
                 state: Some(ProcessState::Dispatch {
                     delay: short_delay,
-                    server,
                     drop_reply,
                     long_reordering,
                 }),
                 rpc,
                 network,
+                server: Some(server),
             }
         } else {
             // simulate no reply and eventual timeout.
@@ -408,6 +413,7 @@ impl Network {
                 state: Some(ProcessState::Timeout { delay }),
                 rpc,
                 network,
+                server: None,
             }
         }
     }
@@ -418,6 +424,7 @@ struct ProcessRpc {
 
     rpc: Rpc,
     network: Network,
+    server: Option<Server>,
 }
 
 impl fmt::Debug for ProcessRpc {
@@ -435,7 +442,12 @@ enum ProcessState {
     },
     Dispatch {
         delay: Option<Delay>,
-        server: Server,
+        drop_reply: bool,
+        long_reordering: Option<u64>,
+    },
+    Ongoing {
+        // I have to say it's ugly. :(
+        res: Select<CpuFuture<Vec<u8>, Error>, ServerDead>,
         drop_reply: bool,
         long_reordering: Option<u64>,
     },
@@ -453,10 +465,18 @@ impl fmt::Debug for ProcessState {
                 ref delay,
                 drop_reply,
                 long_reordering,
-                ..
             } => f
                 .debug_struct("ProcessState::Dispatch")
                 .field("delay", &delay.is_some())
+                .field("drop_reply", &drop_reply)
+                .field("long_reordering", &long_reordering)
+                .finish(),
+            ProcessState::Ongoing {
+                drop_reply,
+                long_reordering,
+                ..
+            } => f
+                .debug_struct("ProcessState::Ongoing")
                 .field("drop_reply", &drop_reply)
                 .field("long_reordering", &long_reordering)
                 .finish(),
@@ -466,12 +486,12 @@ impl fmt::Debug for ProcessState {
 }
 
 impl Future for ProcessRpc {
-    type Item = ();
-    type Error = ();
+    type Item = Vec<u8>;
+    type Error = Error;
 
-    fn poll(&mut self) -> Poll<(), ()> {
-        loop {
-            let mut next = None;
+    fn poll(&mut self) -> Poll<Vec<u8>, Error> {
+        let res = loop {
+            let mut next;
             debug!("polling {:?}", self);
             match self
                 .state
@@ -479,62 +499,119 @@ impl Future for ProcessRpc {
                 .expect("cannot poll ProcessRpc after finish")
             {
                 ProcessState::Timeout { ref mut delay } => {
-                    try_ready!(delay.poll().map_err(|_| ()));
-                    self.rpc.resp.send(Err(Error::Timeout)).unwrap();
+                    try_ready!(delay.poll().map_err(|e| panic!("{:?}", e)));
+                    break Err(Error::Timeout);
                 }
                 ProcessState::Dispatch {
                     ref mut delay,
-                    ref server,
                     drop_reply,
                     long_reordering,
                 } => {
                     if let Some(ref mut delay) = *delay {
-                        try_ready!(delay.poll().map_err(|_| ()));
+                        try_ready!(delay.poll().map_err(|e| panic!("{:?}", e)));
                     }
                     // We has finished the delay, take it out to prevent polling
                     // twice.
                     delay.take();
-                    // TODO: execute the request (call the RPC handler).
+                    // Execute the request (call the RPC handler)
                     // in a separate thread so that we can periodically check
                     // if the server has been killed and the RPC should get a
                     // failure reply.
-                    let mut buf = vec![];
-                    let res = server.dispatch(self.rpc.fq_name, &self.rpc.req, &mut buf);
-                    if let Err(e) = res {
-                        self.rpc.resp.send(Err(e)).unwrap();
-                    } else if self.network.is_server_dead(
-                        &self.rpc.end_name,
-                        &server.core.name,
-                        server.core.id,
-                    ) {
-                        // server was killed while we were waiting; return error,
-                        self.rpc.resp.send(Err(Error::Timeout)).unwrap();
-                    } else if *drop_reply {
+                    //
+                    // do not reply if DeleteServer() has been called, i.e.
+                    // the server has been killed. this is needed to avoid
+                    // situation in which a client gets a positive reply
+                    // to an Append, but the server persisted the update
+                    // into the old Persister. config.go is careful to call
+                    // DeleteServer() before superseding the Persister.
+                    let server = self.server.as_ref().unwrap();
+                    let fq_name = self.rpc.fq_name;
+                    let req = self.rpc.req.take().unwrap();
+                    let server_ = server.clone();
+                    let res = self
+                        .network
+                        .core
+                        .worker
+                        .spawn_fn(move || {
+                            let mut buf = vec![];
+                            let res = server_.dispatch(fq_name, &req, &mut buf);
+                            res.map(|_| buf)
+                        })
+                        .select(ServerDead {
+                            interval: Interval::new(time::Duration::from_millis(100)),
+                            net: self.network.clone(),
+                            end_name: self.rpc.end_name.clone(),
+                            server_name: server.core.name.clone(),
+                            server_id: server.core.id,
+                        });
+                    next = Some(ProcessState::Ongoing {
+                        res,
+                        drop_reply: *drop_reply,
+                        long_reordering: *long_reordering,
+                    });
+                }
+                ProcessState::Ongoing {
+                    ref mut res,
+                    drop_reply,
+                    long_reordering,
+                } => {
+                    // Server may be killed while we were waiting,
+                    // try_ready! returns error if that's so.
+                    let (resp, _) = try_ready!(res.poll().map_err(|(e, _)| e));
+                    if *drop_reply {
                         //  drop the reply, return as if timeout.
-                        self.rpc.resp.send(Err(Error::Timeout)).unwrap();
+                        break Err(Error::Timeout);
                     } else if let Some(reordering) = long_reordering {
                         debug!("{:?} next long reordering {}ms", self.rpc, reordering);
                         next = Some(ProcessState::Reordering {
                             delay: Delay::new(time::Duration::from_millis(*reordering)),
-                            resp: Some(buf),
+                            resp: Some(resp),
                         });
                     } else {
-                        self.rpc.resp.send(Ok(buf)).unwrap();
+                        break Ok(Async::Ready(resp));
                     }
                 }
                 ProcessState::Reordering {
                     ref mut delay,
                     ref mut resp,
                 } => {
-                    try_ready!(delay.poll().map_err(|_| ()));
-                    self.rpc.resp.send(Ok(resp.take().unwrap())).unwrap();
+                    try_ready!(delay.poll().map_err(|e| panic!("{:?}", e)));
+                    break Ok(Async::Ready(resp.take().unwrap()));
                 }
             }
             if let Some(next) = next {
                 self.state = Some(next);
-            } else {
-                self.state.take();
-                return Ok(Async::Ready(()));
+            }
+        };
+        self.state.take();
+        res
+    }
+}
+
+/// A future checks if the specified server killed.
+///
+/// It will never return Ok but Err when the server is killed.
+struct ServerDead {
+    interval: Interval,
+    net: Network,
+    end_name: String,
+    server_name: String,
+    server_id: usize,
+}
+
+impl Future for ServerDead {
+    type Item = Vec<u8>;
+    type Error = Error;
+
+    fn poll(&mut self) -> Poll<Vec<u8>, Error> {
+        loop {
+            try_ready!(self.interval.poll().map_err(|e| panic!("{:?}", e)));
+            if self
+                .net
+                .is_server_dead(&self.end_name, &self.server_name, self.server_id)
+            {
+                debug!("{:?} is dead", self.server_name);
+                return Err(Error::Timeout);
             }
         }
     }
@@ -555,6 +632,7 @@ mod tests {
         service junk {
             /// Doc comments.
             rpc handler2(JunkArgs) returns JunkReply;
+            rpc handler3(JunkArgs) returns JunkReply;
             rpc handler4(JunkArgs) returns JunkReply;
         }
     }
@@ -592,6 +670,12 @@ mod tests {
             self.inner.lock().unwrap().log2.push(args.x);
             JunkReply {
                 x: format!("handler2-{}", args.x),
+            }
+        }
+        fn handler3(&self, args: JunkArgs) -> JunkReply {
+            thread::sleep(time::Duration::from_secs(20));
+            JunkReply {
+                x: format!("handler3-{}", -args.x),
             }
         }
         fn handler4(&self, _: JunkArgs) -> JunkReply {
@@ -658,7 +742,7 @@ mod tests {
         let client = JunkClient::new(rn.create_end("test_client".to_owned()));
         let client_ = client.clone();
         let handler = thread::spawn(move || client_.handler4(&JunkArgs { x: 777 }));
-        let (rpc, incoming) = match incoming.into_future().wait() {
+        let (mut rpc, incoming) = match incoming.into_future().wait() {
             Ok((Some(rpc), s)) => (rpc, s),
             _ => panic!("unexpected error"),
         };
@@ -667,10 +751,11 @@ mod tests {
         };
         let mut buf = vec![];
         labcodec::encode(&reply, &mut buf).unwrap();
-        rpc.resp.send(Ok(buf)).unwrap();
+        let resp = rpc.take_resp_sender().unwrap();
+        resp.send(Ok(buf)).unwrap();
         assert_eq!(rpc.end_name, "test_client");
         assert_eq!(rpc.fq_name, "junk.handler4");
-        assert!(!rpc.req.is_empty());
+        assert!(!rpc.req.as_ref().unwrap().is_empty());
         assert_eq!(handler.join().unwrap(), Ok(reply));
 
         let client_ = client.clone();
@@ -964,10 +1049,30 @@ mod tests {
     // if an RPC is stuck in a server, and the server
     // is killed with DeleteServer(), does the RPC
     // get un-stuck?
-    // #[test]
-    // fn test_killed() {
-    //     unimplemented!();
-    // }
+    #[test]
+    fn test_killed() {
+        *LOGGER_INIT;
+
+        let (rn, server, _junk_server) = junk_suit();
+        let server_name = server.name();
+
+        let client_name = format!("client");
+        let client = JunkClient::new(rn.create_end(client_name.clone()));
+        rn.connect(client_name.clone(), server_name.to_owned());
+        rn.enable(client_name.clone(), true);
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            let reply = client.handler3(&JunkArgs { x: 99 });
+            tx.send(reply).unwrap();
+        });
+        thread::sleep(time::Duration::from_secs(1));
+        rx.recv_timeout(time::Duration::from_millis(100))
+            .unwrap_err();
+
+        rn.delete_server(server_name.to_owned());
+        let reply = rx.recv_timeout(time::Duration::from_millis(100)).unwrap();
+        assert_eq!(reply, Err(Error::Timeout));
+    }
 
     #[bench]
     fn bench_rpc(b: &mut test::Bencher) {
@@ -981,6 +1086,6 @@ mod tests {
         b.iter(|| {
             client.handler2(&JunkArgs { x: 111 }).unwrap();
         });
-        // i5-4200U, 19.4 microseconds per RPC
+        // i5-4200U, 66 microseconds per RPC
     }
 }
