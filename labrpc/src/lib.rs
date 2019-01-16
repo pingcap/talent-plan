@@ -62,8 +62,15 @@ impl ServerBuilder {
     }
 
     pub fn add_handler(&mut self, fq_name: &'static str, handler: Box<Handler>) -> Result<()> {
-        self.services.insert(fq_name, handler);
-        Ok(())
+        match self.services.entry(fq_name) {
+            hashbrown::hash_map::Entry::Occupied(_) => {
+                Err(Error::Other(format!("{} has already registered", fq_name)))
+            }
+            hashbrown::hash_map::Entry::Vacant(entry) => {
+                entry.insert(handler);
+                Ok(())
+            }
+        }
     }
 
     pub fn build(self) -> Server {
@@ -697,6 +704,9 @@ mod tests {
         let mut builder = ServerBuilder::new("test".to_owned());
         let junk = JunkService::new();
         add_service(&junk, &mut builder).unwrap();
+        let prev_len = builder.services.len();
+        add_service(&junk, &mut builder).unwrap_err();
+        assert_eq!(builder.services.len(), prev_len);
         let server = builder.build();
 
         let mut buf = Vec::new();

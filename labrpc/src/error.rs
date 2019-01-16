@@ -11,6 +11,7 @@ pub enum Error {
     Recv(RecvError),
     Timeout,
     Stopped,
+    Other(String),
 }
 
 impl fmt::Display for Error {
