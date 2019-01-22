@@ -14,7 +14,7 @@ pub struct Echo {
 
 service! {
     service echo {
-        rpc ping(Echo) returns Echo;
+        rpc ping(Echo) returns (Echo);
     }
 }
 use echo::{add_service, Client, Service};
@@ -32,8 +32,7 @@ fn main() {
     let rn = Network::new();
     let server_name = "echo_server";
     let mut builder = ServerBuilder::new(server_name.to_owned());
-    let service = EchoService;
-    add_service(&service, &mut builder).unwrap();
+    add_service(EchoService, &mut builder).unwrap();
     let server = builder.build();
     rn.add_server(server.clone());
 

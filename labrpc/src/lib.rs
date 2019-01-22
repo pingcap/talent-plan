@@ -46,11 +46,16 @@ pub use error::{Error, Result};
 
 static ID_ALLOC: AtomicUsize = ATOMIC_USIZE_INIT;
 
-type Handler = Fn(&[u8], &mut Vec<u8>) -> Result<()> + Send + Sync + 'static;
+pub type Handler = Fn(&[u8], &mut Vec<u8>) -> Result<()> + Send + 'static;
+
+pub trait HandlerFactory: Sync + Send + 'static {
+    fn handler(&self, name: &'static str) -> Box<Handler>;
+}
 
 pub struct ServerBuilder {
     name: String,
-    services: HashMap<&'static str, Box<Handler>>,
+    // Service name -> service methods
+    services: HashMap<&'static str, Box<HandlerFactory>>,
 }
 
 impl ServerBuilder {
@@ -61,13 +66,18 @@ impl ServerBuilder {
         }
     }
 
-    pub fn add_handler(&mut self, fq_name: &'static str, handler: Box<Handler>) -> Result<()> {
-        match self.services.entry(fq_name) {
-            hashbrown::hash_map::Entry::Occupied(_) => {
-                Err(Error::Other(format!("{} has already registered", fq_name)))
-            }
+    pub fn add_service(
+        &mut self,
+        service_name: &'static str,
+        fact: Box<HandlerFactory>,
+    ) -> Result<()> {
+        match self.services.entry(service_name) {
+            hashbrown::hash_map::Entry::Occupied(_) => Err(Error::Other(format!(
+                "{} has already registered",
+                service_name
+            ))),
             hashbrown::hash_map::Entry::Vacant(entry) => {
-                entry.insert(handler);
+                entry.insert(fact);
                 Ok(())
             }
         }
@@ -89,7 +99,7 @@ struct ServerCore {
     name: String,
     id: usize,
 
-    services: HashMap<&'static str, Box<Handler>>,
+    services: HashMap<&'static str, Box<HandlerFactory>>,
     count: AtomicUsize,
 }
 
@@ -107,9 +117,17 @@ impl Server {
         &self.core.name
     }
 
-    fn dispatch(&self, fq_name: &str, req: &[u8], rsp: &mut Vec<u8>) -> Result<()> {
+    fn dispatch(&self, fq_name: &'static str, req: &[u8], rsp: &mut Vec<u8>) -> Result<()> {
         self.core.count.fetch_add(1, Ordering::Relaxed);
-        if let Some(handle) = self.core.services.get(fq_name) {
+        let mut names = fq_name.split('.');
+        let service_name = names
+            .next()
+            .ok_or_else(|| Error::Unimplemented(format!("unknown {}", fq_name)))?;
+        let method_name = names
+            .next()
+            .ok_or_else(|| Error::Unimplemented(format!("unknown {}", fq_name)))?;
+        if let Some(fact) = self.core.services.get(service_name) {
+            let handle = fact.handler(method_name);
             handle(req, rsp)
         } else {
             Err(Error::Unimplemented(format!("unknown {}", fq_name)))
@@ -637,9 +655,9 @@ mod tests {
         /// A simple test-purpose service.
         service junk {
             /// Doc comments.
-            rpc handler2(JunkArgs) returns JunkReply;
-            rpc handler3(JunkArgs) returns JunkReply;
-            rpc handler4(JunkArgs) returns JunkReply;
+            rpc handler2(JunkArgs) returns (JunkReply);
+            rpc handler3(JunkArgs) returns (JunkReply);
+            rpc handler4(JunkArgs) returns (JunkReply);
         }
     }
     use tests::junk::{add_service, Client as JunkClient, Service as Junk};
@@ -701,9 +719,9 @@ mod tests {
 
         let mut builder = ServerBuilder::new("test".to_owned());
         let junk = JunkService::new();
-        add_service(&junk, &mut builder).unwrap();
+        add_service(junk.clone(), &mut builder).unwrap();
         let prev_len = builder.services.len();
-        add_service(&junk, &mut builder).unwrap_err();
+        add_service(junk, &mut builder).unwrap_err();
         assert_eq!(builder.services.len(), prev_len);
         let server = builder.build();
 
@@ -742,7 +760,7 @@ mod tests {
 
         let mut builder = ServerBuilder::new("test".to_owned());
         let junk = JunkService::new();
-        add_service(&junk, &mut builder).unwrap();
+        add_service(junk, &mut builder).unwrap();
         let server = builder.build();
 
         let (net, incoming) = Network::create();
@@ -892,7 +910,7 @@ mod tests {
         let server_name = "test_server".to_owned();
         let mut builder = ServerBuilder::new(server_name.clone());
         let junk_server = JunkService::new();
-        add_service(&junk_server, &mut builder).unwrap();
+        add_service(junk_server.clone(), &mut builder).unwrap();
         let server = builder.build();
         net.add_server(server.clone());
         (net, server, junk_server)
@@ -1095,6 +1113,6 @@ mod tests {
         b.iter(|| {
             client.handler2(&JunkArgs { x: 111 }).unwrap();
         });
-        // i5-4200U, 66 microseconds per RPC
+        // i5-4200U, 41 microseconds per RPC
     }
 }

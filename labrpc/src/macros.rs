@@ -8,7 +8,7 @@ macro_rules! service {
         service $svc_name:ident {
             $(
                 $(#[$method_attr:meta])*
-                rpc $method_name:ident( $input:ident ) returns $output:ident;
+                rpc $method_name:ident($input:ty) returns ($output:ty);
             )*
         }
     ) => {
@@ -19,7 +19,7 @@ macro_rules! service {
             // $( use super::$input; )*
             // $( use super::$output;)*
 
-            pub trait Service: Clone + Send + Sync + 'static {
+            pub trait Service: Clone + Send + 'static {
                 $(
                     $(#[$method_attr])*
                     fn $method_name(&self, $input) -> $output;
@@ -34,26 +34,43 @@ macro_rules! service {
                 pub fn new(client: $crate::Client) -> Client {
                     Client { client }
                 }
-                $(
-                    pub fn $method_name(&self, args: &$input) -> $crate::Result<$output> {
-                        let fq_name = concat!(stringify!($svc_name), ".", stringify!($method_name));
-                        self.client.call(fq_name, args)
-                    }
-                )*
+
+                $(pub fn $method_name(&self, args: &$input) -> $crate::Result<$output> {
+                    let fq_name = concat!(stringify!($svc_name), ".", stringify!($method_name));
+                    self.client.call(fq_name, args)
+                })*
             }
 
-            pub fn add_service<T: Service>(svc: &T, builder: &mut $crate::ServerBuilder) -> $crate::Result<()> {
-                $({
-                    let fq_name = concat!(stringify!($svc_name), ".", stringify!($method_name));
-                    let s = svc.clone();
-                    builder.add_handler(fq_name, Box::new(move |req, rsp| {
-                        let request = labcodec::decode(req).map_err($crate::Error::Decode)?;
-                        let response = s.$method_name(request);
-                        labcodec::encode(&response, rsp).map_err($crate::Error::Encode)
-                    }))?;
-                })*
+            pub fn add_service<T: Service>(svc: T, builder: &mut $crate::ServerBuilder) -> $crate::Result<()> {
+                use ::std::sync::Mutex;
+                struct Factory<S> {
+                    svc: Mutex<S>,
+                }
+                impl<S: Service> $crate::HandlerFactory for Factory<S> {
+                    fn handler(&self, name: &'static str) -> Box<Handler> {
+                        let s = self.svc.lock().unwrap().clone();
+                        Box::new(move |req, rsp| {
+                            match name {
+                                $(stringify!($method_name) => {
+                                    let request = labcodec::decode(req).map_err($crate::Error::Decode)?;
+                                    let response = s.$method_name(request);
+                                    labcodec::encode(&response, rsp).map_err($crate::Error::Encode)
+                                })*
+                                other => {
+                                    Err(Error::Unimplemented(
+                                        format!("unknown {} in {}", other, stringify!($svc_name))
+                                    ))
+                                }
+                            }
+                        })
+                    }
+                }
 
-                Ok(())
+                let fact = Factory {
+                    svc: Mutex::new(svc),
+                };
+
+                builder.add_service(stringify!($svc_name), Box::new(fact))
             }
         }
     };
