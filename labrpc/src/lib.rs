@@ -26,7 +26,7 @@ extern crate env_logger;
 #[macro_use]
 extern crate lazy_static;
 
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::{fmt, time};
@@ -44,7 +44,7 @@ mod macros;
 
 pub use error::{Error, Result};
 
-static ID_ALLOC: AtomicUsize = ATOMIC_USIZE_INIT;
+static ID_ALLOC: AtomicUsize = AtomicUsize::new(0);
 
 pub type Handler = Fn(&[u8], &mut Vec<u8>) -> Result<()> + Send + 'static;
 
