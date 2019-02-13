@@ -47,7 +47,7 @@ macro_rules! service {
                     svc: Mutex<S>,
                 }
                 impl<S: Service> $crate::HandlerFactory for Factory<S> {
-                    fn handler(&self, name: &'static str) -> Box<Handler> {
+                    fn handler(&self, name: &'static str) -> Box<$crate::Handler> {
                         let s = self.svc.lock().unwrap().clone();
                         Box::new(move |req, rsp| {
                             match name {
@@ -57,7 +57,7 @@ macro_rules! service {
                                     labcodec::encode(&response, rsp).map_err($crate::Error::Encode)
                                 })*
                                 other => {
-                                    Err(Error::Unimplemented(
+                                    Err($crate::Error::Unimplemented(
                                         format!("unknown {} in {}", other, stringify!($svc_name))
                                     ))
                                 }
