@@ -1,2 +1,2 @@
-mod raft;
 mod kvraft;
+mod raft;

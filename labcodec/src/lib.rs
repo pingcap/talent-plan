@@ -9,8 +9,8 @@ extern crate prost_derive;
 use bytes::IntoBuf;
 
 /// A labcodec message.
-pub trait Message : prost::Message  + Default {}
-impl <T: prost::Message + Default> Message for T {}
+pub trait Message: prost::Message + Default {}
+impl<T: prost::Message + Default> Message for T {}
 
 /// A message encoding error.
 pub type EncodeError = ::prost::EncodeError;
