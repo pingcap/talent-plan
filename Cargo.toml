@@ -7,4 +7,11 @@ authors = ["Neil Shen <overvenus@gmail.com>"]
 members = ["labcodec", "labrpc"]
 
 [dependencies]
-
+labrpc = { path = "labrpc" }
+labcodec = { path = "labcodec" }
+prost = "0.4"
+prost-derive = "0.4.0"
+bytes = "0.4.7"
+rand = "0.4"
+log = "0.4"
+futures = "0.1"
