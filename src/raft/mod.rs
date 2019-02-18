@@ -22,7 +22,7 @@ pub struct ApplyMsg {
 }
 
 /// State of a raft peer.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct State {
     /// The current term of this peer.
     term: AtomicU64,

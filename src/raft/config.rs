@@ -35,7 +35,7 @@ struct Storage {
 pub struct Config {
     net: labrpc::Network,
     n: usize,
-    rafts: Vec<Option<(raft::Node, Arc<raft::State>)>>,
+    pub rafts: Vec<Option<(raft::Node, Arc<raft::State>)>>,
     // applyErr:  []string // from apply channel readers
     // whether each server is on the net
     connected: Vec<bool>,
@@ -156,7 +156,7 @@ impl Config {
     }
 
     // check that there's no leader
-    fn check_no_leader(&self) {
+    pub fn check_no_leader(&self) {
         for (i, connected) in self.connected.iter().enumerate() {
             if *connected {
                 let is_leader = self.rafts[i].as_ref().unwrap().1.is_leader();
@@ -175,7 +175,7 @@ impl Config {
     }
 
     // how many servers think a log entry is committed?
-    fn n_committed(&self, index: u64) -> (usize, Option<Entry>) {
+    pub fn n_committed(&self, index: u64) -> (usize, Option<Entry>) {
         let mut count = 0;
         let mut cmd = None;
         let s = self.storage.lock().unwrap();
@@ -198,7 +198,7 @@ impl Config {
 
     // wait for at least n servers to commit.
     // but don't wait forever.
-    fn wait(&self, index: u64, n: usize, start_term: Option<u64>) -> Option<Entry> {
+    pub fn wait(&self, index: u64, n: usize, start_term: Option<u64>) -> Option<Entry> {
         let mut to = Duration::from_millis(10);
         for iters in 0..30 {
             let (nd, _) = self.n_committed(index);
@@ -241,7 +241,7 @@ impl Config {
     // times, in case a leader fails just after Start().
     // if retry==false, calls Start() only once, in order
     // to simplify the early Lab 2B tests.
-    fn one(&self, cmd: Entry, expected_servers: usize, retry: bool) -> u64 {
+    pub fn one(&self, cmd: Entry, expected_servers: usize, retry: bool) -> u64 {
         let t0 = Instant::now();
         let mut starts = 0;
         while t0.elapsed() < Duration::from_secs(10) {
@@ -430,7 +430,7 @@ impl Config {
     }
 
     /// detach server i from the net.
-    fn disconnect(&mut self, i: usize) {
+    pub fn disconnect(&mut self, i: usize) {
         debug!("disconnect({})", i);
 
         self.connected[i] = false;
@@ -448,7 +448,7 @@ impl Config {
     }
 
     // attach server i to the net.
-    fn connect(&mut self, i: usize) {
+    pub fn connect(&mut self, i: usize) {
         debug!("connect({})", i);
 
         self.connected[i] = true;
