@@ -1,5 +1,8 @@
 use raft::config::{Config, Entry};
-use std::sync::mpsc::channel;
+use rand::Rng;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc::{channel, Sender};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -185,7 +188,7 @@ fn test_concurrent_starts_2b() {
     let servers = 3;
     let mut cfg = Config::new(servers, false);
 
-    cfg.begin("Test (2B): concurrent Start()s");
+    cfg.begin("Test (2B): concurrent start()s");
     let mut success = false;
     'outer: for try in 0..5 {
         if try > 0 {
@@ -239,7 +242,7 @@ fn test_concurrent_starts_2b() {
         let mut failed = false;
         let mut cmds = vec![];
         for index in rx.iter() {
-            let cmd = cfg.wait(index, servers, Some(term)).unwrap();
+            let cmd = cfg.wait(index, servers, Some(term as i64)).unwrap();
             if cmd.x == -1 {
                 // peers have moved on to later terms
                 // so we can't expect all Start()s to
@@ -274,4 +277,765 @@ fn test_concurrent_starts_2b() {
     }
 
     cfg.end();
+}
+
+#[test]
+fn test_rejoin_2b() {
+    let servers = 3;
+    let mut cfg = Config::new(servers, false);
+
+    cfg.begin("Test (2B): rejoin of partitioned leader");
+
+    cfg.one(Entry { x: 101 }, servers, true);
+
+    // leader network failure
+    let leader1 = cfg.check_one_leader();
+    cfg.disconnect(leader1);
+
+    // make old leader try to agree on some entries
+    cfg.rafts[leader1].as_ref().unwrap().start(&102);
+    cfg.rafts[leader1].as_ref().unwrap().start(&103);
+    cfg.rafts[leader1].as_ref().unwrap().start(&104);
+
+    // new leader commits, also for index=2
+    cfg.one(Entry { x: 103 }, 2, true);
+
+    // new leader network failure
+    let leader2 = cfg.check_one_leader();
+    cfg.disconnect(leader2);
+
+    // old leader connected again
+    cfg.connect(leader1);
+
+    cfg.one(Entry { x: 104 }, 2, true);
+
+    // all together now
+    cfg.connect(leader2);
+
+    cfg.one(Entry { x: 105 }, servers, true);
+
+    cfg.end();
+}
+
+#[test]
+fn test_backup_2b() {
+    let servers = 5;
+    let mut cfg = Config::new(servers, false);
+
+    cfg.begin("Test (2B): leader backs up quickly over incorrect follower logs");
+
+    let mut random = rand::thread_rng();
+    cfg.one(
+        Entry {
+            x: random.gen::<i64>(),
+        },
+        servers,
+        true,
+    );
+
+    // put leader and one follower in a partition
+    let leader1 = cfg.check_one_leader();
+    cfg.disconnect((leader1 + 2) % servers);
+    cfg.disconnect((leader1 + 3) % servers);
+    cfg.disconnect((leader1 + 4) % servers);
+
+    // submit lots of commands that won't commit
+    for _i in 0..50 {
+        cfg.rafts[leader1]
+            .as_ref()
+            .unwrap()
+            .start(&random.gen::<i64>());
+    }
+
+    thread::sleep(RAFT_ELECTION_TIMEOUT / 2);
+
+    cfg.disconnect((leader1 + 0) % servers);
+    cfg.disconnect((leader1 + 1) % servers);
+
+    // allow other partition to recover
+    cfg.connect((leader1 + 2) % servers);
+    cfg.connect((leader1 + 3) % servers);
+    cfg.connect((leader1 + 4) % servers);
+
+    // lots of successful commands to new group.
+    for _i in 0..50 {
+        cfg.one(
+            Entry {
+                x: random.gen::<i64>(),
+            },
+            3,
+            true,
+        );
+    }
+
+    // now another partitioned leader and one follower
+    let leader2 = cfg.check_one_leader();
+    let mut other = (leader1 + 2) % servers;
+    if leader2 == other {
+        other = (leader2 + 1) % servers;
+    }
+    cfg.disconnect(other);
+
+    // lots more commands that won't commit
+    for _i in 0..50 {
+        cfg.rafts[leader2]
+            .as_ref()
+            .unwrap()
+            .start(&random.gen::<i64>());
+    }
+
+    thread::sleep(RAFT_ELECTION_TIMEOUT / 2);
+
+    // bring original leader back to life,
+    for i in 0..servers {
+        cfg.disconnect(i);
+    }
+    cfg.connect((leader1 + 0) % servers);
+    cfg.connect((leader1 + 1) % servers);
+    cfg.connect(other);
+
+    // lots of successful commands to new group.
+    for _i in 0..50 {
+        cfg.one(
+            Entry {
+                x: random.gen::<i64>(),
+            },
+            3,
+            true,
+        );
+    }
+
+    // now everyone
+    for i in 0..servers {
+        cfg.connect(i);
+    }
+    cfg.one(
+        Entry {
+            x: random.gen::<i64>(),
+        },
+        servers,
+        true,
+    );
+
+    cfg.end();
+}
+
+#[test]
+fn test_count_2b() {
+    let servers = 3;
+    let mut cfg = Config::new(servers, false);
+
+    cfg.begin("Test (2B): RPC counts aren't too high");
+
+    fn rpcs(cfg: &Config, servers: usize) -> usize {
+        let mut n: usize = 0;
+        for j in 0..servers {
+            n += cfg.rpc_count(j);
+        }
+        n
+    }
+
+    let mut total1 = rpcs(&cfg, servers);
+
+    if total1 > 30 || total1 < 1 {
+        panic!(
+            "too many or few RPCs ({}) to elect initial leader\n",
+            total1
+        );
+    }
+
+    let mut total2 = 0;
+    let mut success = false;
+    'outer: for try in 0..5 {
+        if try > 0 {
+            // give solution some time to settle
+            thread::sleep(3 * Duration::from_secs(3));
+        }
+
+        let leader = cfg.check_one_leader();
+        total1 = rpcs(&cfg, servers);
+
+        let iters = 10;
+        let (starti, term) = match cfg.rafts[leader].as_ref().unwrap().start(&1) {
+            Ok((starti, term)) => (starti, term),
+            Err(err) => {
+                warn!("start leader {} meet error {:?}", leader, err);
+                continue;
+            }
+        };
+
+        let mut cmds = vec![];
+        let mut random = rand::thread_rng();
+        for i in 1..iters + 2 {
+            let x = random.gen::<i32>();
+            cmds.push(x);
+            match cfg.rafts[leader].as_ref().unwrap().start(&x) {
+                Ok((index1, term1)) => {
+                    if term1 != term {
+                        // Term changed while starting
+                        continue 'outer;
+                    }
+                    if starti + i != index1 {
+                        panic!("start failed");
+                    }
+                }
+                Err(err) => {
+                    warn!("start leader {} meet error {:?}", leader, err);
+                    continue 'outer;
+                }
+            }
+        }
+
+        for i in 1..iters + 1 {
+            match cfg.wait(starti + i, servers, Some(term as i64)) {
+                Some(ix) => {
+                    if ix.x != cmds[(i - 1) as usize] as i64 {
+                        if ix.x == -1 {
+                            continue 'outer;
+                        }
+                        panic!(
+                            "wrong value {:?} committed for index {}; expected {:?}",
+                            ix,
+                            starti + i,
+                            cmds
+                        );
+                    }
+                }
+                None => {
+                    panic!(
+                        "wrong value None committed for index {}; expected {:?}",
+                        starti + i,
+                        cmds
+                    );
+                }
+            }
+        }
+
+        let mut failed = false;
+        total2 = 0;
+        for j in 0..servers {
+            let t = cfg.rafts[j].as_ref().unwrap().term();
+            if t != term {
+                // term changed -- can't expect low RPC counts
+                // need to keep going to update total2
+                failed = true;
+            }
+            total2 += cfg.rpc_count(j);
+        }
+
+        if failed {
+            continue 'outer;
+        }
+
+        if total2 - total1 > (iters as usize + 1 + 3) * 3 {
+            panic!(
+                "too many RPCs ({}) for {} entries\n",
+                total2 - total1,
+                iters
+            );
+        }
+
+        success = true;
+        break;
+    }
+
+    if !success {
+        panic!("term changed too often");
+    }
+
+    thread::sleep(RAFT_ELECTION_TIMEOUT);
+
+    let mut total3 = 0;
+    for j in 0..servers {
+        total3 += cfg.rpc_count(j);
+    }
+
+    if total3 - total2 > 3 * 20 {
+        panic!(
+            "too many RPCs ({}) for 1 second of idleness\n",
+            total3 - total2
+        );
+    }
+    cfg.end();
+}
+
+#[test]
+fn test_persist_12c() {
+    let servers = 3;
+    let mut cfg = Config::new(servers, false);
+
+    cfg.begin("Test (2C): basic persistence");
+
+    cfg.one(Entry { x: 11 }, servers, true);
+
+    // crash and re-start all
+    for i in 0..servers {
+        cfg.start1(i);
+    }
+    for i in 0..servers {
+        cfg.disconnect(i);
+        cfg.connect(i);
+    }
+
+    cfg.one(Entry { x: 12 }, servers, true);
+
+    let leader1 = cfg.check_one_leader();
+    cfg.disconnect(leader1);
+    cfg.start1(leader1);
+    cfg.connect(leader1);
+
+    cfg.one(Entry { x: 13 }, servers, true);
+
+    let leader2 = cfg.check_one_leader();
+    cfg.disconnect(leader2);
+    cfg.one(Entry { x: 14 }, servers - 1, true);
+    cfg.start1(leader2);
+    cfg.connect(leader2);
+
+    cfg.wait(4, servers, None); // wait for leader2 to join before killing i3
+
+    let i3 = (cfg.check_one_leader() + 1) % servers;
+    cfg.disconnect(i3);
+    cfg.one(Entry { x: 15 }, servers - 1, true);
+    cfg.start1(i3);
+    cfg.connect(i3);
+
+    cfg.one(Entry { x: 16 }, servers, true);
+
+    cfg.end();
+}
+
+#[test]
+fn test_persist_22c() {
+    let servers = 5;
+    let mut cfg = Config::new(servers, false);
+
+    cfg.begin("Test (2C): more persistence");
+
+    let mut index = 1;
+    for _iters in 0..5 {
+        cfg.one(Entry { x: 10 + index }, servers, true);
+        index += 1;
+
+        let leader1 = cfg.check_one_leader();
+
+        cfg.disconnect((leader1 + 1) % servers);
+        cfg.disconnect((leader1 + 2) % servers);
+
+        cfg.one(Entry { x: 10 + index }, servers - 2, true);
+        index += 1;
+
+        cfg.disconnect((leader1 + 0) % servers);
+        cfg.disconnect((leader1 + 3) % servers);
+        cfg.disconnect((leader1 + 4) % servers);
+
+        cfg.start1((leader1 + 1) % servers);
+        cfg.start1((leader1 + 2) % servers);
+        cfg.connect((leader1 + 1) % servers);
+        cfg.connect((leader1 + 2) % servers);
+
+        thread::sleep(RAFT_ELECTION_TIMEOUT);
+
+        cfg.start1((leader1 + 3) % servers);
+        cfg.connect((leader1 + 3) % servers);
+
+        cfg.one(Entry { x: 10 + index }, servers - 2, true);
+        index += 1;
+
+        cfg.connect((leader1 + 4) % servers);
+        cfg.connect((leader1 + 0) % servers);
+    }
+
+    cfg.one(Entry { x: 1000 }, servers, true);
+
+    cfg.end();
+}
+
+#[test]
+fn test_persist_32c() {
+    let servers = 3;
+    let mut cfg = Config::new(servers, false);
+
+    cfg.begin("Test (2C): partitioned leader and one follower crash, leader restarts");
+
+    cfg.one(Entry { x: 101 }, 3, true);
+
+    let leader = cfg.check_one_leader();
+    cfg.disconnect((leader + 2) % servers);
+
+    cfg.one(Entry { x: 102 }, 2, true);
+
+    cfg.crash1((leader + 0) % servers);
+    cfg.crash1((leader + 1) % servers);
+    cfg.connect((leader + 2) % servers);
+    cfg.start1((leader + 0) % servers);
+    cfg.connect((leader + 0) % servers);
+
+    cfg.one(Entry { x: 103 }, 2, true);
+
+    cfg.start1((leader + 1) % servers);
+    cfg.connect((leader + 1) % servers);
+
+    cfg.one(Entry { x: 104 }, servers, true);
+
+    cfg.end();
+}
+
+// Test the scenarios described in Figure 8 of the extended Raft paper. Each
+// iteration asks a leader, if there is one, to insert a command in the Raft
+// log.  If there is a leader, that leader will fail quickly with a high
+// probability (perhaps without committing the command), or crash after a while
+// with low probability (most likey committing the command).  If the number of
+// alive servers isn't enough to form a majority, perhaps start a new server.
+// The leader in a new term may try to finish replicating log entries that
+// haven't been committed yet.
+
+#[test]
+fn test_figure_82c() {
+    let servers = 5;
+    let mut cfg = Config::new(servers, false);
+
+    cfg.begin("Test (2C): Figure 8");
+
+    let mut random = rand::thread_rng();
+    cfg.one(
+        Entry {
+            x: random.gen::<i64>(),
+        },
+        1,
+        true,
+    );
+
+    let mut nup = servers;
+    for _iters in 0..1000 {
+        let mut leader: i64 = -1;
+        for i in 0..servers {
+            if cfg.rafts.get(i).is_some() {
+                if cfg.rafts[i]
+                    .as_ref()
+                    .unwrap()
+                    .start(&random.gen::<i64>())
+                    .is_ok()
+                {
+                    leader = i as i64;
+                }
+            }
+        }
+
+        if (random.gen::<i64>() % 1000) < 100 {
+            let ms = random.gen::<u64>() % ((RAFT_ELECTION_TIMEOUT.as_millis() / 2) as u64);
+            thread::sleep(Duration::from_millis(ms));
+        } else {
+            let ms = random.gen::<u64>() % 13;
+            thread::sleep(Duration::from_millis(ms));
+        }
+
+        if leader != -1 {
+            cfg.crash1(leader as usize);
+            nup -= 1;
+        }
+
+        if nup < 3 {
+            let s = random.gen::<usize>() % servers;
+            if cfg.rafts.get(s).is_none() {
+                cfg.start1(s);
+                cfg.connect(s);
+                nup += 1;
+            }
+        }
+    }
+
+    for i in 0..servers {
+        if cfg.rafts.get(i).is_none() {
+            cfg.start1(i);
+            cfg.connect(i);
+        }
+    }
+
+    cfg.one(
+        Entry {
+            x: random.gen::<i64>(),
+        },
+        servers,
+        true,
+    );
+
+    cfg.end();
+}
+
+#[test]
+fn test_unreliable_agree_2c() {
+    let servers = 5;
+    let mut cfg = Config::new(servers, true);
+
+    cfg.begin("Test (2C): unreliable agreement");
+
+    let mut v = vec![];
+    for iters in 1..50 {
+        for j in 0..4 {
+            let c = cfg.clone();
+            let child = thread::spawn(move || {
+                c.one(
+                    Entry {
+                        x: (100 * iters) + j,
+                    },
+                    1,
+                    true,
+                );
+            });
+            v.push(child);
+        }
+        cfg.one(Entry { x: iters }, 1, true);
+    }
+
+    cfg.net.set_reliable(false);
+
+    for child in v {
+        child.join().is_ok();
+    }
+    cfg.one(Entry { x: 100 }, servers, true);
+
+    cfg.end();
+}
+
+#[test]
+fn test_figure_8_unreliable_2c() {
+    let servers = 5;
+    let mut cfg = Config::new(servers, true);
+
+    cfg.begin("Test (2C): Figure 8 (unreliable)");
+    let mut random = rand::thread_rng();
+    cfg.one(
+        Entry {
+            x: random.gen::<i64>() % 10000,
+        },
+        1,
+        true,
+    );
+
+    let mut nup = servers;
+    for iters in 0..1000 {
+        if iters == 200 {
+            cfg.net.set_long_reordering(true);
+        }
+        let mut leader: i64 = -1;
+        for i in 0..servers {
+            if cfg.rafts[i]
+                .as_ref()
+                .unwrap()
+                .start(&(random.gen::<u64>() % 10000))
+                .is_ok()
+                && cfg.connected[i]
+            {
+                leader = i as i64
+            }
+        }
+
+        if (random.gen::<usize>() % 1000) < 100 {
+            let ms = random.gen::<i64>() % (RAFT_ELECTION_TIMEOUT.as_millis() / 2) as i64;
+            thread::sleep(Duration::from_millis(ms as u64));
+        } else {
+            let ms = random.gen::<i64>() % 13;
+            thread::sleep(Duration::from_millis(ms as u64));
+        }
+
+        if leader != -1
+            && (random.gen::<usize>() % 1000) < (RAFT_ELECTION_TIMEOUT.as_millis() as usize) / 2
+        {
+            cfg.disconnect(leader as usize);
+            nup -= 1
+        }
+
+        if nup < 3 {
+            let s = random.gen::<usize>() % servers;
+            if cfg.connected[s] == false {
+                cfg.connect(s);
+                nup += 1;
+            }
+        }
+    }
+
+    for i in 0..servers {
+        if cfg.connected[i] == false {
+            cfg.connect(i);
+        }
+    }
+
+    cfg.one(
+        Entry {
+            x: random.gen::<i64>() % 10000,
+        },
+        servers,
+        true,
+    );
+
+    cfg.end();
+}
+
+fn internal_churn(unreliable: bool) {
+    let servers = 5;
+    let mut cfg = Config::new(servers, unreliable);
+    if unreliable {
+        cfg.begin("Test (2C): unreliable churn")
+    } else {
+        cfg.begin("Test (2C): churn")
+    }
+
+    let stop = Arc::new(AtomicUsize::new(0));
+
+    // create concurrent clients
+    fn cfn(
+        me: usize,
+        stop_clone: Arc<AtomicUsize>,
+        tx: Sender<Option<Vec<i64>>>,
+        cfg: Config,
+        servers: usize,
+    ) {
+        // defer func() { ch <- ret }()
+        let mut values = vec![];
+        while stop_clone.load(Ordering::SeqCst) == 0 {
+            let mut random = rand::thread_rng();
+            let x = random.gen::<i64>();
+            let mut index: i64 = -1;
+            let mut ok = false;
+            for i in 0..servers {
+                // try them all, maybe one of them is a leader
+                match cfg.rafts.get(i) {
+                    Some(rf) => {
+                        match rf.as_ref().unwrap().start(&x) {
+                            Ok((index1, _)) => {
+                                index = index1 as i64;
+                                ok = true;
+                            }
+                            Err(_) => continue,
+                        };
+                    }
+                    None => continue,
+                }
+            }
+            if ok {
+                // maybe leader will commit our value, maybe not.
+                // but don't wait forever.
+                for to in vec![10, 20, 50, 100, 200] {
+                    let (nd, cmd) = cfg.n_committed(index as u64);
+                    if nd > 0 {
+                        match cmd {
+                            Some(xx) => {
+                                if xx.x == x {
+                                    values.push(xx.x);
+                                }
+                            }
+                            None => panic!("wrong command type"),
+                        }
+                        break;
+                    }
+                    thread::sleep(Duration::from_millis(to));
+                }
+            } else {
+                thread::sleep(Duration::from_millis((79 + me * 17) as u64));
+            }
+        }
+        if values.len() > 0 {
+            tx.send(Some(values)).unwrap();
+        } else {
+            tx.send(None).unwrap();
+        }
+    };
+
+    let ncli = 3;
+    let mut nrec = vec![];
+    for i in 0..ncli {
+        let stop_clone = stop.clone();
+        let (tx, rx) = channel();
+        let cfg_clone = cfg.clone();
+        thread::spawn(move || {
+            cfn(i, stop_clone, tx, cfg_clone, servers);
+        });
+        nrec.push(rx);
+    }
+    let mut random = rand::thread_rng();
+    for _iters in 0..20 {
+        if (random.gen::<usize>() % 1000) < 200 {
+            let i = random.gen::<usize>() % servers;
+            cfg.disconnect(i);
+        }
+
+        if (random.gen::<usize>() % 1000) < 500 {
+            let i = random.gen::<usize>() % servers;
+            if cfg.rafts.get(i).is_none() {
+                cfg.start1(i);
+            }
+            cfg.connect(i);
+        }
+
+        if (random.gen::<usize>() % 1000) < 200 {
+            let i = random.gen::<usize>() % servers;
+            if cfg.rafts.get(i).is_some() {
+                cfg.crash1(i);
+            }
+        }
+
+        // Make crash/restart infrequent enough that the peers can often
+        // keep up, but not so infrequent that everything has settled
+        // down from one change to the next. Pick a value smaller than
+        // the election timeout, but not hugely smaller.
+        thread::sleep((RAFT_ELECTION_TIMEOUT * 7) / 10)
+    }
+
+    thread::sleep(RAFT_ELECTION_TIMEOUT);
+    cfg.net.set_reliable(true);
+    for i in 0..servers {
+        if cfg.rafts.get(i).is_none() {
+            cfg.start1(i);
+        }
+        cfg.connect(i);
+    }
+
+    stop.store(1, Ordering::SeqCst);
+
+    let mut values = vec![];
+    for rx in &nrec {
+        let mut vv = rx.recv().unwrap().unwrap();
+        values.append(&mut vv);
+    }
+
+    thread::sleep(RAFT_ELECTION_TIMEOUT);
+
+    let last_index = cfg.one(
+        Entry {
+            x: random.gen::<i64>(),
+        },
+        servers,
+        true,
+    );
+
+    let mut really = vec![];
+    for index in 1..=last_index {
+        let v = cfg.wait(index, servers, Some(-1)).unwrap();
+        really.push(v.x);
+    }
+
+    for v1 in &values {
+        let mut ok = false;
+        for v2 in &really {
+            if v1 == v2 {
+                ok = true;
+            }
+        }
+        if ok == false {
+            panic!("didn't find a value");
+        }
+    }
+
+    cfg.end()
+}
+
+#[test]
+fn test_reliable_churn_2c() {
+    internal_churn(false);
+}
+
+#[test]
+fn test_unreliable_churn_2c() {
+    internal_churn(true);
 }

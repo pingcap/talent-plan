@@ -1,4 +1,5 @@
 #![feature(integer_atomics)]
+#![feature(duration_as_u128)]
 
 extern crate labcodec;
 extern crate labrpc;

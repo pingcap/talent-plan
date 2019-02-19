@@ -32,13 +32,14 @@ struct Storage {
     max_index0: u64,
 }
 
+#[derive(Clone)]
 pub struct Config {
-    net: labrpc::Network,
+    pub net: labrpc::Network,
     n: usize,
     pub rafts: Vec<Option<raft::Node>>,
     // applyErr:  []string // from apply channel readers
     // whether each server is on the net
-    connected: Vec<bool>,
+    pub connected: Vec<bool>,
     saved: Vec<Arc<SimplePersister>>,
     // the port file names each sends to
     endnames: Vec<Vec<String>>,
@@ -94,7 +95,7 @@ impl Config {
         cfg
     }
 
-    fn rpc_count(&self, server: usize) -> usize {
+    pub fn rpc_count(&self, server: usize) -> usize {
         self.net.count(&format!("{}", server))
     }
 
@@ -107,7 +108,7 @@ impl Config {
     pub fn check_one_leader(&self) -> usize {
         let mut random = rand::thread_rng();
         let mut leaders = HashMap::new();
-        for iters in 0..10 {
+        for _iters in 0..10 {
             let ms = 450 + (random.gen::<u64>() % 100);
             thread::sleep(Duration::from_millis(ms));
 
@@ -198,7 +199,7 @@ impl Config {
 
     // wait for at least n servers to commit.
     // but don't wait forever.
-    pub fn wait(&self, index: u64, n: usize, start_term: Option<u64>) -> Option<Entry> {
+    pub fn wait(&self, index: u64, n: usize, start_term: Option<i64>) -> Option<Entry> {
         let mut to = Duration::from_millis(10);
         for iters in 0..30 {
             let (nd, _) = self.n_committed(index);
@@ -213,7 +214,7 @@ impl Config {
                 for r in &self.rafts {
                     if let Some(rf) = r {
                         let term = rf.term();
-                        if term > start_term {
+                        if term as i64 > start_term {
                             // someone has moved on
                             // can no longer guarantee that we'll "win"
                             return None;
@@ -329,7 +330,7 @@ impl Config {
     /// allocate new outgoing port file names, and a new
     /// state persister, to isolate previous instance of
     /// this server. since we cannot really kill it.
-    fn start1(&mut self, i: usize) {
+    pub fn start1(&mut self, i: usize) {
         self.crash1(i);
 
         // a fresh set of outgoing ClientEnd names.
@@ -403,7 +404,7 @@ impl Config {
     }
 
     /// shut down a Raft server but save its persistent state.
-    fn crash1(&mut self, i: usize) {
+    pub fn crash1(&mut self, i: usize) {
         self.disconnect(i);
         // disable client connections to the server.
         self.net.delete_server(&format!("{}", i));
