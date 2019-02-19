@@ -1,7 +1,5 @@
 use raft::config::{Config, Entry};
-use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -147,7 +145,6 @@ fn test_fail_no_agree_2b() {
     let (index, _) = cfg.rafts[leader]
         .as_ref()
         .unwrap()
-        .0
         .start(&20)
         .expect("leader rejected start");
     if index != 2 {
@@ -172,7 +169,6 @@ fn test_fail_no_agree_2b() {
     let (index2, _) = cfg.rafts[leader2]
         .as_ref()
         .unwrap()
-        .0
         .start(&30)
         .expect("leader2 rejected start");
     if index2 < 2 || index2 > 3 {
@@ -198,7 +194,7 @@ fn test_concurrent_starts_2b() {
         }
 
         let leader = cfg.check_one_leader();
-        let term = match cfg.rafts[leader].as_ref().unwrap().0.start(&1) {
+        let term = match cfg.rafts[leader].as_ref().unwrap().start(&1) {
             Err(err) => {
                 warn!("start leader {} meet error {:?}", leader, err);
                 continue;
@@ -210,7 +206,7 @@ fn test_concurrent_starts_2b() {
         let mut v = vec![];
         for i in 0..5 {
             let tx = tx.clone();
-            let node = cfg.rafts[leader].as_ref().unwrap().0.clone();
+            let node = cfg.rafts[leader].as_ref().unwrap().clone();
             let child = thread::spawn(move || {
                 match node.start(&(100 + i)) {
                     Err(err) => {
@@ -228,13 +224,12 @@ fn test_concurrent_starts_2b() {
             v.push(child);
         }
         for child in v {
-            child.join();
+            child.join().unwrap();
         }
         drop(tx);
 
         for j in 0..servers {
-            let state = cfg.rafts[j].as_ref().unwrap().1.clone();
-            let t = Arc::try_unwrap(state).unwrap().term();
+            let t = cfg.rafts[j].as_ref().unwrap().term();
             if t != term {
                 // term changed -- can't expect low RPC counts
                 continue 'outer;

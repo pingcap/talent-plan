@@ -35,7 +35,7 @@ struct Storage {
 pub struct Config {
     net: labrpc::Network,
     n: usize,
-    pub rafts: Vec<Option<(raft::Node, Arc<raft::State>)>>,
+    pub rafts: Vec<Option<raft::Node>>,
     // applyErr:  []string // from apply channel readers
     // whether each server is on the net
     connected: Vec<bool>,
@@ -113,8 +113,8 @@ impl Config {
 
             for (i, connected) in self.connected.iter().enumerate() {
                 if *connected {
-                    let term = self.rafts[i].as_ref().unwrap().1.term();
-                    let is_leader = self.rafts[i].as_ref().unwrap().1.is_leader();
+                    let term = self.rafts[i].as_ref().unwrap().term();
+                    let is_leader = self.rafts[i].as_ref().unwrap().is_leader();
                     if is_leader {
                         leaders.entry(term).or_insert_with(Vec::new).push(i);
                     }
@@ -144,7 +144,7 @@ impl Config {
         let mut term = 0;
         for (i, connected) in self.connected.iter().enumerate() {
             if *connected {
-                let xterm = self.rafts[i].as_ref().unwrap().1.term();
+                let xterm = self.rafts[i].as_ref().unwrap().term();
                 if term == 0 {
                     term = xterm;
                 } else if term != xterm {
@@ -159,7 +159,7 @@ impl Config {
     pub fn check_no_leader(&self) {
         for (i, connected) in self.connected.iter().enumerate() {
             if *connected {
-                let is_leader = self.rafts[i].as_ref().unwrap().1.is_leader();
+                let is_leader = self.rafts[i].as_ref().unwrap().is_leader();
                 if is_leader {
                     panic!("expected no leader, but {} claims to be leader", i);
                 }
@@ -211,8 +211,8 @@ impl Config {
             }
             if let Some(start_term) = start_term {
                 for r in &self.rafts {
-                    if let Some((_, state)) = r {
-                        let term = state.term();
+                    if let Some(rf) = r {
+                        let term = rf.term();
                         if term > start_term {
                             // someone has moved on
                             // can no longer guarantee that we'll "win"
@@ -250,7 +250,7 @@ impl Config {
             for si in 0..self.n {
                 starts = (starts + 1) % self.n;
                 if self.connected[starts] {
-                    if let Some((ref rf, _)) = &self.rafts[starts] {
+                    if let Some(ref rf) = &self.rafts[starts] {
                         match rf.start(&cmd) {
                             Ok((index1, _)) => {
                                 index = Some(index1);
@@ -392,17 +392,9 @@ impl Config {
             .map_err(move |e| debug!("raft {} apply stopped: {:?}", i, e));
         self.net.spawn(apply);
 
-        let state = Arc::new(raft::State::default());
-        let rf = raft::Raft::new(
-            clients,
-            i,
-            Box::new(self.saved[i].clone()),
-            tx,
-            state.clone(),
-        );
-
+        let rf = raft::Raft::new(clients, i, Box::new(self.saved[i].clone()), tx);
         let node = raft::Node::new(rf);
-        self.rafts[i] = Some((node.clone(), state));
+        self.rafts[i] = Some(node.clone());
 
         let mut builder = labrpc::ServerBuilder::new(format!("{}", i));
         raft::add_raft_service(node, &mut builder).unwrap();
@@ -424,7 +416,7 @@ impl Config {
         p.save_raft_state(self.saved[i].raft_state());
         self.saved[i] = Arc::new(p);
 
-        if let Some((rf, _)) = self.rafts[i].take() {
+        if let Some(rf) = self.rafts[i].take() {
             rf.kill();
         }
     }
@@ -474,7 +466,7 @@ impl Config {
 impl Drop for Config {
     fn drop(&mut self) {
         for r in &self.rafts {
-            if let Some((rf, _)) = r {
+            if let Some(rf) = r {
                 rf.kill();
             }
         }

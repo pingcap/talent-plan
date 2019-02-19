@@ -23,19 +23,18 @@ pub struct ApplyMsg {
 
 /// State of a raft peer.
 #[derive(Default, Debug)]
-pub struct State {
-    /// The current term of this peer.
+struct State {
     term: AtomicU64,
-    /// Whether this peer believes it is the leader.
     is_leader: AtomicBool,
 }
 
 impl State {
-    pub fn term(&self) -> u64 {
+    /// The current term of this peer.
+    fn term(&self) -> u64 {
         self.term.load(Ordering::Relaxed)
     }
-
-    pub fn is_leader(&self) -> bool {
+    /// Whether this peer believes it is the leader.
+    fn is_leader(&self) -> bool {
         self.is_leader.load(Ordering::Relaxed)
     }
 }
@@ -69,7 +68,6 @@ impl Raft {
         me: usize,
         persister: Box<dyn Persister>,
         apply_ch: UnboundedSender<ApplyMsg>,
-        state: Arc<State>,
     ) -> Raft {
         let raft_state = persister.raft_state();
 
@@ -78,7 +76,7 @@ impl Raft {
             peers,
             persister,
             me,
-            state,
+            state: Arc::default(),
         };
 
         // initialize from state persisted before a crash
@@ -183,14 +181,16 @@ impl Raft {
 // ```
 #[derive(Clone)]
 pub struct Node {
+    state: Arc<State>,
     // Your code here.
 }
 
 impl Node {
     /// Create a new raft service.
     pub fn new(raft: Raft) -> Node {
+        let state = raft.state.clone();
         // Your code here.
-        Node {}
+        Node { state }
     }
 
     /// the service using Raft (e.g. a k/v server) wants to start
@@ -213,6 +213,16 @@ impl Node {
         // Example:
         // self.raft.start(command)
         unimplemented!()
+    }
+
+    /// The current term of this peer.
+    pub fn term(&self) -> u64 {
+        self.state.term.load(Ordering::Relaxed)
+    }
+
+    /// Whether this peer believes it is the leader.
+    pub fn is_leader(&self) -> bool {
+        self.state.is_leader.load(Ordering::Relaxed)
     }
 
     /// the tester calls kill() when a Raft instance won't
