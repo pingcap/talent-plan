@@ -23,18 +23,18 @@ pub struct ApplyMsg {
 
 /// State of a raft peer.
 #[derive(Default, Debug)]
-struct State {
+pub struct State {
     term: AtomicU64,
     is_leader: AtomicBool,
 }
 
 impl State {
     /// The current term of this peer.
-    fn term(&self) -> u64 {
+    pub fn term(&self) -> u64 {
         self.term.load(Ordering::Relaxed)
     }
     /// Whether this peer believes it is the leader.
-    fn is_leader(&self) -> bool {
+    pub fn is_leader(&self) -> bool {
         self.is_leader.load(Ordering::Relaxed)
     }
 }
@@ -181,7 +181,7 @@ impl Raft {
 // ```
 #[derive(Clone)]
 pub struct Node {
-    state: Arc<State>,
+    pub state: Arc<State>,
     // Your code here.
 }
 
@@ -217,12 +217,12 @@ impl Node {
 
     /// The current term of this peer.
     pub fn term(&self) -> u64 {
-        self.state.term.load(Ordering::Relaxed)
+        self.state.term()
     }
 
     /// Whether this peer believes it is the leader.
     pub fn is_leader(&self) -> bool {
-        self.state.is_leader.load(Ordering::Relaxed)
+        self.state.is_leader()
     }
 
     /// the tester calls kill() when a Raft instance won't
