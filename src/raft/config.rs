@@ -8,7 +8,6 @@ use futures::{sync::mpsc::unbounded, Future, Stream};
 use labrpc;
 
 use raft;
-use raft::errors::Error;
 use raft::persister::*;
 use rand::Rng;
 
@@ -180,7 +179,7 @@ impl Config {
         let mut count = 0;
         let mut cmd = None;
         let s = self.storage.lock().unwrap();
-        for (i, raft) in self.rafts.iter().enumerate() {
+        for (i, _) in self.rafts.iter().enumerate() {
             let cmd1 = s.logs[i].get(&index).cloned();
 
             if cmd1.is_some() {
@@ -201,7 +200,7 @@ impl Config {
     // but don't wait forever.
     pub fn wait(&self, index: u64, n: usize, start_term: Option<i64>) -> Option<Entry> {
         let mut to = Duration::from_millis(10);
-        for iters in 0..30 {
+        for _ in 0..30 {
             let (nd, _) = self.n_committed(index);
             if nd >= n {
                 break;
@@ -248,7 +247,7 @@ impl Config {
         while t0.elapsed() < Duration::from_secs(10) {
             // try all the servers, maybe one is the leader.
             let mut index = None;
-            for si in 0..self.n {
+            for _ in 0..self.n {
                 starts = (starts + 1) % self.n;
                 if self.connected[starts] {
                     if let Some(ref rf) = &self.rafts[starts] {

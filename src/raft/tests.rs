@@ -293,9 +293,9 @@ fn test_rejoin_2b() {
     cfg.disconnect(leader1);
 
     // make old leader try to agree on some entries
-    cfg.rafts[leader1].as_ref().unwrap().start(&102);
-    cfg.rafts[leader1].as_ref().unwrap().start(&103);
-    cfg.rafts[leader1].as_ref().unwrap().start(&104);
+    let _ = cfg.rafts[leader1].as_ref().unwrap().start(&102);
+    let _ = cfg.rafts[leader1].as_ref().unwrap().start(&103);
+    let _ = cfg.rafts[leader1].as_ref().unwrap().start(&104);
 
     // new leader commits, also for index=2
     cfg.one(Entry { x: 103 }, 2, true);
@@ -341,7 +341,7 @@ fn test_backup_2b() {
 
     // submit lots of commands that won't commit
     for _i in 0..50 {
-        cfg.rafts[leader1]
+        let _ = cfg.rafts[leader1]
             .as_ref()
             .unwrap()
             .start(&random.gen::<i64>());
@@ -378,7 +378,7 @@ fn test_backup_2b() {
 
     // lots more commands that won't commit
     for _i in 0..50 {
-        cfg.rafts[leader2]
+        let _ = cfg.rafts[leader2]
             .as_ref()
             .unwrap()
             .start(&random.gen::<i64>());
