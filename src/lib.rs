@@ -13,6 +13,7 @@ extern crate log;
 #[macro_use]
 extern crate prost_derive;
 extern crate futures;
+extern crate futures_timer;
 extern crate rand;
 
 mod kvraft;

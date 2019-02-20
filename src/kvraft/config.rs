@@ -121,7 +121,6 @@ impl Config {
     }
 
     /// Attach server i to servers listed in to
-    /// caller must hold cfg.mu
     fn connect(&self, i: usize, to: &[usize], servers: &Servers) {
         debug!("connect peer {} to {:?}", i, to);
         // outgoing socket files
@@ -138,7 +137,6 @@ impl Config {
     }
 
     /// Detach server i from the servers listed in from
-    /// caller must hold cfg.mu
     fn disconnect(&self, i: usize, from: &[usize], servers: &Servers) {
         debug!("disconnect peer {} from {:?}", i, from);
         // outgoing socket files

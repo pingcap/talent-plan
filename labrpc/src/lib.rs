@@ -449,6 +449,14 @@ impl Network {
     {
         self.core.worker.spawn(f).forget();
     }
+
+    /// Spawns a future to run on this net framework.
+    pub fn spawn_poller<F>(&self, f: F)
+    where
+        F: Future<Item = (), Error = ()> + Send + 'static,
+    {
+        self.core.poller.spawn(f).forget();
+    }
 }
 
 struct ProcessRpc {

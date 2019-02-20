@@ -225,6 +225,7 @@ version = "0.1.0"
 dependencies = [
  "bytes 0.4.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-timer 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "labcodec 0.1.0",
  "labrpc 0.1.0",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
