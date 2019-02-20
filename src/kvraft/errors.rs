@@ -1,7 +1,5 @@
 use std::{error, fmt, result};
 
-use labcodec;
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     NoLeader,

@@ -53,7 +53,7 @@ impl Config {
             saved: (0..n).map(|_| Arc::new(SimplePersister::new())).collect(),
             endnames: vec![vec![String::new(); n]; n],
         };
-        let mut cfg = Config {
+        let cfg = Config {
             n,
             net: labrpc::Network::new(),
             servers: Mutex::new(servers),
@@ -292,14 +292,14 @@ impl Config {
         servers.kvservers[i] = Some(kv_node.clone());
 
         let mut builder = labrpc::ServerBuilder::new(format!("{}", i));
-        raft::service::add_raft_service(rf_node, &mut builder);
-        service::add_kv_service(kv_node, &mut builder);
+        raft::service::add_raft_service(rf_node, &mut builder).unwrap();
+        service::add_kv_service(kv_node, &mut builder).unwrap();
         let srv = builder.build();
         self.net.add_server(srv);
     }
 
     pub fn leader(&self) -> Result<usize> {
-        let mut servers = self.servers.lock().unwrap();
+        let  servers = self.servers.lock().unwrap();
         for (i, kv) in servers.kvservers.iter().enumerate() {
             if let Some(kv) = kv {
                 if kv.is_leader() {

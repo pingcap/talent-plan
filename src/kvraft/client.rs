@@ -1,4 +1,3 @@
-use labrpc;
 use std::fmt;
 
 use super::service;
