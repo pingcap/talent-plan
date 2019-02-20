@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use labrpc;
@@ -20,45 +20,50 @@ fn uniqstring() -> String {
     format!("{}", ID.fetch_add(1, Ordering::Relaxed))
 }
 
-pub struct Config {
-    net: labrpc::Network,
-    n: usize,
+struct Servers {
     kvservers: Vec<Option<server::Node>>,
     saved: Vec<Arc<SimplePersister>>,
-    // the port file names each sends to
     endnames: Vec<Vec<String>>,
-    clerks: HashMap<String, Vec<String>>,
-    next_client_id: usize,
+}
+
+pub struct Config {
+    pub net: labrpc::Network,
+    n: usize,
+    servers: Mutex<Servers>,
+    clerks: Mutex<HashMap<String, Vec<String>>>,
+    next_client_id: AtomicUsize,
     maxraftstate: u64,
 
-    // time at which make_config() was called
+    // time at which the Config was created.
     start: Instant,
 
     // begin()/end() statistics
-
     // time at which test_test.go called cfg.begin()
-    t0: Instant,
+    t0: Mutex<Instant>,
     // rpc_total() at start of test
-    rpcs0: usize,
+    rpcs0: AtomicUsize,
     // number of agreements
     ops: AtomicUsize,
 }
 
 impl Config {
     pub fn new(n: usize, unreliable: bool, maxraftstate: u64) -> Config {
-        let mut cfg = Config {
-            net: labrpc::Network::new(),
-            n,
+        let servers = Servers {
             kvservers: vec![None; n],
             saved: (0..n).map(|_| Arc::new(SimplePersister::new())).collect(),
             endnames: vec![vec![String::new(); n]; n],
-            clerks: HashMap::new(),
+        };
+        let mut cfg = Config {
+            n,
+            net: labrpc::Network::new(),
+            servers: Mutex::new(servers),
+            clerks: Mutex::new(HashMap::new()),
             // client ids start 1000 above the highest serverid,
-            next_client_id: n + 1000,
+            next_client_id: AtomicUsize::new(n + 1000),
             maxraftstate,
             start: Instant::now(),
-            t0: Instant::now(),
-            rpcs0: 0,
+            t0: Mutex::new(Instant::now()),
+            rpcs0: AtomicUsize::new(0),
             ops: AtomicUsize::new(0),
         };
 
@@ -87,8 +92,9 @@ impl Config {
 
     // Maximum log size across all servers
     pub fn log_size(&self) -> usize {
+        let servers = self.servers.lock().unwrap();
         let mut logsize = 0;
-        for save in &self.saved {
+        for save in &servers.saved {
             let n = save.raft_state().len();
             if n > logsize {
                 logsize = n;
@@ -100,7 +106,8 @@ impl Config {
     // Maximum snapshot size across all servers
     pub fn snapshot_size(&self) -> usize {
         let mut snapshotsize = 0;
-        for save in &self.saved {
+        let servers = self.servers.lock().unwrap();
+        for save in &servers.saved {
             let n = save.snapshot().len();
             if n > snapshotsize {
                 snapshotsize = n;
@@ -113,16 +120,16 @@ impl Config {
     // caller must hold cfg.mu
     fn connect(&self, i: usize, to: &[usize]) {
         debug!("connect peer {} to {:?}", i, to);
-
+        let servers = self.servers.lock().unwrap();
         // outgoing socket files
         for j in to {
-            let endname = &self.endnames[i][*j];
+            let endname = &servers.endnames[i][*j];
             self.net.enable(endname, true);
         }
 
         // incoming socket files
         for j in to {
-            let endname = &self.endnames[*j][i];
+            let endname = &servers.endnames[*j][i];
             self.net.enable(endname, true);
         }
     }
@@ -131,19 +138,19 @@ impl Config {
     // caller must hold cfg.mu
     fn disconnect(&self, i: usize, from: &[usize]) {
         debug!("disconnect peer {} from {:?}", i, from);
-
+        let servers = self.servers.lock().unwrap();
         // outgoing socket files
         for j in from {
-            if !self.endnames[i].is_empty() {
-                let endname = &self.endnames[i][*j];
+            if !servers.endnames[i].is_empty() {
+                let endname = &servers.endnames[i][*j];
                 self.net.enable(endname, false);
             }
         }
 
         // incoming socket files
         for j in from {
-            if !self.endnames[*j].is_empty() {
-                let endname = &self.endnames[*j][i];
+            if !servers.endnames[*j].is_empty() {
+                let endname = &servers.endnames[*j][i];
                 self.net.enable(endname, false);
             }
         }
@@ -175,7 +182,7 @@ impl Config {
     // Create a clerk with clerk specific server names.
     // Give it connections to all of the servers, but for
     // now enable only connections to servers in to[].
-    fn make_client(&mut self, to: &[usize]) -> client::Clerk {
+    fn make_client(&self, to: &[usize]) -> client::Clerk {
         // a fresh set of ClientEnds.
         let mut ends = Vec::with_capacity(self.n);
         let mut endnames = Vec::with_capacity(self.n);
@@ -190,26 +197,27 @@ impl Config {
         rand::thread_rng().shuffle(&mut ends);
         let ck_name = uniqstring();
         let ck = client::Clerk::new(ck_name.clone(), ends);
-        self.clerks.insert(ck_name, endnames);
-        self.next_client_id += 1;
+        self.clerks.lock().unwrap().insert(ck_name, endnames);
+        self.next_client_id.fetch_add(1, Ordering::Relaxed);
         self.connect_client(&ck, to);
         ck
     }
 
-    fn delete_client(&mut self, ck: &client::Clerk) {
+    fn delete_client(&self, ck: &client::Clerk) {
         // Remove???
         //
         // let v = &self.clerks[&ck.name];
         // for i := 0; i < len(v); i++ {
         // 	os.Remove(v[i])
         // }
-        self.clerks.remove(&ck.name);
+        self.clerks.lock().unwrap().remove(&ck.name);
     }
 
     // caller should hold cfg.mu
     pub fn connect_client(&self, ck: &client::Clerk, to: &[usize]) {
         debug!("connect_client {:?} to {:?}", ck, to);
-        let endnames = &self.clerks[&ck.name];
+        let clerks = self.clerks.lock().unwrap();
+        let endnames = &clerks[&ck.name];
         for j in to {
             let s = &endnames[*j];
             self.net.enable(s, true);
@@ -219,7 +227,8 @@ impl Config {
     // caller should hold cfg.mu
     pub fn disconnect_client(&self, ck: &client::Clerk, from: &[usize]) {
         debug!("DisconnectClient {:?} from {:?}", ck, from);
-        let endnames = &self.clerks[&ck.name];
+        let clerks = self.clerks.lock().unwrap();
+        let endnames = &clerks[&ck.name];
         for j in from {
             let s = &endnames[*j];
             self.net.enable(s, false);
@@ -227,7 +236,7 @@ impl Config {
     }
 
     // Shutdown a server by isolating it
-    pub fn shutdown_server(&mut self, i: usize) {
+    pub fn shutdown_server(&self, i: usize) {
         self.disconnect(i, &self.all());
 
         // disable client connections to the server.
@@ -238,27 +247,30 @@ impl Config {
         // the result in the superseded Persister.
         self.net.delete_server(&format!("{}", i));
 
+        let mut servers = self.servers.lock().unwrap();
+
         // a fresh persister, in case old instance
         // continues to update the Persister.
         // but copy old persister's content so that we always
         // pass Make() the last persisted state.
         let p = raft::persister::SimplePersister::new();
-        p.save_state_and_snapshot(self.saved[i].raft_state(), self.saved[i].snapshot());
-        self.saved[i] = Arc::new(p);
+        p.save_state_and_snapshot(servers.saved[i].raft_state(), servers.saved[i].snapshot());
+        servers.saved[i] = Arc::new(p);
 
-        if let Some(kv) = self.kvservers[i].take() {
+        if let Some(kv) = servers.kvservers[i].take() {
             kv.kill();
         }
     }
 
     // If restart servers, first call shutdown_server
-    pub fn start_server(&mut self, i: usize) {
+    pub fn start_server(&self, i: usize) {
         // a fresh set of outgoing ClientEnd names.
-        self.endnames[i] = (0..self.n).map(|_| uniqstring()).collect();
+        let mut servers = self.servers.lock().unwrap();
+        servers.endnames[i] = (0..self.n).map(|_| uniqstring()).collect();
 
         // a fresh set of ClientEnds.
         let mut ends = Vec::with_capacity(self.n);
-        for (j, name) in self.endnames[i].iter().enumerate() {
+        for (j, name) in servers.endnames[i].iter().enumerate() {
             let cli = self.net.create_client(name.clone());
             ends.push(raft::service::RaftClient::new(cli));
             self.net.connect(name, &format!("{}", j));
@@ -270,14 +282,14 @@ impl Config {
         // state, so that the spec is that we pass StartKVServer()
         // the last persisted state.
         let sp = raft::persister::SimplePersister::new();
-        sp.save_state_and_snapshot(self.saved[i].raft_state(), self.saved[i].snapshot());
+        sp.save_state_and_snapshot(servers.saved[i].raft_state(), servers.saved[i].snapshot());
         let p = Arc::new(sp);
-        self.saved[i] = p.clone();
+        servers.saved[i] = p.clone();
 
         let kv = server::KvServer::new(ends, i, Box::new(p), self.maxraftstate);
         let rf_node = kv.rf.clone();
         let kv_node = server::Node::new(kv);
-        self.kvservers[i] = Some(kv_node.clone());
+        servers.kvservers[i] = Some(kv_node.clone());
 
         let mut builder = labrpc::ServerBuilder::new(format!("{}", i));
         raft::service::add_raft_service(rf_node, &mut builder);
@@ -287,7 +299,8 @@ impl Config {
     }
 
     pub fn leader(&self) -> Result<usize> {
-        for (i, kv) in self.kvservers.iter().enumerate() {
+        let mut servers = self.servers.lock().unwrap();
+        for (i, kv) in servers.kvservers.iter().enumerate() {
             if let Some(kv) = kv {
                 if kv.is_leader() {
                     return Ok(i);
@@ -318,10 +331,10 @@ impl Config {
     // start a Test.
     // print the Test message.
     // e.g. cfg.begin("Test (2B): RPC counts aren't too high")
-    pub fn begin(&mut self, description: &str) {
+    pub fn begin(&self, description: &str) {
         info!("{} ...", description);
-        self.t0 = Instant::now();
-        self.rpcs0 = self.rpc_total();
+        *self.t0.lock().unwrap() = Instant::now();
+        self.rpcs0.store(self.rpc_total(), Ordering::Relaxed);
         self.ops.store(0, Ordering::Relaxed);
     }
 
@@ -329,15 +342,15 @@ impl Config {
     // was no failure.
     // print the Passed message,
     // and some performance numbers.
-    pub fn end(&mut self) {
+    pub fn end(&self) {
         self.check_timeout();
 
         // real time
-        let t = self.t0.elapsed();
+        let t = self.t0.lock().unwrap().elapsed();
         // number of Raft peers
         let npeers = self.n;
         // number of RPC sends
-        let nrpc = self.rpc_total() - self.rpcs0;
+        let nrpc = self.rpc_total() - self.rpcs0.load(Ordering::Relaxed);
         // number of clerk get/put/append calls
         let nops = self.ops.load(Ordering::Relaxed);
 
@@ -348,7 +361,8 @@ impl Config {
 
 impl Drop for Config {
     fn drop(&mut self) {
-        for s in &self.kvservers {
+        let servers = self.servers.lock().unwrap();
+        for s in &servers.kvservers {
             if let Some(s) = s {
                 s.kill();
             }
