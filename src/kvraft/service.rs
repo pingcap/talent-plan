@@ -9,13 +9,13 @@ pub use self::kv::{add_service as add_kv_service, Client as KvClient, Service as
 /// Put or Append
 #[derive(Clone, PartialEq, Message)]
 pub struct PutAppendRequest {
-    #[prost(bytes, tag = "1")]
-    pub key: Vec<u8>,
-    #[prost(bytes, tag = "2")]
-    pub value: Vec<u8>,
+    #[prost(string, tag = "1")]
+    pub key: String,
+    #[prost(string, tag = "2")]
+    pub value: String,
     // "Put" or "Append"
-    #[prost(bytes, tag = "3")]
-    pub op: Vec<u8>,
+    #[prost(enumeration = "Op", tag = "3")]
+    pub op: i32,
     // You'll have to add definitions here.
 }
 
@@ -25,14 +25,12 @@ pub struct PutAppendReply {
     pub wrong_leader: bool,
     #[prost(string, tag = "2")]
     pub err: String,
-    #[prost(enumeration = "Op", tag = "3")]
-    pub op: i32,
 }
 
 #[derive(Clone, PartialEq, Message)]
 pub struct GetRequest {
-    #[prost(bytes, tag = "1")]
-    pub key: Vec<u8>,
+    #[prost(string, tag = "1")]
+    pub key: String,
     // You'll have to add definitions here.
 }
 
@@ -42,8 +40,8 @@ pub struct GetReply {
     pub wrong_leader: bool,
     #[prost(string, tag = "2")]
     pub err: String,
-    #[prost(bytes, tag = "3")]
-    pub value: Vec<u8>,
+    #[prost(string, tag = "3")]
+    pub value: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Enumeration)]

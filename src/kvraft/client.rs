@@ -4,8 +4,8 @@ use std::fmt;
 use super::service;
 
 enum Op {
-    Put(Vec<u8>, Vec<u8>),
-    Append(Vec<u8>, Vec<u8>),
+    Put(String, String),
+    Append(String, String),
 }
 
 pub struct Clerk {
@@ -36,7 +36,7 @@ impl Clerk {
     /// the types of args and reply (including whether they are pointers)
     /// must match the declared types of the RPC handler function's
     /// arguments. and reply must be passed as a pointer.
-    pub fn get(&self, key: Vec<u8>) -> Vec<u8> {
+    pub fn get(&self, key: String) -> String {
         unimplemented!()
     }
 
@@ -53,11 +53,11 @@ impl Clerk {
         unimplemented!()
     }
 
-    pub fn put(&self, key: Vec<u8>, value: Vec<u8>) {
+    pub fn put(&self, key: String, value: String) {
         self.put_append(Op::Put(key, value))
     }
 
-    pub fn append(&self, key: Vec<u8>, value: Vec<u8>) {
+    pub fn append(&self, key: String, value: String) {
         self.put_append(Op::Append(key, value))
     }
 }
