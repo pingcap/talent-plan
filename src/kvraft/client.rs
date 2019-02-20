@@ -28,25 +28,18 @@ impl Clerk {
     /// fetch the current value for a key.
     /// returns "" if the key does not exist.
     /// keeps trying forever in the face of all other errors.
-    ///
-    /// you can send an RPC with code like this:
-    /// ok := ck.servers[i].Call("KVServer.Get", &args, &reply)
-    ///
-    /// the types of args and reply (including whether they are pointers)
-    /// must match the declared types of the RPC handler function's
-    /// arguments. and reply must be passed as a pointer.
+    //
+    // you can send an RPC with code like this:
+    // let reply = self.servers[i].get(args).unwrap();
     pub fn get(&self, key: String) -> String {
+        // You will have to modify this function.
         unimplemented!()
     }
 
     /// shared by Put and Append.
-    ///
-    /// you can send an RPC with code like this:
-    /// ok := ck.servers[i].Call("KVServer.PutAppend", &args, &reply)
-    ///
-    /// the types of args and reply (including whether they are pointers)
-    /// must match the declared types of the RPC handler function's
-    /// arguments. and reply must be passed as a pointer.
+    //
+    // you can send an RPC with code like this:
+    // let reply = self.servers[i].put_append(args).unwrap();
     fn put_append(&self, op: Op) {
         // You will have to modify this function.
         unimplemented!()

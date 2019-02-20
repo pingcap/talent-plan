@@ -14,7 +14,7 @@ use kvraft::{
 };
 use rand::Rng;
 
-static ID: AtomicUsize = AtomicUsize::new(0);
+static ID: AtomicUsize = AtomicUsize::new(300_000);
 
 fn uniqstring() -> String {
     format!("{}", ID.fetch_add(1, Ordering::Relaxed))
@@ -28,11 +28,11 @@ struct Servers {
 
 pub struct Config {
     pub net: labrpc::Network,
-    n: usize,
+    pub n: usize,
     servers: Mutex<Servers>,
     clerks: Mutex<HashMap<String, Vec<String>>>,
     next_client_id: AtomicUsize,
-    maxraftstate: u64,
+    maxraftstate: Option<usize>,
 
     // time at which the Config was created.
     start: Instant,
@@ -47,7 +47,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(n: usize, unreliable: bool, maxraftstate: u64) -> Config {
+    pub fn new(n: usize, unreliable: bool, maxraftstate: Option<usize>) -> Config {
         let servers = Servers {
             kvservers: vec![None; n],
             saved: (0..n).map(|_| Arc::new(SimplePersister::new())).collect(),
@@ -79,18 +79,22 @@ impl Config {
         cfg
     }
 
+    pub fn op(&self) {
+        self.ops.fetch_add(1, Ordering::Relaxed);
+    }
+
     fn rpc_total(&self) -> usize {
         self.net.total_count()
     }
 
-    fn check_timeout(&self) {
+    pub fn check_timeout(&self) {
         // enforce a two minute real-time limit on each test
         if self.start.elapsed() > Duration::from_secs(120) {
             panic!("test took longer than 120 seconds");
         }
     }
 
-    // Maximum log size across all servers
+    /// Maximum log size across all servers
     pub fn log_size(&self) -> usize {
         let servers = self.servers.lock().unwrap();
         let mut logsize = 0;
@@ -103,7 +107,7 @@ impl Config {
         logsize
     }
 
-    // Maximum snapshot size across all servers
+    /// Maximum snapshot size across all servers
     pub fn snapshot_size(&self) -> usize {
         let mut snapshotsize = 0;
         let servers = self.servers.lock().unwrap();
@@ -116,11 +120,10 @@ impl Config {
         snapshotsize
     }
 
-    // attach server i to servers listed in to
-    // caller must hold cfg.mu
-    fn connect(&self, i: usize, to: &[usize]) {
+    /// Attach server i to servers listed in to
+    /// caller must hold cfg.mu
+    fn connect(&self, i: usize, to: &[usize], servers: &Servers) {
         debug!("connect peer {} to {:?}", i, to);
-        let servers = self.servers.lock().unwrap();
         // outgoing socket files
         for j in to {
             let endname = &servers.endnames[i][*j];
@@ -134,11 +137,10 @@ impl Config {
         }
     }
 
-    // detach server i from the servers listed in from
-    // caller must hold cfg.mu
-    fn disconnect(&self, i: usize, from: &[usize]) {
+    /// Detach server i from the servers listed in from
+    /// caller must hold cfg.mu
+    fn disconnect(&self, i: usize, from: &[usize], servers: &Servers) {
         debug!("disconnect peer {} from {:?}", i, from);
-        let servers = self.servers.lock().unwrap();
         // outgoing socket files
         for j in from {
             if !servers.endnames[i].is_empty() {
@@ -161,28 +163,30 @@ impl Config {
     }
 
     pub fn connect_all(&self) {
+        let servers = self.servers.lock().unwrap();
         for i in 0..self.n {
-            self.connect(i, &self.all());
+            self.connect(i, &self.all(), &*servers);
         }
     }
 
-    // Sets up 2 partitions with connectivity between servers in each  partition.
-    fn partition(&self, p1: &[usize], p2: &[usize]) {
+    /// Sets up 2 partitions with connectivity between servers in each  partition.
+    pub fn partition(&self, p1: &[usize], p2: &[usize]) {
         debug!("partition servers into: {:?} {:?}", p1, p2);
+        let servers = self.servers.lock().unwrap();
         for i in p1 {
-            self.disconnect(*i, p2);
-            self.connect(*i, p1);
+            self.disconnect(*i, p2, &*servers);
+            self.connect(*i, p1, &*servers);
         }
         for i in p2 {
-            self.disconnect(*i, p1);
-            self.connect(*i, p2);
+            self.disconnect(*i, p1, &*servers);
+            self.connect(*i, p2, &*servers);
         }
     }
 
     // Create a clerk with clerk specific server names.
     // Give it connections to all of the servers, but for
     // now enable only connections to servers in to[].
-    fn make_client(&self, to: &[usize]) -> client::Clerk {
+    pub fn make_client(&self, to: &[usize]) -> client::Clerk {
         // a fresh set of ClientEnds.
         let mut ends = Vec::with_capacity(self.n);
         let mut endnames = Vec::with_capacity(self.n);
@@ -203,17 +207,10 @@ impl Config {
         ck
     }
 
-    fn delete_client(&self, ck: &client::Clerk) {
-        // Remove???
-        //
-        // let v = &self.clerks[&ck.name];
-        // for i := 0; i < len(v); i++ {
-        // 	os.Remove(v[i])
-        // }
+    pub fn delete_client(&self, ck: &client::Clerk) {
         self.clerks.lock().unwrap().remove(&ck.name);
     }
 
-    // caller should hold cfg.mu
     pub fn connect_client(&self, ck: &client::Clerk, to: &[usize]) {
         debug!("connect_client {:?} to {:?}", ck, to);
         let clerks = self.clerks.lock().unwrap();
@@ -224,7 +221,6 @@ impl Config {
         }
     }
 
-    // caller should hold cfg.mu
     pub fn disconnect_client(&self, ck: &client::Clerk, from: &[usize]) {
         debug!("DisconnectClient {:?} from {:?}", ck, from);
         let clerks = self.clerks.lock().unwrap();
@@ -235,9 +231,10 @@ impl Config {
         }
     }
 
-    // Shutdown a server by isolating it
+    /// Shutdown a server by isolating it
     pub fn shutdown_server(&self, i: usize) {
-        self.disconnect(i, &self.all());
+        let mut servers = self.servers.lock().unwrap();
+        self.disconnect(i, &self.all(), &*servers);
 
         // disable client connections to the server.
         // it's important to do this before creating
@@ -246,8 +243,6 @@ impl Config {
         // positive reply to an Append but persisting
         // the result in the superseded Persister.
         self.net.delete_server(&format!("{}", i));
-
-        let mut servers = self.servers.lock().unwrap();
 
         // a fresh persister, in case old instance
         // continues to update the Persister.
@@ -262,7 +257,8 @@ impl Config {
         }
     }
 
-    // If restart servers, first call shutdown_server
+    /// Start a server i.
+    /// If restart servers, first call shutdown_server
     pub fn start_server(&self, i: usize) {
         // a fresh set of outgoing ClientEnd names.
         let mut servers = self.servers.lock().unwrap();
@@ -299,7 +295,7 @@ impl Config {
     }
 
     pub fn leader(&self) -> Result<usize> {
-        let  servers = self.servers.lock().unwrap();
+        let servers = self.servers.lock().unwrap();
         for (i, kv) in servers.kvservers.iter().enumerate() {
             if let Some(kv) = kv {
                 if kv.is_leader() {
@@ -310,7 +306,7 @@ impl Config {
         Err(Error::NoLeader)
     }
 
-    // Partition servers into 2 groups and put current leader in minority
+    /// Partition servers into 2 groups and put current leader in minority
     fn make_partition(&self) -> (Vec<usize>, Vec<usize>) {
         let l = self.leader().unwrap_or(0);
         let mut p1 = Vec::with_capacity(self.n / 2 + 1);
@@ -328,9 +324,9 @@ impl Config {
         (p1, p2)
     }
 
-    // start a Test.
-    // print the Test message.
-    // e.g. cfg.begin("Test (2B): RPC counts aren't too high")
+    /// Start a Test.
+    /// print the Test message.
+    /// e.g. cfg.begin("Test (2B): RPC counts aren't too high")
     pub fn begin(&self, description: &str) {
         info!("{} ...", description);
         *self.t0.lock().unwrap() = Instant::now();
@@ -338,10 +334,10 @@ impl Config {
         self.ops.store(0, Ordering::Relaxed);
     }
 
-    // end a Test -- the fact that we got here means there
-    // was no failure.
-    // print the Passed message,
-    // and some performance numbers.
+    /// End a Test -- the fact that we got here means there
+    /// was no failure.
+    /// print the Passed message,
+    /// and some performance numbers.
     pub fn end(&self) {
         self.check_timeout();
 
@@ -367,6 +363,5 @@ impl Drop for Config {
                 s.kill();
             }
         }
-        self.check_timeout();
     }
 }
