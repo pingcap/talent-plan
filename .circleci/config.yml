@@ -1,0 +1,17 @@
+version: 2
+jobs:
+  rust:
+    docker:
+      - image: circleci/rust:stretch
+    environment:
+      RUST_BACKTRACE: "1"
+      RUSTFLAGS: "-Dwarnings"
+    steps:
+      - checkout
+      - run: cargo clippy --all -- -D clippy::all
+
+ workflows:
+  version: 2
+  ci-test:
+      jobs:
+        - rust
