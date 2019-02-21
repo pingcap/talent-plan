@@ -156,13 +156,6 @@ A suggested workflow:
     - TODO
     - Benchmark single-threaded vs multi-threaded
 
-- Lesson: Benchmarking, profiling, and debugging
-
-  - Topics: println debugging, RUST_BACKTRACE, criterion and critcmp, gdb and
-    Rust, blocking (TODO which tool can capture blocking?), (TODO which
-    profiling / bloat tools?), std bench vs criterion, black_box and
-    alternatives, how does benchmarking work?
-
 - Lesson: The big problem &mdash; aliasing and mutability
 
   - Readings:
@@ -170,13 +163,15 @@ A suggested workflow:
     - [The Nomicon - Aliasing](https://doc.rust-lang.org/nomicon/aliasing.html)
     - [The Problem with Single-threaded Shared Mutability](https://manishearth.github.io/blog/2015/05/17/the-problem-with-shared-mutability)
 
-  - Topics: mutable aliasing bugs, how ownership prevents mutable aliasing, uniq
-    / shared vs immutable / mutable, Rc and Arc, interior mutability in depth,
+  - Topics: mutable aliasing bugs, how ownership prevents mutable aliasing, Sync
+    / Sync, uniq / shared vs immutable / mutable, Rc and Arc, interior
+    mutability in depth,
 
 - Lesson: Ownership and borrowing in practice
 
   - Readings:
     - [Rust - A Unique Perspective](https://limpet.net/mbrubeck/2019/02/07/rust-a-unique-perspective.html)
+    - [Too Many Linked Lists](https://cglab.ca/~abeinges/blah/too-many-lists/book)
 
   - Topics: when to use pass-by-value, the performance impact of moves,
     reference-bearing structs, (TODO: what other ownership and borrowing
@@ -185,6 +180,13 @@ A suggested workflow:
 - Lesson: Parallel Rust
 
   - Topics: sharing vs message passing, thread pools, (TODO what else?)
+
+- Lesson: Benchmarking, profiling, and debugging
+
+  - Topics: println debugging, RUST_BACKTRACE, perf, callgrind?, bpftrace?, criterion and critcmp, gdb and
+    Rust, blocking/ (http://www.brendangregg.com/offcpuanalysis.html), (TODO which
+    profiling / bloat tools?), std bench vs criterion, black_box and
+    alternatives, how does rust benchmarking work?,
 
 
 
@@ -208,9 +210,16 @@ A suggested workflow:
 
 - Lesson: Basic futures
 
-  - Topics: what are futures?, how to think in futures, futures patterns
+  - Readings
+    - [The What and How of Futures and async/await in Rust](https://www.youtube.com/watch?v=9_3krAQtD2k)
+
+  - Topics: what are futures?, how to think in futures, futures patterns,
+    mio? (probably should go somewhere before tokio)
 
 - Lesson: Async I/O with Tokio and Tower
+
+  - Readings:
+    - [The Tokio docs](https://tokio.rs/docs/) - todo maybe list specific sections
 
   - Topics: (TODO need to research further), alternatives to tokio
 

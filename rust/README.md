@@ -19,7 +19,6 @@ Subjects covered include:
 - Build scripts and the interaction between build-time and run-time
 - Insights into inner workings of the language and libraries
 - How to learn what you don't know about Rust and find what you need to find
-- ... and etc.
 
 Goals of this course are to convey knowledge relevant to real-world Rust
 programming, including inherited wisdom and best practices; to look "under the
@@ -29,7 +28,8 @@ to their questions on their own.
 
 Non-goals of this course include teaching installation, syntax and other Rust
 basics; teaching basic data structures and algorithms; being a comprehensive
-resource on the Rust language. That information is easily found [elsewhere].
+resource on the Rust language. That information is easily found in [The Rust
+Book].
 
 The course can be followed and completed online or delivered offline as a series
 of training sessions, and consists of
@@ -48,11 +48,13 @@ of training sessions, and consists of
 
 ## Audience - who is this course for?
 
-This course is for programmers with basic knowledge of data structures,
+_This book is not for novice programmers, but it is for novice Rust programmers._
+
+This course is for programmers with some knowledge of data structures,
 algorithms and I/O.
 
 This course is for programmers who have begun learning Rust, but still need
-guidance in real Rust programming and best practices.
+guidance in production Rust programming and best practices.
 
 This is a course for active learners &mdash; it will lead you in the right
 direction, but the journey is yours.
@@ -70,11 +72,10 @@ those who read only a little English can follow.
 
 Students should:
 
-- have experience in a programming language,
+- have intermediate-level experience in some programming language,
 - be familiar with the terminal and command line,
 - know how to use [git],
-- have attempted to learn and write Rust software using beginner-level sources,
-  such as [The Rust Book],
+- have read [The Rust Book],
 - have Rust installed and know how to compile and run Rust programs.
 
 [View the lesson plan][plan].
@@ -101,6 +102,13 @@ on your local computer, particularly for easy access to the conformance tests
 for each project.
 
 Get started now - [view the lesson plan][plan].
+
+## For instructors
+
+This _might_ be (or become) a useful teaching resource. As of yet it has
+not been tested at all in a live setting. There is no guidance within
+as to how to teach this course. And for now it is definitely not
+recommended to teach this course.
 
 ## Contributing
 
@@ -131,5 +139,5 @@ TODO
 [series of courses]: todo
 [PingCAP]: todo
 [Distributed Systems in Rust]: todo
-[elsewhere]: https://doc.rust-lang.org/
+[The Rust Book]: https://doc.rust-lang.org/book/
 [plan]: plan.md

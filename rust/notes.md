@@ -27,12 +27,14 @@ in the README.
 - Rust history, culture, design principles
 - rustfmt, clippy, configuring both
 - rust 2018?
+  - we'll just asume rust 2018 and not mention 2015 unless necessary
 - tools most rust programmers should know
 - build scripts
 - using RUSTFLAGS
 - debugging
 - profiling
 - how not to write Rust (bad practices from other languages)
+  - Ana likes this
 - variable shadowing
 - DSTs
 
@@ -41,11 +43,18 @@ in the README.
 - https://pdos.csail.mit.edu/6.824/schedule.html
   - The MIT distributed systems course this course
     is inspired by and intended to precede
-- https://github.com/brson/rust-three-days-course
-  - brson's fork with pingcap training slides
+- https://github.com/ferrous-sytems/rust-three-days-course
 - https://github.com/nrc/talks
 - https://docs.google.com/document/d/11P5f5VRKhS7ZOB5_sbnCKJLo_zor9BiwEAZ9GvVyHWE/edit#
   - previous brainstorming
+
+## Subjects to potentially cut
+
+- Whirlwind rust lesson
+- Parallelism section
+- Formatting lesson
+- Build time lesson
+- Collections and iterators
 
 ## TODO
 
