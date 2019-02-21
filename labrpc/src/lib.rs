@@ -293,7 +293,9 @@ impl Network {
 
     pub fn delete_server(&self, name: &str) {
         let mut eps = self.core.endpoints.lock().unwrap();
-        eps.servers.get_mut(name).map(|s| *s = None);
+        if let Some(s) = eps.servers.get_mut(name) {
+            *s = None;
+        }
     }
 
     pub fn create_client(&self, name: String) -> Client {
