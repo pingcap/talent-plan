@@ -142,7 +142,7 @@ fn test_fail_no_agree_2b() {
     let (index, _) = cfg.rafts[leader]
         .as_ref()
         .unwrap()
-        .start(&20)
+        .start(&Entry { x: 20 })
         .expect("leader rejected start");
     if index != 2 {
         panic!("expected index 2, got {}", index);
@@ -166,7 +166,7 @@ fn test_fail_no_agree_2b() {
     let (index2, _) = cfg.rafts[leader2]
         .as_ref()
         .unwrap()
-        .start(&30)
+        .start(&Entry { x: 30 })
         .expect("leader2 rejected start");
     if index2 < 2 || index2 > 3 {
         panic!("unexpected index {}", index2);
@@ -191,7 +191,7 @@ fn test_concurrent_starts_2b() {
         }
 
         let leader = cfg.check_one_leader();
-        let term = match cfg.rafts[leader].as_ref().unwrap().start(&1) {
+        let term = match cfg.rafts[leader].as_ref().unwrap().start(&Entry { x: 1 }) {
             Err(err) => {
                 warn!("start leader {} meet error {:?}", leader, err);
                 continue;
@@ -205,7 +205,7 @@ fn test_concurrent_starts_2b() {
             let tx = tx.clone();
             let node = cfg.rafts[leader].as_ref().unwrap().clone();
             let child = thread::spawn(move || {
-                match node.start(&(100 + i)) {
+                match node.start(&Entry { x: 100 + i }) {
                     Err(err) => {
                         warn!("start leader {} meet error {:?}", leader, err);
                         return;
@@ -283,9 +283,18 @@ fn test_rejoin_2b() {
     cfg.disconnect(leader1);
 
     // make old leader try to agree on some entries
-    let _ = cfg.rafts[leader1].as_ref().unwrap().start(&102);
-    let _ = cfg.rafts[leader1].as_ref().unwrap().start(&103);
-    let _ = cfg.rafts[leader1].as_ref().unwrap().start(&104);
+    let _ = cfg.rafts[leader1]
+        .as_ref()
+        .unwrap()
+        .start(&Entry { x: 102 });
+    let _ = cfg.rafts[leader1]
+        .as_ref()
+        .unwrap()
+        .start(&Entry { x: 103 });
+    let _ = cfg.rafts[leader1]
+        .as_ref()
+        .unwrap()
+        .start(&Entry { x: 104 });
 
     // new leader commits, also for index=2
     cfg.one(Entry { x: 103 }, 2, true);
@@ -331,10 +340,9 @@ fn test_backup_2b() {
 
     // submit lots of commands that won't commit
     for _i in 0..50 {
-        let _ = cfg.rafts[leader1]
-            .as_ref()
-            .unwrap()
-            .start(&random.gen::<i64>());
+        let _ = cfg.rafts[leader1].as_ref().unwrap().start(&Entry {
+            x: random.gen::<u64>(),
+        });
     }
 
     thread::sleep(RAFT_ELECTION_TIMEOUT / 2);
@@ -368,10 +376,9 @@ fn test_backup_2b() {
 
     // lots more commands that won't commit
     for _i in 0..50 {
-        let _ = cfg.rafts[leader2]
-            .as_ref()
-            .unwrap()
-            .start(&random.gen::<i64>());
+        let _ = cfg.rafts[leader2].as_ref().unwrap().start(&Entry {
+            x: random.gen::<u64>(),
+        });
     }
 
     thread::sleep(RAFT_ELECTION_TIMEOUT / 2);
@@ -446,7 +453,7 @@ fn test_count_2b() {
         total1 = rpcs(&cfg, servers);
 
         let iters = 10;
-        let (starti, term) = match cfg.rafts[leader].as_ref().unwrap().start(&1) {
+        let (starti, term) = match cfg.rafts[leader].as_ref().unwrap().start(&Entry { x: 1 }) {
             Ok((starti, term)) => (starti, term),
             Err(err) => {
                 warn!("start leader {} meet error {:?}", leader, err);
@@ -459,7 +466,7 @@ fn test_count_2b() {
         for i in 1..iters + 2 {
             let x = random.gen::<u64>();
             cmds.push(x);
-            match cfg.rafts[leader].as_ref().unwrap().start(&x) {
+            match cfg.rafts[leader].as_ref().unwrap().start(&Entry { x }) {
                 Ok((index1, term1)) => {
                     if term1 != term {
                         // Term changed while starting
@@ -692,7 +699,9 @@ fn test_figure_82c() {
                 if cfg.rafts[i]
                     .as_ref()
                     .unwrap()
-                    .start(&random.gen::<i64>())
+                    .start(&Entry {
+                        x: random.gen::<u64>(),
+                    })
                     .is_ok()
                 {
                     leader = i as i64;
@@ -801,7 +810,9 @@ fn test_figure_8_unreliable_2c() {
             if cfg.rafts[i]
                 .as_ref()
                 .unwrap()
-                .start(&(random.gen::<u64>() % 10000))
+                .start(&Entry {
+                    x: random.gen::<u64>() % 10000,
+                })
                 .is_ok()
                 && cfg.connected[i]
             {
@@ -880,7 +891,7 @@ fn internal_churn(unreliable: bool) {
                 // try them all, maybe one of them is a leader
                 match cfg.rafts.get(i) {
                     Some(rf) => {
-                        match rf.as_ref().unwrap().start(&x) {
+                        match rf.as_ref().unwrap().start(&Entry { x }) {
                             Ok((index1, _)) => {
                                 index = index1 as i64;
                                 ok = true;
