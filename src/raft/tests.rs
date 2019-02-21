@@ -85,13 +85,7 @@ fn test_basic_agree_2b() {
             panic!("some have committed before start()");
         }
 
-        let xindex = cfg.one(
-            Entry {
-                x: index as i64 * 100,
-            },
-            servers,
-            false,
-        );
+        let xindex = cfg.one(Entry { x: index * 100 }, servers, false);
         if xindex != index {
             panic!("got index {} but expected {}", xindex, index);
         }
@@ -239,19 +233,15 @@ fn test_concurrent_starts_2b() {
             }
         }
 
-        let mut failed = false;
         let mut cmds = vec![];
         for index in rx.iter() {
-            let cmd = cfg.wait(index, servers, Some(term as i64)).unwrap();
-            if cmd.x == -1 {
+            if let Some(cmd) = cfg.wait(index, servers, Some(term)) {
+                cmds.push(cmd.x);
+            } else {
                 // peers have moved on to later terms
                 // so we can't expect all Start()s to
                 // have succeeded
-                failed = true;
-                continue;
-            }
-            if !failed {
-                cmds.push(cmd.x);
+                break;
             }
         }
 
@@ -327,7 +317,7 @@ fn test_backup_2b() {
     let mut random = rand::thread_rng();
     cfg.one(
         Entry {
-            x: random.gen::<i64>(),
+            x: random.gen::<u64>(),
         },
         servers,
         true,
@@ -361,7 +351,7 @@ fn test_backup_2b() {
     for _i in 0..50 {
         cfg.one(
             Entry {
-                x: random.gen::<i64>(),
+                x: random.gen::<u64>(),
             },
             3,
             true,
@@ -398,7 +388,7 @@ fn test_backup_2b() {
     for _i in 0..50 {
         cfg.one(
             Entry {
-                x: random.gen::<i64>(),
+                x: random.gen::<u64>(),
             },
             3,
             true,
@@ -411,7 +401,7 @@ fn test_backup_2b() {
     }
     cfg.one(
         Entry {
-            x: random.gen::<i64>(),
+            x: random.gen::<u64>(),
         },
         servers,
         true,
@@ -467,7 +457,7 @@ fn test_count_2b() {
         let mut cmds = vec![];
         let mut random = rand::thread_rng();
         for i in 1..iters + 2 {
-            let x = random.gen::<i32>();
+            let x = random.gen::<u64>();
             cmds.push(x);
             match cfg.rafts[leader].as_ref().unwrap().start(&x) {
                 Ok((index1, term1)) => {
@@ -487,23 +477,11 @@ fn test_count_2b() {
         }
 
         for i in 1..iters + 1 {
-            match cfg.wait(starti + i, servers, Some(term as i64)) {
-                Some(ix) => {
-                    if ix.x != cmds[(i - 1) as usize] as i64 {
-                        if ix.x == -1 {
-                            continue 'outer;
-                        }
-                        panic!(
-                            "wrong value {:?} committed for index {}; expected {:?}",
-                            ix,
-                            starti + i,
-                            cmds
-                        );
-                    }
-                }
-                None => {
+            if let Some(ix) = cfg.wait(starti + i, servers, Some(term)) {
+                if ix.x != cmds[(i - 1) as usize] {
                     panic!(
-                        "wrong value None committed for index {}; expected {:?}",
+                        "wrong value {:?} committed for index {}; expected {:?}",
+                        ix,
                         starti + i,
                         cmds
                     );
@@ -700,7 +678,7 @@ fn test_figure_82c() {
     let mut random = rand::thread_rng();
     cfg.one(
         Entry {
-            x: random.gen::<i64>(),
+            x: random.gen::<u64>(),
         },
         1,
         true,
@@ -754,7 +732,7 @@ fn test_figure_82c() {
 
     cfg.one(
         Entry {
-            x: random.gen::<i64>(),
+            x: random.gen::<u64>(),
         },
         servers,
         true,
@@ -807,7 +785,7 @@ fn test_figure_8_unreliable_2c() {
     let mut random = rand::thread_rng();
     cfg.one(
         Entry {
-            x: random.gen::<i64>() % 10000,
+            x: random.gen::<u64>() % 10000,
         },
         1,
         true,
@@ -863,7 +841,7 @@ fn test_figure_8_unreliable_2c() {
 
     cfg.one(
         Entry {
-            x: random.gen::<i64>() % 10000,
+            x: random.gen::<u64>() % 10000,
         },
         servers,
         true,
@@ -887,7 +865,7 @@ fn internal_churn(unreliable: bool) {
     fn cfn(
         me: usize,
         stop_clone: Arc<AtomicUsize>,
-        tx: Sender<Option<Vec<i64>>>,
+        tx: Sender<Option<Vec<u64>>>,
         cfg: Config,
         servers: usize,
     ) {
@@ -895,7 +873,7 @@ fn internal_churn(unreliable: bool) {
         let mut values = vec![];
         while stop_clone.load(Ordering::SeqCst) == 0 {
             let mut random = rand::thread_rng();
-            let x = random.gen::<i64>();
+            let x = random.gen::<u64>();
             let mut index: i64 = -1;
             let mut ok = false;
             for i in 0..servers {
@@ -1003,7 +981,7 @@ fn internal_churn(unreliable: bool) {
 
     let last_index = cfg.one(
         Entry {
-            x: random.gen::<i64>(),
+            x: random.gen::<u64>(),
         },
         servers,
         true,
@@ -1011,7 +989,7 @@ fn internal_churn(unreliable: bool) {
 
     let mut really = vec![];
     for index in 1..=last_index {
-        let v = cfg.wait(index, servers, Some(-1)).unwrap();
+        let v = cfg.wait(index, servers, None).unwrap();
         really.push(v.x);
     }
 

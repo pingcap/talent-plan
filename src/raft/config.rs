@@ -20,8 +20,8 @@ fn uniqstring() -> String {
 /// A log entry.
 #[derive(Clone, PartialEq, Message)]
 pub struct Entry {
-    #[prost(int64, tag = "100")]
-    pub x: i64,
+    #[prost(uint64, tag = "100")]
+    pub x: u64,
 }
 
 struct Storage {
@@ -198,7 +198,7 @@ impl Config {
 
     // wait for at least n servers to commit.
     // but don't wait forever.
-    pub fn wait(&self, index: u64, n: usize, start_term: Option<i64>) -> Option<Entry> {
+    pub fn wait(&self, index: u64, n: usize, start_term: Option<u64>) -> Option<Entry> {
         let mut to = Duration::from_millis(10);
         for _ in 0..30 {
             let (nd, _) = self.n_committed(index);
@@ -213,7 +213,7 @@ impl Config {
                 for r in &self.rafts {
                     if let Some(rf) = r {
                         let term = rf.term();
-                        if term as i64 > start_term {
+                        if term > start_term {
                             // someone has moved on
                             // can no longer guarantee that we'll "win"
                             return None;
