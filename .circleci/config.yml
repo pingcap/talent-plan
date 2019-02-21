@@ -8,9 +8,11 @@ jobs:
       RUSTFLAGS: "-Dwarnings"
     steps:
       - checkout
+      - run: rustup component add clippy-preview rustfmt-preview
+      - run: cargo fmt --all -- --check
       - run: cargo clippy --all -- -D clippy::all
 
- workflows:
+workflows:
   version: 2
   ci-test:
       jobs:
