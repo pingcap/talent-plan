@@ -306,11 +306,11 @@ impl Config {
     // was no failure.
     // print the Passed message,
     // and some performance numbers.
-    pub fn end(&mut self) {
+    pub fn end(&self) {
         self.check_timeout();
 
         // real time
-        let t = Instant::now() - self.t0;
+        let t = self.t0.elapsed();
         // number of Raft peers
         let npeers = self.n;
         // number of RPC sends
