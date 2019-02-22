@@ -715,15 +715,19 @@ fn test_figure_82c() {
 #[test]
 fn test_unreliable_agree_2c() {
     let servers = 5;
-    let mut cfg = Config::new(servers, true);
 
-    cfg.begin("Test (2C): unreliable agreement");
+    let cfg = {
+        let mut cfg = Config::new(servers, true);
+        cfg.begin("Test (2C): unreliable agreement");
+        Arc::new(cfg)
+    };
 
-    let mut v = vec![];
+    let mut dones = vec![];
     for iters in 1..50 {
         for j in 0..4 {
             let c = cfg.clone();
-            let child = thread::spawn(move || {
+            let (tx, rx) = oneshot::channel();
+            cfg.net.spawn(future::lazy(move || {
                 c.one(
                     Entry {
                         x: (100 * iters) + j,
@@ -731,17 +735,17 @@ fn test_unreliable_agree_2c() {
                     1,
                     true,
                 );
-            });
-            v.push(child);
+                tx.send(()).map_err(|e| panic!("send failed: {:?}", e))
+            }));
+            dones.push(rx);
         }
         cfg.one(Entry { x: iters }, 1, true);
     }
 
     cfg.net.set_reliable(false);
 
-    for child in v {
-        child.join().is_ok();
-    }
+    future::join_all(dones).wait().unwrap();
+
     cfg.one(Entry { x: 100 }, servers, true);
 
     cfg.end();
@@ -767,7 +771,7 @@ fn test_figure_8_unreliable_2c() {
         if iters == 200 {
             cfg.net.set_long_reordering(true);
         }
-        let mut leader: i64 = -1;
+        let mut leader = None;
         for i in 0..servers {
             if cfg.rafts[i]
                 .as_ref()
@@ -778,7 +782,7 @@ fn test_figure_8_unreliable_2c() {
                 .is_ok()
                 && cfg.connected[i]
             {
-                leader = i as i64
+                leader = Some(i);
             }
         }
 
@@ -790,16 +794,16 @@ fn test_figure_8_unreliable_2c() {
             thread::sleep(Duration::from_millis(ms));
         }
 
-        if leader != -1
-            && (random.gen::<usize>() % 1000) < (RAFT_ELECTION_TIMEOUT.as_millis() as usize) / 2
-        {
-            cfg.disconnect(leader as usize);
-            nup -= 1
+        if let Some(leader) = leader {
+            if (random.gen::<usize>() % 1000) < (RAFT_ELECTION_TIMEOUT.as_millis() as usize) / 2 {
+                cfg.disconnect(leader);
+                nup -= 1;
+            }
         }
 
         if nup < 3 {
             let s = random.gen::<usize>() % servers;
-            if cfg.connected[s] == false {
+            if !cfg.connected[s] {
                 cfg.connect(s);
                 nup += 1;
             }
@@ -807,7 +811,7 @@ fn test_figure_8_unreliable_2c() {
     }
 
     for i in 0..servers {
-        if cfg.connected[i] == false {
+        if !cfg.connected[i] {
             cfg.connect(i);
         }
     }
@@ -867,7 +871,7 @@ fn internal_churn(unreliable: bool) {
             if ok {
                 // maybe leader will commit our value, maybe not.
                 // but don't wait forever.
-                for to in vec![10, 20, 50, 100, 200] {
+                for to in &[10, 20, 50, 100, 200] {
                     let (nd, cmd) = cfg.n_committed(index as u64);
                     if nd > 0 {
                         match cmd {
@@ -880,13 +884,13 @@ fn internal_churn(unreliable: bool) {
                         }
                         break;
                     }
-                    thread::sleep(Duration::from_millis(to));
+                    thread::sleep(Duration::from_millis(*to));
                 }
             } else {
                 thread::sleep(Duration::from_millis((79 + me * 17) as u64));
             }
         }
-        if values.len() > 0 {
+        if !values.is_empty() {
             tx.send(Some(values)).unwrap();
         } else {
             tx.send(None).unwrap();
@@ -967,9 +971,7 @@ fn internal_churn(unreliable: bool) {
                 ok = true;
             }
         }
-        if ok == false {
-            panic!("didn't find a value");
-        }
+        assert!(ok, "didn't find a value");
     }
 
     cfg.end()
