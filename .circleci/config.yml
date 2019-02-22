@@ -10,7 +10,7 @@ jobs:
       - checkout
       - run: rustup component add clippy-preview rustfmt-preview
       - run: cargo fmt --all -- --check
-      - run: cargo clippy --all -- -D clippy::all
+      - run: cargo clippy --all --tests -- -D clippy::all
 
 workflows:
   version: 2

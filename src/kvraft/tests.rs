@@ -136,27 +136,25 @@ fn partitioner(
     fn delay(r: u64) -> Delay {
         Delay::new(RAFT_ELECTION_TIMEOUT + Duration::from_millis(r % 200))
     }
+
+    // Context of the poll_fn.
+    let mut all = cfg.all();
+    let mut sleep = None;
+    let mut is_parked = false;
     future::poll_fn(move || {
         let mut rng = rand::thread_rng();
-        let mut sleep = delay(rng.gen::<u64>());
         while done.load(Ordering::Relaxed) == 0 {
-            let mut a = vec![0; cfg.n];
-            for i in 0..cfg.n {
-                a[i] = rng.gen::<u32>() % 2;
+            if !is_parked {
+                rng.shuffle(&mut all);
+                let offset = rng.gen_range(0, cfg.n);
+                cfg.partition(&all[..offset], &all[offset..]);
+                sleep = Some(delay(rng.gen::<u64>()));
             }
-            let mut pa = [vec![], vec![]];
-            for i in 0..2usize {
-                for j in 0..cfg.n {
-                    if a[j] == i as u32 {
-                        pa[i].push(j);
-                    }
-                }
-            }
-            cfg.partition(&pa[0], &pa[1]);
-            futures::try_ready!(sleep.poll().map_err(|e| {
+            is_parked = true;
+            futures::try_ready!(sleep.as_mut().unwrap().poll().map_err(|e| {
                 panic!("sleep failed: {:?}", e);
             }));
-            sleep = delay(rng.gen::<u64>());
+            is_parked = false;
         }
         ch.send(true).unwrap();
         Ok(futures::Async::Ready(()))
@@ -305,9 +303,9 @@ fn generic_test(
         }
 
         debug!("wait for clients");
-        for i in 0..nclients {
+        for (i, clnt_rx) in clnt_rxs.iter().enumerate() {
             debug!("read from clients {}", i);
-            let j = clnt_rxs[i].try_recv().unwrap();
+            let j = clnt_rx.try_recv().unwrap();
             if j < 10 {
                 debug!(
                     "Warning: client {} managed to perform only {} put operations in 1 sec?",

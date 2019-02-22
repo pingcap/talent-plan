@@ -1,3 +1,5 @@
+#![allow(clippy::identity_op)]
+
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Sender};
 use std::sync::Arc;
@@ -260,18 +262,14 @@ fn test_concurrent_starts_2b() {
                     ok = true;
                 }
             }
-            if ok == false {
-                panic!("cmd {} missing in {:?}", x, cmds)
-            }
+            assert!(ok, "cmd {} missing in {:?}", x, cmds)
         }
 
         success = true;
         break;
     }
 
-    if !success {
-        panic!("term changed too often");
-    }
+    assert!(success, "term changed too often");
 
     cfg.end();
 }
@@ -465,7 +463,7 @@ fn test_count_2b() {
             }
         }
 
-        for i in 1..iters + 1 {
+        for i in 1..=iters {
             if let Some(ix) = cfg.wait(starti + i, SERVERS, Some(term)) {
                 if ix.x != cmds[(i - 1) as usize] {
                     panic!(
