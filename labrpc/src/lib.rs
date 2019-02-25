@@ -22,9 +22,6 @@ extern crate rand;
 extern crate prost_derive;
 #[cfg(test)]
 extern crate env_logger;
-#[cfg(test)]
-#[macro_use]
-extern crate lazy_static;
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{sync_channel, SyncSender};
@@ -662,7 +659,7 @@ impl Future for ServerDead {
 #[cfg(test)]
 mod tests {
     use std::sync::mpsc::RecvError;
-    use std::sync::{mpsc, Mutex};
+    use std::sync::{mpsc, Mutex, Once};
     use std::thread;
 
     use test;
@@ -727,13 +724,14 @@ mod tests {
         }
     }
 
-    lazy_static! {
-        static ref LOGGER_INIT: () = env_logger::init();
+    fn init_logger() {
+        static LOGGER_INIT: Once = Once::new();
+        LOGGER_INIT.call_once(env_logger::init);
     }
 
     #[test]
     fn test_service_dispatch() {
-        *LOGGER_INIT;
+        init_logger();
 
         let mut builder = ServerBuilder::new("test".to_owned());
         let junk = JunkService::new();
@@ -774,7 +772,7 @@ mod tests {
 
     #[test]
     fn test_network_client_rpc() {
-        *LOGGER_INIT;
+        init_logger();
 
         let mut builder = ServerBuilder::new("test".to_owned());
         let junk = JunkService::new();
@@ -818,7 +816,7 @@ mod tests {
 
     #[test]
     fn test_basic() {
-        *LOGGER_INIT;
+        init_logger();
 
         let (net, _, _) = junk_suit();
 
@@ -838,7 +836,7 @@ mod tests {
     // does net.Enable(endname, false) really disconnect a client?
     #[test]
     fn test_disconnect() {
-        // *LOGGER_INIT;
+        init_logger();
 
         let (net, _, _) = junk_suit();
 
@@ -861,7 +859,7 @@ mod tests {
     // test net.GetCount()
     #[test]
     fn test_count() {
-        // *LOGGER_INIT;
+        init_logger();
 
         let (net, _, _) = junk_suit();
 
@@ -880,7 +878,7 @@ mod tests {
     // test RPCs from concurrent Clients
     #[test]
     fn test_concurrent_many() {
-        *LOGGER_INIT;
+        init_logger();
 
         let (net, server, _) = junk_suit();
         let server_name = server.name();
@@ -936,7 +934,7 @@ mod tests {
 
     #[test]
     fn test_unreliable() {
-        *LOGGER_INIT;
+        init_logger();
 
         let (net, server, _) = junk_suit();
         let server_name = server.name();
@@ -981,7 +979,7 @@ mod tests {
     // test concurrent RPCs from a single Client
     #[test]
     fn test_concurrent_one() {
-        *LOGGER_INIT;
+        init_logger();
 
         let (net, server, junk_server) = junk_suit();
         let server_name = server.name();
@@ -1032,7 +1030,7 @@ mod tests {
     // should not delay subsequent RPCs (e.g. after Enabled=true).
     #[test]
     fn test_regression1() {
-        *LOGGER_INIT;
+        init_logger();
 
         let (net, server, junk_server) = junk_suit();
         let server_name = server.name();
@@ -1065,7 +1063,7 @@ mod tests {
         thread::sleep(time::Duration::from_millis(100 * 3));
 
         let t0 = time::Instant::now();
-        net.enable(client_name.clone(), true);
+        net.enable(client_name, true);
         let x = 99;
         let reply = client.handler2(&JunkArgs { x }).unwrap();
         assert_eq!(reply.x, format!("handler2-{}", x));
@@ -1096,7 +1094,7 @@ mod tests {
     // get un-stuck?
     #[test]
     fn test_killed() {
-        *LOGGER_INIT;
+        init_logger();
 
         let (net, server, _junk_server) = junk_suit();
         let server_name = server.name();
