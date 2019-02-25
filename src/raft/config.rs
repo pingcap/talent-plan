@@ -24,26 +24,47 @@ pub struct Entry {
     pub x: u64,
 }
 
-struct Storage {
+pub struct Storage {
     // copy of each server's committed entries
     logs: Vec<HashMap<u64, Entry>>,
     max_index: u64,
     max_index0: u64,
 }
 
-#[derive(Clone)]
+impl Storage {
+    // how many servers think a log entry is committed?
+    pub fn n_committed(&self, index: u64) -> (usize, Option<Entry>) {
+        let mut count = 0;
+        let mut cmd = None;
+        for log in &self.logs {
+            let cmd1 = log.get(&index).cloned();
+            if cmd1.is_some() {
+                if count > 0 && cmd != cmd1 {
+                    panic!(
+                        "committed values do not match: index {:?}, {:?}, {:?}",
+                        index, cmd, cmd1
+                    );
+                }
+                count += 1;
+                cmd = cmd1;
+            }
+        }
+        (count, cmd)
+    }
+}
+
 pub struct Config {
     pub net: labrpc::Network,
     n: usize,
-    pub rafts: Vec<Option<raft::Node>>,
-    // applyErr:  []string // from apply channel readers
+    // use boxed slice to prohibit grow capacity.
+    pub rafts: Arc<Mutex<Box<[Option<raft::Node>]>>>,
     // whether each server is on the net
-    pub connected: Vec<bool>,
-    saved: Vec<Arc<SimplePersister>>,
+    pub connected: Box<[bool]>,
+    saved: Box<[Arc<SimplePersister>]>,
     // the port file names each sends to
-    endnames: Vec<Vec<String>>,
+    endnames: Box<[Box<[String]>]>,
 
-    storage: Arc<Mutex<Storage>>,
+    pub storage: Arc<Mutex<Storage>>,
 
     // time at which make_config() was called
     start: Instant,
@@ -68,13 +89,19 @@ impl Config {
             max_index: 0,
             max_index0: 0,
         };
+        let mut saved = vec![];
+        let mut endnames = vec![];
+        for _ in 0..n {
+            endnames.push(vec![String::new(); n].into_boxed_slice());
+            saved.push(Arc::new(SimplePersister::new()));
+        }
         let mut cfg = Config {
             net,
             n,
-            rafts: vec![None; n],
-            connected: vec![true; n],
-            saved: (0..n).map(|_| Arc::new(SimplePersister::new())).collect(),
-            endnames: vec![vec![String::new(); n]; n],
+            rafts: Arc::new(Mutex::new(vec![None; n].into_boxed_slice())),
+            connected: vec![true; n].into_boxed_slice(),
+            saved: saved.into_boxed_slice(),
+            endnames: endnames.into_boxed_slice(),
             storage: Arc::new(Mutex::new(storage)),
 
             start: Instant::now(),
@@ -113,8 +140,13 @@ impl Config {
 
             for (i, connected) in self.connected.iter().enumerate() {
                 if *connected {
-                    let term = self.rafts[i].as_ref().unwrap().term();
-                    let is_leader = self.rafts[i].as_ref().unwrap().is_leader();
+                    let state = self.rafts.lock().unwrap()[i]
+                        .as_ref()
+                        .unwrap()
+                        .state
+                        .clone();
+                    let term = state.term();
+                    let is_leader = state.is_leader();
                     if is_leader {
                         leaders.entry(term).or_insert_with(Vec::new).push(i);
                     }
@@ -144,7 +176,7 @@ impl Config {
         let mut term = 0;
         for (i, connected) in self.connected.iter().enumerate() {
             if *connected {
-                let xterm = self.rafts[i].as_ref().unwrap().term();
+                let xterm = self.rafts.lock().unwrap()[i].as_ref().unwrap().term();
                 if term == 0 {
                     term = xterm;
                 } else if term != xterm {
@@ -159,7 +191,7 @@ impl Config {
     pub fn check_no_leader(&self) {
         for (i, connected) in self.connected.iter().enumerate() {
             if *connected {
-                let is_leader = self.rafts[i].as_ref().unwrap().is_leader();
+                let is_leader = self.rafts.lock().unwrap()[i].as_ref().unwrap().is_leader();
                 if is_leader {
                     panic!("expected no leader, but {} claims to be leader", i);
                 }
@@ -169,31 +201,15 @@ impl Config {
 
     fn check_timeout(&self) {
         // enforce a two minute real-time limit on each test
-        if Instant::now() - self.start > Duration::from_secs(120) {
+        if self.start.elapsed() > Duration::from_secs(120) {
             panic!("test took longer than 120 seconds");
         }
     }
 
     // how many servers think a log entry is committed?
     pub fn n_committed(&self, index: u64) -> (usize, Option<Entry>) {
-        let mut count = 0;
-        let mut cmd = None;
         let s = self.storage.lock().unwrap();
-        for (i, _) in self.rafts.iter().enumerate() {
-            let cmd1 = s.logs[i].get(&index).cloned();
-
-            if cmd1.is_some() {
-                if count > 0 && cmd != cmd1 {
-                    panic!(
-                        "committed values do not match: index {:?}, {:?}, {:?}",
-                        index, cmd, cmd1
-                    );
-                }
-                count += 1;
-                cmd = cmd1;
-            }
-        }
-        (count, cmd)
+        s.n_committed(index)
     }
 
     // wait for at least n servers to commit.
@@ -210,7 +226,8 @@ impl Config {
                 to *= 2;
             }
             if let Some(start_term) = start_term {
-                for r in &self.rafts {
+                let rafts = self.rafts.lock().unwrap();
+                for r in rafts.iter() {
                     if let Some(rf) = r {
                         let term = rf.term();
                         if term > start_term {
@@ -250,7 +267,8 @@ impl Config {
             for _ in 0..self.n {
                 starts = (starts + 1) % self.n;
                 if self.connected[starts] {
-                    if let Some(ref rf) = &self.rafts[starts] {
+                    let rafts = self.rafts.lock().unwrap();
+                    if let Some(ref rf) = &rafts[starts] {
                         match rf.start(&cmd) {
                             Ok((index1, _)) => {
                                 index = Some(index1);
@@ -334,7 +352,7 @@ impl Config {
 
         // a fresh set of outgoing ClientEnd names.
         // so that old crashed instance's ClientEnds can't send.
-        self.endnames[i] = vec![String::new(); self.n];
+        self.endnames[i] = vec![String::new(); self.n].into_boxed_slice();
         for j in 0..self.n {
             self.endnames[i][j] = uniqstring();
         }
@@ -394,7 +412,7 @@ impl Config {
 
         let rf = raft::Raft::new(clients, i, Box::new(self.saved[i].clone()), tx);
         let node = raft::Node::new(rf);
-        self.rafts[i] = Some(node.clone());
+        self.rafts.lock().unwrap()[i] = Some(node.clone());
 
         let mut builder = labrpc::ServerBuilder::new(format!("{}", i));
         raft::add_raft_service(node, &mut builder).unwrap();
@@ -416,7 +434,7 @@ impl Config {
         p.save_raft_state(self.saved[i].raft_state());
         self.saved[i] = Arc::new(p);
 
-        if let Some(rf) = self.rafts[i].take() {
+        if let Some(rf) = self.rafts.lock().unwrap()[i].take() {
             rf.kill();
         }
     }
@@ -428,12 +446,12 @@ impl Config {
         self.connected[i] = false;
 
         // outgoing ClientEnds
-        for endname in &self.endnames[i] {
+        for endname in &*self.endnames[i] {
             self.net.enable(endname, false);
         }
 
         // incoming ClientEnds
-        for names in &self.endnames {
+        for names in &*self.endnames {
             let endname = &names[i];
             self.net.enable(endname, false);
         }
@@ -448,7 +466,7 @@ impl Config {
         // outgoing ClientEnds
         for (j, connected) in self.connected.iter().enumerate() {
             if *connected {
-                let endname = &self.endnames[i][j];
+                let endname = &*self.endnames[i][j];
                 self.net.enable(endname, true);
             }
         }
@@ -456,7 +474,7 @@ impl Config {
         // incoming ClientEnds
         for (j, connected) in self.connected.iter().enumerate() {
             if *connected {
-                let endname = &self.endnames[j][i];
+                let endname = &*self.endnames[j][i];
                 self.net.enable(endname, true);
             }
         }
@@ -465,9 +483,11 @@ impl Config {
 
 impl Drop for Config {
     fn drop(&mut self) {
-        for r in &self.rafts {
-            if let Some(rf) = r {
-                rf.kill();
+        if let Ok(rafts) = self.rafts.try_lock() {
+            for r in rafts.iter() {
+                if let Some(rf) = r {
+                    rf.kill();
+                }
             }
         }
         self.check_timeout();
