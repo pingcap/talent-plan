@@ -393,6 +393,7 @@ fn test_unreliable_one_key_3a() {
 // Submit a request in the minority partition and check that the requests
 // doesn't go through until the partition heals. The leader in the original
 // network ends up in the minority partition.
+#[test]
 fn test_one_partition_3a() {
     let nservers = 5;
     let cfg = Config::new(nservers, false, None);
@@ -545,6 +546,113 @@ fn test_persist_partition_3a() {
 fn test_persist_partition_unreliable_3a() {
     // Test: unreliable net, restarts, partitions, many clients (3A) ...
     generic_test("3A", 5, true, true, true, None)
+}
+
+// if one server falls behind, then rejoins, does it
+// recover by using the InstallSnapshot RPC?
+// also checks that majority discards committed log entries
+// even if minority doesn't respond.
+#[test]
+fn test_snapshot_rpc_3b() {
+    let nservers = 3;
+    let maxraftstate = 1000;
+    let cfg = Config::new(nservers, false, Some(maxraftstate));
+
+    let all = cfg.all();
+    let ck = cfg.make_client(&all);
+
+    cfg.begin("Test: InstallSnapshot RPC (3B)");
+
+    put(&cfg, &ck, "a", "A");
+    check(&cfg, &ck, "a", "A");
+
+    // a bunch of puts into the majority partition.
+    cfg.partition(&[0, 1], &[2]);
+    {
+        let ck1 = cfg.make_client(&[0, 1]);
+        for i in 0..50 {
+            put(&cfg, &ck1, &format!("{}", i), &format!("{}", i));
+        }
+        thread::sleep(RAFT_ELECTION_TIMEOUT);
+        put(&cfg, &ck1, "b", "B");
+    }
+
+    // check that the majority partition has thrown away
+    // most of its log entries.
+    if cfg.log_size() > 2 * maxraftstate {
+        panic!(
+            "logs were not trimmed ({} > 2*{})",
+            cfg.log_size(),
+            maxraftstate
+        );
+    }
+
+    // now make group that requires participation of
+    // lagging server, so that it has to catch up.
+    cfg.partition(&[0, 2], &[1]);
+    {
+        let ck1 = cfg.make_client(&[0, 2]);
+        put(&cfg, &ck1, "c", "C");
+        put(&cfg, &ck1, "d", "D");
+        check(&cfg, &ck1, "a", "A");
+        check(&cfg, &ck1, "b", "B");
+        check(&cfg, &ck1, "1", "1");
+        check(&cfg, &ck1, "49", "49");
+    }
+
+    // now everybody
+    cfg.partition(&[0, 1, 2], &[]);
+
+    put(&cfg, &ck, "e", "E");
+    check(&cfg, &ck, "c", "C");
+    check(&cfg, &ck, "e", "E");
+    check(&cfg, &ck, "1", "1");
+
+    cfg.check_timeout();
+    cfg.end();
+}
+
+// are the snapshots not too huge? 500 bytes is a generous bound for the
+// operations we're doing here.
+#[test]
+fn test_snapshot_size_3b() {
+    let nservers = 3;
+    let maxraftstate = 1000;
+    let maxsnapshotstate = 500;
+    let cfg = Config::new(nservers, false, Some(maxraftstate));
+
+    let all = cfg.all();
+    let ck = cfg.make_client(&all);
+
+    cfg.begin("Test: snapshot size is reasonable (3B)");
+
+    for i in 0..200 {
+        put(&cfg, &ck, "x", "0");
+        check(&cfg, &ck, "x", "0");
+        put(&cfg, &ck, "x", "1");
+        check(&cfg, &ck, "x", "1");
+    }
+
+    // check that servers have thrown away most of their log entries
+    if cfg.log_size() > 2 * maxraftstate {
+        panic!(
+            "logs were not trimmed ({} > 2*{})",
+            cfg.log_size(),
+            maxraftstate,
+        )
+    }
+
+    // check that the snapshots are not unreasonably large
+    if cfg.snapshot_size() > maxsnapshotstate {
+        panic!(
+            "snapshot too large ({} > {})",
+            cfg.snapshot_size(),
+            maxsnapshotstate,
+        )
+    }
+
+    cfg.check_timeout();
+    cfg.end();
 }
 
 #[test]
