@@ -11,6 +11,8 @@ jobs:
       - run: rustup component add clippy-preview rustfmt-preview
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all --tests -- -D clippy::all
+      - run: cargo test -p labcodec -p labrpc
+      - run: cargo test -- --test raft::persister
 
 workflows:
   version: 2
