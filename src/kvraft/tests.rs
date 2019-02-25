@@ -17,24 +17,24 @@ use kvraft::config::Config;
 const RAFT_ELECTION_TIMEOUT: Duration = Duration::from_millis(1000);
 
 // get/put/putappend that keep counts
-fn get(cfg: &Config, ck: &Clerk, key: String) -> String {
-    let v = ck.get(key);
+fn get(cfg: &Config, ck: &Clerk, key: &str) -> String {
+    let v = ck.get(key.to_owned());
     cfg.op();
     v
 }
 
-fn put(cfg: &Config, ck: &Clerk, key: String, value: String) {
-    ck.put(key, value);
+fn put(cfg: &Config, ck: &Clerk, key: &str, value: &str) {
+    ck.put(key.to_owned(), value.to_owned());
     cfg.op();
 }
 
-fn append(cfg: &Config, ck: &Clerk, key: String, value: String) {
-    ck.append(key, value);
+fn append(cfg: &Config, ck: &Clerk, key: &str, value: &str) {
+    ck.append(key.to_owned(), value.to_owned());
     cfg.op();
 }
 
-fn check(cfg: &Config, ck: &Clerk, key: String, value: String) {
-    let v = get(cfg, ck, key.clone());
+fn check(cfg: &Config, ck: &Clerk, key: &str, value: &str) {
+    let v = get(cfg, ck, key);
     if v != value {
         panic!("get({:?}): expected:\n{:?}\nreceived:\n{:?}", key, value, v);
     }
@@ -235,17 +235,17 @@ fn generic_test(
                     let mut rng = rand::thread_rng();
                     let mut last = String::new();
                     let key = format!("{}", cli);
-                    put(&cfg1, myck, key.clone(), last.clone());
+                    put(&cfg1, myck, &key, &last);
                     while done_clients1.load(Ordering::Relaxed) == 0 {
                         if (rng.gen::<u32>() % 1000) < 500 {
                             let nv = format!("x {} {} y", cli, i);
                             debug!("{}: client new append {}", cli, nv);
                             last = next_value(last, &nv);
-                            append(&cfg1, myck, key.clone(), nv);
+                            append(&cfg1, myck, &key, &nv);
                             j += 1;
                         } else {
                             debug!("{}: client new get {:?}", cli, key);
-                            let v = get(&cfg1, myck, key.clone());
+                            let v = get(&cfg1, &myck, &key);
                             if v != last {
                                 panic!(
                                     "get wrong value, key {:?}, wanted:\n{:?}\n, got\n{:?}",
@@ -314,7 +314,7 @@ fn generic_test(
             }
             let key = format!("{}", i);
             debug!("Check {:?} for client {}", j, i);
-            let v = get(&cfg, &ck, key);
+            let v = get(&cfg, &ck, &key);
             check_clnt_appends(i, v, j);
         }
 
@@ -351,6 +351,158 @@ fn test_concurrent_3a() {
 fn test_unreliable_3a() {
     // Test: unreliable net, many clients (3A) ...
     generic_test("3A", 5, true, false, false, None)
+}
+
+#[test]
+fn test_unreliable_one_key_3a() {
+    let nservers = 3;
+    let cfg = {
+        let mut cfg = Config::new(nservers, true, None);
+        cfg.begin("Test: concurrent append to same key, unreliable (3A)");
+        Arc::new(cfg)
+    };
+
+    let all = cfg.all();
+    let ck = cfg.make_client(&all);
+
+    put(&cfg, &ck, "k", "");
+
+    let cfg_ = cfg.clone();
+    let nclient = 5;
+    let upto = 10;
+    spawn_clients_and_wait(cfg.clone(), nclient, move || {
+        let cfg1 = cfg_.clone();
+        move |me, myck| {
+            for n in 0..upto {
+                append(&cfg1, myck, "k", &format!("x {} {} y", me, n));
+            }
+        }
+    })
+    .wait()
+    .unwrap();
+
+    let counts = vec![upto; nclient];
+
+    let vx = get(&cfg, &ck, "k");
+    check_concurrent_appends(vx, &counts);
+
+    cfg.check_timeout();
+    cfg.end();
+}
+
+// Submit a request in the minority partition and check that the requests
+// doesn't go through until the partition heals. The leader in the original
+// network ends up in the minority partition.
+fn test_one_partition_3a() {
+    let nservers = 5;
+    let cfg = Config::new(nservers, false, None);
+
+    let all = cfg.all();
+    let ck = cfg.make_client(&all);
+
+    put(&cfg, &ck, "1", "13");
+
+    cfg.begin("Test: progress in majority (3A)");
+
+    let (p1, p2) = cfg.make_partition();
+    cfg.partition(&p1, &p2);
+
+    // connect ckp1 to p1
+    let ckp1 = cfg.make_client(&p1);
+    // connect ckp2a to p2
+    let ckp2a = cfg.make_client(&p2);
+    let ckp2a_name = ckp2a.name.clone();
+    // connect ckp2b to p2
+    let ckp2b = cfg.make_client(&p2);
+    let ckp2b_name = ckp2b.name.clone();
+
+    put(&cfg, &ckp1, "1", "14");
+    check(&cfg, &ckp1, "1", "14");
+
+    cfg.end();
+
+    let (done0_tx, done0_rx) = oneshot::channel::<&'static str>();
+    let (done1_tx, done1_rx) = oneshot::channel::<&'static str>();
+
+    cfg.begin("Test: no progress in minority (3A)");
+    cfg.net.spawn(future::lazy(move || {
+        ckp2a.put("1".to_owned(), "15".to_owned());
+        done0_tx.send("put").map_err(|e| {
+            warn!("done0 send failed: {:?}", e);
+        })
+    }));
+    let done0_rx = done0_rx.map(|op| {
+        cfg.op();
+        op
+    });
+
+    cfg.net.spawn(future::lazy(move || {
+        // different clerk in p2
+        ckp2b.get("1".to_owned());
+        done1_tx.send("get").map_err(|e| {
+            warn!("done0 send failed: {:?}", e);
+        })
+    }));
+    let done1_rx = done1_rx.map(|op| {
+        cfg.op();
+        op
+    });
+
+    let timeout = Delay::new(Duration::from_secs(1));
+
+    let dones = timeout
+        .select2(done0_rx.select(done1_rx))
+        .map(|res| match res {
+            future::Either::A((_, dones)) => dones,
+            future::Either::B(((op, _), _)) => panic!("{} in minority completed", op),
+        })
+        .map_err(|_| panic!("unexpect error"))
+        .wait()
+        .unwrap();
+
+    check(&cfg, &ckp1, "1", "14");
+    put(&cfg, &ckp1, "1", "16");
+    check(&cfg, &ckp1, "1", "16");
+
+    cfg.end();
+
+    cfg.begin("Test: completion after heal (3A)");
+
+    cfg.connect_all();
+    cfg.connect_client_by_name(&ckp2a_name, &all);
+    cfg.connect_client_by_name(&ckp2b_name, &all);
+
+    thread::sleep(RAFT_ELECTION_TIMEOUT);
+
+    let timeout = Delay::new(Duration::from_secs(3));
+    let (timeout, next) = timeout
+        .select2(dones)
+        .map(|res| match res {
+            future::Either::A(_) => panic!("put/get did not complete"),
+            future::Either::B(((op, next), timeout)) => {
+                info!("{} completes", op);
+                (timeout, next)
+            }
+        })
+        .map_err(|_| panic!("unexpect error"))
+        .wait()
+        .unwrap();
+
+    timeout
+        .select2(next)
+        .map(|res| match res {
+            future::Either::A(_) => panic!("put/get did not complete"),
+            future::Either::B((op, _)) => {
+                info!("{} completes", op);
+            }
+        })
+        .map_err(|_| panic!("unexpect error"))
+        .wait()
+        .unwrap();
+
+    check(&cfg, &ck, "1", "15");
+
+    cfg.end();
 }
 
 #[test]

@@ -210,9 +210,13 @@ impl Config {
     }
 
     pub fn connect_client(&self, ck: &client::Clerk, to: &[usize]) {
-        debug!("connect_client {:?} to {:?}", ck, to);
+        self.connect_client_by_name(&ck.name, to);
+    }
+
+    pub fn connect_client_by_name(&self, ck_name: &str, to: &[usize]) {
+        debug!("connect_client {:?} to {:?}", ck_name, to);
         let clerks = self.clerks.lock().unwrap();
-        let endnames = &clerks[&ck.name];
+        let endnames = &clerks[ck_name];
         for j in to {
             let s = &endnames[*j];
             self.net.enable(s, true);
@@ -305,7 +309,7 @@ impl Config {
     }
 
     /// Partition servers into 2 groups and put current leader in minority
-    fn make_partition(&self) -> (Vec<usize>, Vec<usize>) {
+    pub fn make_partition(&self) -> (Vec<usize>, Vec<usize>) {
         let l = self.leader().unwrap_or(0);
         let mut p1 = Vec::with_capacity(self.n / 2 + 1);
         let mut p2 = Vec::with_capacity(self.n / 2);
