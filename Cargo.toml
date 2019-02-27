@@ -4,11 +4,12 @@ version = "0.1.0"
 authors = ["Neil Shen <overvenus@gmail.com>"]
 
 [workspace]
-members = ["labcodec", "labrpc"]
+members = ["labcodec", "labrpc", "linearizability"]
 
 [dependencies]
 labrpc = { path = "labrpc" }
 labcodec = { path = "labcodec" }
+linearizability = { path = "linearizability"}
 prost = "0.4"
 prost-derive = "0.4.0"
 bytes = "0.4.7"

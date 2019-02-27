@@ -1,8 +1,9 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use futures::sync::oneshot;
 use futures::{future, Future};
@@ -11,12 +12,17 @@ use rand::Rng;
 
 use kvraft::client::Clerk;
 use kvraft::config::Config;
+use linearizability::check_operations_timeout;
+use linearizability::model::Operation;
+use linearizability::models::{KvInput, KvModel, KvOutput, Op};
 
 /// The tester generously allows solutions to complete elections in one second
 /// (much more than the paper's range of timeouts).
 const RAFT_ELECTION_TIMEOUT: Duration = Duration::from_millis(1000);
 
-// get/put/putappend that keep counts
+const LINEARIZABILITY_CHECK_TIMEOUT: Duration = Duration::from_millis(1000);
+
+// get/put/append that keep counts
 fn get(cfg: &Config, ck: &Clerk, key: &str) -> String {
     let v = ck.get(key.to_owned());
     cfg.op();
@@ -335,6 +341,204 @@ fn generic_test(
     cfg.end();
 }
 
+fn generic_test_linearizability(
+    part: &str,
+    nclients: usize,
+    nservers: usize,
+    unreliable: bool,
+    crash: bool,
+    partitions: bool,
+    maxraftstate: Option<usize>,
+) {
+    let mut title = "Test: ".to_owned();
+    if unreliable {
+        // the network drops RPC requests and replies.
+        title += "unreliable net, ";
+    }
+    if crash {
+        // peers re-start, and thus persistence must work.
+        title += "restarts, ";
+    }
+    if partitions {
+        // the network may partition
+        title += "partitions, ";
+    }
+    if maxraftstate.is_some() {
+        title += "snapshots, ";
+    }
+    if nclients > 1 {
+        title += "many clients";
+    } else {
+        title += "one client";
+    }
+    title = format!("{}, linearizability checks ({})", title, part); // 3A or 3B
+
+    let cfg = Arc::new(Config::new(nservers, unreliable, maxraftstate));
+
+    cfg.begin(&title);
+
+    let begin = Instant::now();
+    let operations = Arc::new(Mutex::new(vec![]));
+
+    let done_partitioner = Arc::new(AtomicUsize::new(0));
+    let done_clients = Arc::new(AtomicUsize::new(0));
+    let mut clnt_txs = vec![];
+    let mut clnt_rxs = vec![];
+    for i in 0..nclients {
+        let (tx, rx) = mpsc::channel();
+        clnt_txs.push(tx);
+        clnt_rxs.push(rx);
+    }
+    for i in 0..3 {
+        let (partitioner_tx, partitioner_rx) = mpsc::channel();
+        debug!("Iteration {}", i);
+        done_clients.store(0, Ordering::Relaxed);
+        done_partitioner.store(0, Ordering::Relaxed);
+        let clnt_txs_ = clnt_txs.clone();
+        let cfg_ = cfg.clone();
+        let done_clients_ = done_clients.clone();
+        let operations_ = operations.clone();
+        cfg.net
+            .spawn_poller(spawn_clients_and_wait(cfg.clone(), nclients, move || {
+                let cfg1 = cfg_.clone();
+                let clnt_txs1 = clnt_txs_.clone();
+                let done_clients1 = done_clients_.clone();
+                let operations1 = operations_.clone();
+                move |cli, myck| {
+                    // TODO: change the closure to a future.
+                    let mut j = 0;
+                    let mut rng = rand::thread_rng();
+                    while done_clients1.load(Ordering::Relaxed) == 0 {
+                        let key = format!("{}", rng.gen::<usize>() % nclients);
+                        let nv = format!("x {} {} y", cli, j);
+
+                        let start = begin.elapsed().as_nanos() as i64;
+                        let (inp, out) = if rng.gen::<usize>() % 1000 < 500 {
+                            append(&cfg1, myck, &key, &nv);
+                            j += 1;
+                            (
+                                KvInput {
+                                    op: Op::APPEND,
+                                    key,
+                                    value: nv,
+                                },
+                                KvOutput {
+                                    value: "".to_string(),
+                                },
+                            )
+                        } else if rng.gen::<usize>() % 1000 < 100 {
+                            put(&cfg1, myck, &key, &nv);
+                            j += 1;
+                            (
+                                KvInput {
+                                    op: Op::PUT,
+                                    key,
+                                    value: nv,
+                                },
+                                KvOutput {
+                                    value: "".to_string(),
+                                },
+                            )
+                        } else {
+                            let v = get(&cfg1, myck, &key);
+                            (
+                                KvInput {
+                                    op: Op::GET,
+                                    key,
+                                    value: "".to_string(),
+                                },
+                                KvOutput { value: v },
+                            )
+                        };
+
+                        let end = begin.elapsed().as_nanos() as i64;
+                        let op = Operation {
+                            input: inp,
+                            call: start,
+                            output: out,
+                            finish: end,
+                        };
+                        let mut data = operations1.lock().unwrap();
+                        data.push(op);
+                    }
+                    clnt_txs1[cli].send(j).unwrap();
+                }
+            }));
+
+        if partitions {
+            // Allow the clients to perform some operations without interruption
+            thread::sleep(Duration::from_secs(1));
+            cfg.net.spawn_poller(partitioner(
+                cfg.clone(),
+                partitioner_tx,
+                done_partitioner.clone(),
+            ));
+        }
+        thread::sleep(Duration::from_secs(5));
+
+        // tell clients to quit
+        done_clients.store(1, Ordering::Relaxed);
+        // tell partitioner to quit
+        done_partitioner.store(1, Ordering::Relaxed);
+
+        if partitions {
+            debug!("wait for partitioner");
+            partitioner_rx.try_recv().unwrap();
+            // reconnect network and submit a request. A client may
+            // have submitted a request in a minority.  That request
+            // won't return until that server discovers a new term
+            // has started.
+            cfg.connect_all();
+            // wait for a while so that we have a new term
+            thread::sleep(RAFT_ELECTION_TIMEOUT);
+        }
+
+        if crash {
+            debug!("shutdown servers");
+            for i in 0..nservers {
+                cfg.shutdown_server(i)
+            }
+            // Wait for a while for servers to shutdown, since
+            // shutdown isn't a real crash and isn't instantaneous
+            thread::sleep(RAFT_ELECTION_TIMEOUT);
+            debug!("restart servers");
+            // crash and re-start all
+            for i in 0..nservers {
+                cfg.start_server(i);
+            }
+            cfg.connect_all();
+        }
+
+        // wait for clients.
+        for (i, clnt_rx) in clnt_rxs.iter().enumerate() {
+            clnt_rx.recv().unwrap();
+        }
+
+        if let Some(maxraftstate) = maxraftstate {
+            // Check maximum after the servers have processed all client
+            // requests and had time to checkpoint.
+            if cfg.log_size() > 2 * maxraftstate {
+                panic!(
+                    "logs were not trimmed ({} > 2*{})",
+                    cfg.log_size(),
+                    maxraftstate
+                )
+            }
+        }
+    }
+
+    cfg.check_timeout();
+    cfg.end();
+
+    if !check_operations_timeout(
+        KvModel {},
+        Arc::try_unwrap(operations).unwrap().into_inner().unwrap(),
+        LINEARIZABILITY_CHECK_TIMEOUT,
+    ) {
+        panic!("history is not linearizable");
+    }
+}
+
 #[test]
 fn test_basic_3a() {
     // Test: one client (3A) ...
@@ -548,6 +752,12 @@ fn test_persist_partition_unreliable_3a() {
     generic_test("3A", 5, true, true, true, None)
 }
 
+#[test]
+fn test_persist_partition_unreliable_linearizable_3a() {
+    // Test: unreliable net, restarts, partitions, linearizability checks (3A) ...
+    generic_test_linearizability("3A", 15, 7, true, true, true, None)
+}
+
 // if one server falls behind, then rejoins, does it
 // recover by using the InstallSnapshot RPC?
 // also checks that majority discards committed log entries
@@ -683,4 +893,10 @@ fn test_snapshot_unreliable_recover_3b() {
 fn test_snapshot_unreliable_recover_concurrent_partition_3b() {
     // Test: unreliable net, restarts, partitions, snapshots, many clients (3B) ...
     generic_test("3B", 5, true, true, true, Some(1000))
+}
+
+#[test]
+fn test_snapshot_unreliable_recover_concurrent_partition_linearizable_3b() {
+    // Test: unreliable net, restarts, partitions, snapshots, linearizability checks (3B) ...
+    generic_test_linearizability("3B", 15, 7, true, true, true, Some(1000))
 }

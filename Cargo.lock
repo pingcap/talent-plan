@@ -227,6 +227,7 @@ dependencies = [
  "futures-timer 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "labcodec 0.1.0",
  "labrpc 0.1.0",
+ "linearizability 0.1.0",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost-derive 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -242,6 +243,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "libc"
 version = "0.2.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "linearizability"
+version = "0.1.0"
+dependencies = [
+ "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "log"

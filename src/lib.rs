@@ -7,6 +7,7 @@
 
 extern crate labcodec;
 extern crate labrpc;
+extern crate linearizability;
 extern crate prost;
 #[macro_use]
 extern crate log;
