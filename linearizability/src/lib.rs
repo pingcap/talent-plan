@@ -322,17 +322,16 @@ pub fn check_operations_timeout<M: Model>(
         let m = model.clone();
         let handle = thread::spawn(move || {
             let l = LinkedNodes::from_entries(make_entries(subhistory));
-            tx.send(check_single(m, l, kill)).unwrap();
+            let _ = tx.send(check_single(m, l, kill));
         });
         handles.push(handle);
     }
 
+    let res = wait_res(rx, kill, count, timeout);
     for handle in handles {
         handle.join().unwrap();
     }
-    drop(tx);
-
-    wait_res(rx, kill, count, timeout)
+    res
 }
 
 pub fn check_events<M: Model>(model: M, history: Events<M::Input, M::Output>) -> bool {
@@ -358,17 +357,16 @@ pub fn check_events_timeout<M: Model>(
         let m = model.clone();
         let handle = thread::spawn(move || {
             let l = LinkedNodes::from_entries(convert_entries(renumber(subhistory)));
-            tx.send(check_single(m, l, kill)).unwrap();
+            let _ = tx.send(check_single(m, l, kill));
         });
         handles.push(handle);
     }
 
+    let res = wait_res(rx, kill, count, timeout);
     for handle in handles {
         handle.join().unwrap();
     }
-    drop(tx);
-
-    wait_res(rx, kill, count, timeout)
+    res
 }
 
 fn wait_res(
