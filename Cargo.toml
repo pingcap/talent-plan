@@ -17,3 +17,6 @@ rand = "0.4"
 log = "0.4"
 futures = "0.1"
 futures-timer = "0.1"
+
+[dev-dependencies]
+env_logger = "0.6"

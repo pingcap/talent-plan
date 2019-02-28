@@ -53,6 +53,12 @@ impl Storage {
     }
 }
 
+fn init_logger() {
+    use std::sync::Once;
+    static LOGGER_INIT: Once = Once::new();
+    LOGGER_INIT.call_once(env_logger::init);
+}
+
 pub struct Config {
     pub net: labrpc::Network,
     n: usize,
@@ -81,6 +87,8 @@ pub struct Config {
 
 impl Config {
     pub fn new(n: usize, unreliable: bool) -> Config {
+        init_logger();
+
         let net = labrpc::Network::new();
         net.set_reliable(!unreliable);
         net.set_long_delays(true);

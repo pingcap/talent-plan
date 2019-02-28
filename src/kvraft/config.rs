@@ -26,6 +26,12 @@ struct Servers {
     endnames: Vec<Vec<String>>,
 }
 
+fn init_logger() {
+    use std::sync::Once;
+    static LOGGER_INIT: Once = Once::new();
+    LOGGER_INIT.call_once(env_logger::init);
+}
+
 pub struct Config {
     pub net: labrpc::Network,
     pub n: usize,
@@ -48,6 +54,8 @@ pub struct Config {
 
 impl Config {
     pub fn new(n: usize, unreliable: bool, maxraftstate: Option<usize>) -> Config {
+        init_logger();
+
         let servers = Servers {
             kvservers: vec![None; n],
             saved: (0..n).map(|_| Arc::new(SimplePersister::new())).collect(),

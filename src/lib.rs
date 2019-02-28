@@ -9,10 +9,13 @@ extern crate labcodec;
 extern crate labrpc;
 extern crate linearizability;
 extern crate prost;
+#[allow(unused_imports)]
 #[macro_use]
 extern crate log;
 #[macro_use]
 extern crate prost_derive;
+#[cfg(test)]
+extern crate env_logger;
 extern crate futures;
 extern crate futures_timer;
 extern crate rand;

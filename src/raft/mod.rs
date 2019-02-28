@@ -4,6 +4,7 @@ use std::sync::Arc;
 use futures::sync::mpsc::UnboundedSender;
 use labcodec;
 
+#[cfg(test)]
 pub mod config;
 pub mod errors;
 pub mod persister;
