@@ -24,11 +24,12 @@ extern crate prost_derive;
 extern crate env_logger;
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::{fmt, time};
 
+use futures::future;
 use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
+use futures::sync::oneshot;
 use futures::{Async, Future, Poll, Select, Stream};
 use futures_cpupool::{CpuFuture, CpuPool};
 use futures_timer::{Delay, Interval};
@@ -145,11 +146,11 @@ pub struct Rpc {
     client_name: String,
     fq_name: &'static str,
     req: Option<Vec<u8>>,
-    resp: Option<SyncSender<Result<Vec<u8>>>>,
+    resp: Option<oneshot::Sender<Result<Vec<u8>>>>,
 }
 
 impl Rpc {
-    fn take_resp_sender(&mut self) -> Option<SyncSender<Result<Vec<u8>>>> {
+    fn take_resp_sender(&mut self) -> Option<oneshot::Sender<Result<Vec<u8>>>> {
         self.resp.take()
     }
 }
@@ -169,18 +170,25 @@ pub struct Client {
     name: String,
     // copy of Network.sender
     sender: UnboundedSender<Rpc>,
+    pub worker: CpuPool,
 }
 
 impl Client {
-    pub fn call<Req, Rsp>(&self, fq_name: &'static str, req: &Req) -> Result<Rsp>
+    pub fn call<Req, Rsp>(
+        &self,
+        fq_name: &'static str,
+        req: &Req,
+    ) -> Box<dyn Future<Item = Rsp, Error = Error> + Send + 'static>
     where
         Req: labcodec::Message,
-        Rsp: labcodec::Message,
+        Rsp: labcodec::Message + 'static,
     {
         let mut buf = vec![];
-        labcodec::encode(req, &mut buf).map_err(Error::Encode)?;
+        if let Err(e) = labcodec::encode(req, &mut buf) {
+            return Box::new(future::result(Err(Error::Encode(e))));
+        }
 
-        let (tx, rx) = sync_channel(1);
+        let (tx, rx) = oneshot::channel();
         let rpc = Rpc {
             client_name: self.name.clone(),
             fq_name,
@@ -189,13 +197,14 @@ impl Client {
         };
 
         // Sends requets and waits responses.
-        self.sender
-            .unbounded_send(rpc)
-            .map_err(|_| Error::Stopped)?;
-        match rx.recv().map_err(Error::Recv) {
-            Ok(Ok(resp)) => labcodec::decode(&resp).map_err(Error::Decode),
-            Ok(Err(e)) | Err(e) => Err(e),
+        if self.sender.unbounded_send(rpc).is_err() {
+            return Box::new(future::result(Err(Error::Stopped)));
         }
+        Box::new(rx.then(|res| match res {
+            Ok(Ok(resp)) => labcodec::decode(&resp).map_err(Error::Decode),
+            Ok(Err(e)) => Err(e),
+            Err(e) => Err(Error::Recv(e)),
+        }))
     }
 }
 
@@ -300,7 +309,11 @@ impl Network {
         let mut eps = self.core.endpoints.lock().unwrap();
         eps.enabled.insert(name.clone(), false);
         eps.connections.insert(name.clone(), None);
-        Client { name, sender }
+        Client {
+            name,
+            sender,
+            worker: self.core.worker.clone(),
+        }
     }
 
     /// Connects a Client to a server.
@@ -658,10 +671,10 @@ impl Future for ServerDead {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc::RecvError;
     use std::sync::{mpsc, Mutex, Once};
     use std::thread;
 
+    use futures::sync::oneshot::Canceled;
     use test;
 
     use super::*;
@@ -783,8 +796,11 @@ mod tests {
         net.add_server(server);
 
         let client = JunkClient::new(net.create_client("test_client".to_owned()));
-        let client_ = client.clone();
-        let handler = thread::spawn(move || client_.handler4(&JunkArgs { x: 777 }));
+        let (tx, rx) = mpsc::channel();
+        client.spawn(client.handler4(&JunkArgs { x: 777 }).then(move |reply| {
+            tx.send(reply).unwrap();
+            Ok(())
+        }));
         let (mut rpc, incoming) = match incoming.into_future().wait() {
             Ok((Some(rpc), s)) => (rpc, s),
             _ => panic!("unexpected error"),
@@ -799,19 +815,25 @@ mod tests {
         assert_eq!(rpc.client_name, "test_client");
         assert_eq!(rpc.fq_name, "junk.handler4");
         assert!(!rpc.req.as_ref().unwrap().is_empty());
-        assert_eq!(handler.join().unwrap(), Ok(reply));
+        assert_eq!(rx.recv().unwrap(), Ok(reply));
 
-        let client_ = client.clone();
-        let handler = thread::spawn(move || client_.handler4(&JunkArgs { x: 777 }));
+        let (tx, rx) = mpsc::channel();
+        client.spawn(client.handler4(&JunkArgs { x: 777 }).then(move |reply| {
+            tx.send(reply).unwrap();
+            Ok(())
+        }));
         let (rpc, incoming) = match incoming.into_future().wait() {
             Ok((Some(rpc), s)) => (rpc, s),
             _ => panic!("unexpected error"),
         };
         drop(rpc.resp);
-        assert_eq!(handler.join().unwrap(), Err(Error::Recv(RecvError)));
+        assert_eq!(rx.recv().unwrap(), Err(Error::Recv(Canceled)));
 
         drop(incoming);
-        assert_eq!(client.handler4(&JunkArgs::default()), Err(Error::Stopped));
+        assert_eq!(
+            client.handler4(&JunkArgs::default()).wait(),
+            Err(Error::Stopped)
+        );
     }
 
     #[test]
@@ -824,7 +846,7 @@ mod tests {
         net.connect("test_client", "test_server");
         net.enable("test_client", true);
 
-        let rsp = client.handler4(&JunkArgs::default()).unwrap();
+        let rsp = client.handler4(&JunkArgs::default()).wait().unwrap();
         assert_eq!(
             JunkReply {
                 x: "pointer".to_owned(),
@@ -843,10 +865,10 @@ mod tests {
         let client = JunkClient::new(net.create_client("test_client".to_owned()));
         net.connect("test_client", "test_server");
 
-        client.handler4(&JunkArgs::default()).unwrap_err();
+        client.handler4(&JunkArgs::default()).wait().unwrap_err();
 
         net.enable("test_client", true);
-        let rsp = client.handler4(&JunkArgs::default()).unwrap();
+        let rsp = client.handler4(&JunkArgs::default()).wait().unwrap();
 
         assert_eq!(
             JunkReply {
@@ -868,7 +890,7 @@ mod tests {
         net.enable("test_client", true);
 
         for i in 0..=16 {
-            let reply = client.handler2(&JunkArgs { x: i }).unwrap();
+            let reply = client.handler2(&JunkArgs { x: i }).wait().unwrap();
             assert_eq!(reply.x, format!("handler2-{}", i));
         }
 
@@ -902,7 +924,7 @@ mod tests {
 
                 for j in 0..nrpcs {
                     let x = (i * 100 + j) as i64;
-                    let reply = client.handler2(&JunkArgs { x }).unwrap();
+                    let reply = client.handler2(&JunkArgs { x }).wait().unwrap();
                     assert_eq!(reply.x, format!("handler2-{}", x));
                     n += 1;
                 }
@@ -956,7 +978,7 @@ mod tests {
                 net.connect(&client_name, &server_name_);
 
                 let x = i * 100;
-                if let Ok(reply) = client.handler2(&JunkArgs { x }) {
+                if let Ok(reply) = client.handler2(&JunkArgs { x }).wait() {
                     assert_eq!(reply.x, format!("handler2-{}", x));
                     n += 1;
                 }
@@ -997,7 +1019,7 @@ mod tests {
             pool.spawn_fn(move || {
                 let mut n = 0;
                 let x = i + 100;
-                let reply = client.handler2(&JunkArgs { x }).unwrap();
+                let reply = client.handler2(&JunkArgs { x }).wait().unwrap();
                 assert_eq!(reply.x, format!("handler2-{}", x));
                 n += 1;
                 sender.send(n)
@@ -1065,7 +1087,7 @@ mod tests {
         let t0 = time::Instant::now();
         net.enable(client_name, true);
         let x = 99;
-        let reply = client.handler2(&JunkArgs { x }).unwrap();
+        let reply = client.handler2(&JunkArgs { x }).wait().unwrap();
         assert_eq!(reply.x, format!("handler2-{}", x));
         let dur = t0.elapsed();
         assert!(
@@ -1104,10 +1126,10 @@ mod tests {
         net.connect(client_name, &server_name);
         net.enable(client_name, true);
         let (tx, rx) = mpsc::channel();
-        thread::spawn(move || {
-            let reply = client.handler3(&JunkArgs { x: 99 });
+        client.spawn(client.handler3(&JunkArgs { x: 99 }).then(move |reply| {
             tx.send(reply).unwrap();
-        });
+            Ok(())
+        }));
         thread::sleep(time::Duration::from_secs(1));
         rx.recv_timeout(time::Duration::from_millis(100))
             .unwrap_err();
@@ -1127,8 +1149,8 @@ mod tests {
         net.enable(client_name, true);
 
         b.iter(|| {
-            client.handler2(&JunkArgs { x: 111 }).unwrap();
+            client.handler2(&JunkArgs { x: 111 }).wait().unwrap();
         });
-        // i5-4200U, 41 microseconds per RPC
+        // i5-4200U, 90 microseconds per RPC
     }
 }

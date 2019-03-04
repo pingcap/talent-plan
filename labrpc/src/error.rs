@@ -1,6 +1,6 @@
-use std::sync::mpsc::RecvError;
 use std::{error, fmt, result};
 
+use futures::sync::oneshot::Canceled;
 use labcodec::{DecodeError, EncodeError};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -8,7 +8,7 @@ pub enum Error {
     Unimplemented(String),
     Encode(EncodeError),
     Decode(DecodeError),
-    Recv(RecvError),
+    Recv(Canceled),
     Timeout,
     Stopped,
     Other(String),

@@ -19,6 +19,8 @@ macro_rules! service {
             // $( use super::$input; )*
             // $( use super::$output;)*
 
+            extern crate futures as __futures;
+
             pub trait Service: Clone + Send + 'static {
                 $(
                     $(#[$method_attr])*
@@ -35,7 +37,13 @@ macro_rules! service {
                     Client { client }
                 }
 
-                $(pub fn $method_name(&self, args: &$input) -> $crate::Result<$output> {
+                pub fn spawn<F>(&self, f: F)
+                where F: __futures::Future<Item=(), Error=()> + Send + 'static
+                {
+                    self.client.worker.spawn(f).forget()
+                }
+
+                $(pub fn $method_name(&self, args: &$input) -> Box<dyn __futures::Future<Item = $output, Error = $crate::Error> + Send + 'static> {
                     let fq_name = concat!(stringify!($svc_name), ".", stringify!($method_name));
                     self.client.call(fq_name, args)
                 })*

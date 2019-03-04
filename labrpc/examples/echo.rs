@@ -1,8 +1,10 @@
 #[macro_use]
 extern crate prost_derive;
+extern crate futures;
 extern crate labcodec;
 extern crate labrpc;
 
+use futures::Future;
 use labrpc::*;
 
 /// A Hand-written protobuf messages
@@ -41,7 +43,7 @@ fn main() {
     rn.enable(client_name, true);
     rn.connect(client_name, server_name);
 
-    let reply = client.ping(&Echo { x: 777 }).unwrap();
+    let reply = client.ping(&Echo { x: 777 }).wait().unwrap();
     assert_eq!(reply, Echo { x: 777 });
     println!("{:?}", reply);
 }

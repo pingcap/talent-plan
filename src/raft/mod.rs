@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use futures::sync::mpsc::UnboundedSender;
+use futures::Future;
 use labcodec;
 
 #[cfg(test)]
@@ -144,7 +145,22 @@ impl Raft {
     /// that the caller passes the address of the reply struct with &, not
     /// the struct itself.
     fn send_request_vote(&self, server: usize, args: &RequestVoteArgs) -> Result<RequestVoteReply> {
-        self.peers[server].request_vote(&args).map_err(Error::Rpc)
+        let peer = &self.peers[server];
+        // Your code here if you want the rpc becomes async.
+        // Example:
+        // ```
+        // let (tx, rx) = channel();
+        // peer.spawn(
+        //     peer.request_vote(&args)
+        //         .map_err(Error::Rpc)
+        //         .then(move |res| {
+        //             tx.send(res);
+        //             OK(())
+        //         }),
+        // );
+        // rx.wait() ...
+        // ```
+        peer.request_vote(&args).map_err(Error::Rpc).wait()
     }
 
     fn start<M>(&self, command: &M) -> Result<(u64, u64)>
