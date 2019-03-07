@@ -1,4 +1,3 @@
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use futures::sync::mpsc::UnboundedSender;
@@ -24,20 +23,20 @@ pub struct ApplyMsg {
 }
 
 /// State of a raft peer.
-#[derive(Default, Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct State {
-    term: AtomicU64,
-    is_leader: AtomicBool,
+    pub term: u64,
+    pub is_leader: bool,
 }
 
 impl State {
     /// The current term of this peer.
     pub fn term(&self) -> u64 {
-        self.term.load(Ordering::Relaxed)
+        self.term
     }
     /// Whether this peer believes it is the leader.
     pub fn is_leader(&self) -> bool {
-        self.is_leader.load(Ordering::Relaxed)
+        self.is_leader
     }
 }
 
@@ -198,16 +197,14 @@ impl Raft {
 // ```
 #[derive(Clone)]
 pub struct Node {
-    pub state: Arc<State>,
     // Your code here.
 }
 
 impl Node {
     /// Create a new raft service.
     pub fn new(raft: Raft) -> Node {
-        let state = raft.state.clone();
         // Your code here.
-        Node { state }
+        Node {}
     }
 
     /// the service using Raft (e.g. a k/v server) wants to start
@@ -234,12 +231,26 @@ impl Node {
 
     /// The current term of this peer.
     pub fn term(&self) -> u64 {
-        self.state.term()
+        // Your code here.
+        // Example:
+        // self.raft.term
+        unimplemented!()
     }
 
     /// Whether this peer believes it is the leader.
     pub fn is_leader(&self) -> bool {
-        self.state.is_leader()
+        // Your code here.
+        // Example:
+        // self.raft.leader_id == self.id
+        unimplemented!()
+    }
+
+    /// The current state of this peer.
+    pub fn get_state(&self) -> State {
+        State {
+            term: self.term(),
+            is_leader: self.is_leader(),
+        }
     }
 
     /// the tester calls kill() when a Raft instance won't

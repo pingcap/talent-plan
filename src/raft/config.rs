@@ -151,7 +151,7 @@ impl Config {
                     let state = self.rafts.lock().unwrap()[i]
                         .as_ref()
                         .unwrap()
-                        .state
+                        .get_state()
                         .clone();
                     let term = state.term();
                     let is_leader = state.is_leader();

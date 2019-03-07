@@ -678,14 +678,13 @@ fn test_figure_82c() {
     for _iters in 0..1000 {
         let mut leader = None;
         for i in 0..servers {
-            if cfg.rafts.lock().unwrap().get(i).is_some()
-                && cfg.rafts.lock().unwrap()[i]
-                    .as_ref()
-                    .unwrap()
-                    .start(&random_entry(&mut random))
-                    .is_ok()
-            {
-                leader = Some(i);
+            let mut rafts = cfg.rafts.lock().unwrap();
+            if let Some(raft) = rafts.get_mut(i) {
+                if let Some(raft) = raft {
+                    if raft.start(&random_entry(&mut random)).is_ok() {
+                        leader = Some(i);
+                    }
+                }
             }
         }
 
@@ -704,7 +703,7 @@ fn test_figure_82c() {
 
         if nup < 3 {
             let s = random.gen::<usize>() % servers;
-            if cfg.rafts.lock().unwrap().get(s).is_none() {
+            if cfg.rafts.lock().unwrap().get(s).unwrap().is_none() {
                 cfg.start1(s);
                 cfg.connect(s);
                 nup += 1;
@@ -713,7 +712,7 @@ fn test_figure_82c() {
     }
 
     for i in 0..servers {
-        if cfg.rafts.lock().unwrap().get(i).is_none() {
+        if cfg.rafts.lock().unwrap().get(i).unwrap().is_none() {
             cfg.start1(i);
             cfg.connect(i);
         }
@@ -739,7 +738,7 @@ fn test_unreliable_agree_2c() {
         for j in 0..4 {
             let c = cfg.clone();
             let (tx, rx) = oneshot::channel();
-            cfg.net.spawn(future::lazy(move || {
+            thread::spawn(move || {
                 c.one(
                     Entry {
                         x: (100 * iters) + j,
@@ -748,13 +747,13 @@ fn test_unreliable_agree_2c() {
                     true,
                 );
                 tx.send(()).map_err(|e| panic!("send failed: {:?}", e))
-            }));
+            });
             dones.push(rx);
         }
         cfg.one(Entry { x: iters }, 1, true);
     }
 
-    cfg.net.set_reliable(false);
+    cfg.net.set_reliable(true);
 
     future::join_all(dones).wait().unwrap();
 
@@ -931,7 +930,7 @@ fn internal_churn(unreliable: bool) {
 
         if (random.gen::<usize>() % 1000) < 500 {
             let i = random.gen::<usize>() % servers;
-            if cfg.rafts.lock().unwrap().get(i).is_none() {
+            if cfg.rafts.lock().unwrap().get(i).unwrap().is_none() {
                 cfg.start1(i);
             }
             cfg.connect(i);
@@ -939,7 +938,7 @@ fn internal_churn(unreliable: bool) {
 
         if (random.gen::<usize>() % 1000) < 200 {
             let i = random.gen::<usize>() % servers;
-            if cfg.rafts.lock().unwrap().get(i).is_some() {
+            if cfg.rafts.lock().unwrap().get(i).unwrap().is_some() {
                 cfg.crash1(i);
             }
         }
@@ -954,7 +953,7 @@ fn internal_churn(unreliable: bool) {
     thread::sleep(RAFT_ELECTION_TIMEOUT);
     cfg.net.set_reliable(true);
     for i in 0..servers {
-        if cfg.rafts.lock().unwrap().get(i).is_none() {
+        if cfg.rafts.lock().unwrap().get(i).unwrap().is_none() {
             cfg.start1(i);
         }
         cfg.connect(i);

@@ -1,9 +1,7 @@
-use std::sync::Arc;
-
-use futures::sync::mpsc::unbounded;
-
 use super::service::*;
 use crate::raft;
+
+use futures::sync::mpsc::unbounded;
 
 pub struct KvServer {
     pub rf: raft::Node,
@@ -49,15 +47,13 @@ impl KvServer {
 // ```
 #[derive(Clone)]
 pub struct Node {
-    state: Arc<raft::State>,
     // Your definitions here.
 }
 
 impl Node {
     pub fn new(kv: KvServer) -> Node {
-        let state = kv.rf.state.clone();
         // Your code here.
-        Node { state }
+        Node {}
     }
 
     /// the tester calls Kill() when a KVServer instance won't
@@ -70,12 +66,19 @@ impl Node {
 
     /// The current term of this peer.
     pub fn term(&self) -> u64 {
-        self.state.term()
+        self.get_state().term()
     }
 
     /// Whether this peer believes it is the leader.
     pub fn is_leader(&self) -> bool {
-        self.state.is_leader()
+        self.get_state().is_leader()
+    }
+
+    pub fn get_state(&self) -> raft::State {
+        // Your code here.
+        raft::State {
+            ..Default::default()
+        }
     }
 }
 
