@@ -32,7 +32,7 @@ pub struct Storage {
 }
 
 impl Storage {
-    // how many servers think a log entry is committed?
+    /// how many servers think a log entry is committed?
     pub fn n_committed(&self, index: u64) -> (usize, Option<Entry>) {
         let mut count = 0;
         let mut cmd = None;
@@ -179,7 +179,7 @@ impl Config {
         panic!("expected one leader, got none")
     }
 
-    // check that everyone agrees on the term.
+    /// check that everyone agrees on the term.
     pub fn check_terms(&self) -> u64 {
         let mut term = 0;
         for (i, connected) in self.connected.iter().enumerate() {
@@ -195,7 +195,7 @@ impl Config {
         term
     }
 
-    // check that there's no leader
+    /// check that there's no leader
     pub fn check_no_leader(&self) {
         for (i, connected) in self.connected.iter().enumerate() {
             if *connected {
@@ -207,14 +207,14 @@ impl Config {
         }
     }
 
-    fn check_timeout(&self) {
+    pub fn check_timeout(&self) {
         // enforce a two minute real-time limit on each test
         if self.start.elapsed() > Duration::from_secs(120) {
             panic!("test took longer than 120 seconds");
         }
     }
 
-    // how many servers think a log entry is committed?
+    /// how many servers think a log entry is committed?
     pub fn n_committed(&self, index: u64) -> (usize, Option<Entry>) {
         let s = self.storage.lock().unwrap();
         s.n_committed(index)
@@ -254,18 +254,18 @@ impl Config {
         cmd
     }
 
-    // do a complete agreement.
-    // it might choose the wrong leader initially,
-    // and have to re-submit after giving up.
-    // entirely gives up after about 10 seconds.
-    // indirectly checks that the servers agree on the
-    // same value, since n_committed() checks this,
-    // as do the threads that read from applyCh.
-    // returns index.
-    // if retry==true, may submit the command multiple
-    // times, in case a leader fails just after Start().
-    // if retry==false, calls Start() only once, in order
-    // to simplify the early Lab 2B tests.
+    /// do a complete agreement.
+    /// it might choose the wrong leader initially,
+    /// and have to re-submit after giving up.
+    /// entirely gives up after about 10 seconds.
+    /// indirectly checks that the servers agree on the
+    /// same value, since n_committed() checks this,
+    /// as do the threads that read from applyCh.
+    /// returns index.
+    /// if retry==true, may submit the command multiple
+    /// times, in case a leader fails just after Start().
+    /// if retry==false, calls start() only once, in order
+    /// to simplify the early Lab 2B tests.
     pub fn one(&self, cmd: Entry, expected_servers: usize, retry: bool) -> u64 {
         let t0 = Instant::now();
         let mut starts = 0;
@@ -315,9 +315,9 @@ impl Config {
         panic!("one({:?}) failed to reach agreement", cmd);
     }
 
-    // start a Test.
-    // print the Test message.
-    // e.g. cfg.begin("Test (2B): RPC counts aren't too high")
+    /// start a Test.
+    /// print the Test message.
+    /// e.g. cfg.begin("Test (2B): RPC counts aren't too high")
     pub fn begin(&mut self, description: &str) {
         println!(); // Force the log starts at a new line.
         info!("{} ...", description);
@@ -329,10 +329,8 @@ impl Config {
         s.max_index0 = s.max_index;
     }
 
-    // end a Test -- the fact that we got here means there
-    // was no failure.
-    // print the Passed message,
-    // and some performance numbers.
+    /// end a Test -- the fact that we got here means there was no failure.
+    /// print the Passed message, and some performance numbers.
     pub fn end(&self) {
         self.check_timeout();
 
@@ -466,7 +464,7 @@ impl Config {
         }
     }
 
-    // attach server i to the net.
+    /// attach server i to the net.
     pub fn connect(&mut self, i: usize) {
         debug!("connect({})", i);
 
@@ -499,6 +497,8 @@ impl Drop for Config {
                 }
             }
         }
+
+        // FIXME: we should not panic in a drop method.
         self.check_timeout();
     }
 }
