@@ -338,6 +338,7 @@ impl Config {
     /// print the Test message.
     /// e.g. cfg.begin("Test (2B): RPC counts aren't too high")
     pub fn begin(&self, description: &str) {
+        println!(); // Force the log starts at a new line.
         info!("{} ...", description);
         *self.t0.lock().unwrap() = Instant::now();
         self.rpcs0.store(self.rpc_total(), Ordering::Relaxed);

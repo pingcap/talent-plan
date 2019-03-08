@@ -319,6 +319,7 @@ impl Config {
     // print the Test message.
     // e.g. cfg.begin("Test (2B): RPC counts aren't too high")
     pub fn begin(&mut self, description: &str) {
+        println!(); // Force the log starts at a new line.
         info!("{} ...", description);
         self.t0 = Instant::now();
         self.rpcs0 = self.rpc_total();
@@ -416,7 +417,7 @@ impl Config {
                 Ok(())
             })
             .map_err(move |e| debug!("raft {} apply stopped: {:?}", i, e));
-        self.net.spawn(apply);
+        self.net.spawn_poller(apply);
 
         let rf = raft::Raft::new(clients, i, Box::new(self.saved[i].clone()), tx);
         let node = raft::Node::new(rf);
