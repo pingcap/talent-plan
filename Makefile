@@ -8,11 +8,17 @@ check:
 	cargo fmt --all
 	cargo clippy --all --tests -- -D clippy::all
 
+test: test_others test_2 test_3
+
+test_2: test_2a test_2b test_2c
+
 test_2a: cargo_test_2a
 
 test_2b: cargo_test_2b
 
 test_2c: cargo_test_2c
+
+test_3: test_3a test_3b
 
 test_3a: cargo_test_3a
 
