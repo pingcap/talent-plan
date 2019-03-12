@@ -1,0 +1,22 @@
+[package]
+name = "labs6824"
+version = "0.1.0"
+authors = ["Neil Shen <overvenus@gmail.com>"]
+
+[workspace]
+members = ["labcodec", "labrpc", "linearizability"]
+
+[dependencies]
+labrpc = { path = "labrpc" }
+labcodec = { path = "labcodec" }
+linearizability = { path = "linearizability"}
+prost = "0.4"
+prost-derive = "0.4.0"
+bytes = "0.4.7"
+rand = "0.4"
+log = "0.4"
+futures = "0.1"
+futures-timer = "0.1"
+
+[dev-dependencies]
+env_logger = "0.6"

@@ -1,0 +1,116 @@
+{:process 0, :type :invoke, :f :append, :key "0", :value "x 0 0 y"}
+{:process 0, :type :ok, :f :append, :key "0", :value "x 0 0 y"}
+{:process 0, :type :invoke, :f :append, :key "4", :value "x 0 1 y"}
+{:process 0, :type :ok, :f :append, :key "4", :value "x 0 1 y"}
+{:process 0, :type :invoke, :f :append, :key "9", :value "x 0 2 y"}
+{:process 0, :type :ok, :f :append, :key "9", :value "x 0 2 y"}
+{:process 0, :type :invoke, :f :append, :key "4", :value "x 0 3 y"}
+{:process 0, :type :ok, :f :append, :key "4", :value "x 0 3 y"}
+{:process 0, :type :invoke, :f :get, :key "5", :value nil}
+{:process 0, :type :ok, :f :get, :key "5", :value ""}
+{:process 0, :type :invoke, :f :get, :key "0", :value nil}
+{:process 0, :type :ok, :f :get, :key "0", :value "x 0 0 y"}
+{:process 0, :type :invoke, :f :append, :key "7", :value "x 0 4 y"}
+{:process 0, :type :ok, :f :append, :key "7", :value "x 0 4 y"}
+{:process 0, :type :invoke, :f :get, :key "7", :value nil}
+{:process 0, :type :ok, :f :get, :key "7", :value "x 0 4 y"}
+{:process 0, :type :invoke, :f :append, :key "9", :value "x 0 5 y"}
+{:process 0, :type :ok, :f :append, :key "9", :value "x 0 5 y"}
+{:process 0, :type :invoke, :f :get, :key "9", :value nil}
+{:process 0, :type :ok, :f :get, :key "9", :value "x 0 2 yx 0 5 y"}
+{:process 0, :type :invoke, :f :append, :key "2", :value "x 0 6 y"}
+{:process 0, :type :ok, :f :append, :key "2", :value "x 0 6 y"}
+{:process 0, :type :invoke, :f :append, :key "2", :value "x 0 7 y"}
+{:process 0, :type :ok, :f :append, :key "2", :value "x 0 7 y"}
+{:process 0, :type :invoke, :f :get, :key "1", :value nil}
+{:process 0, :type :ok, :f :get, :key "1", :value ""}
+{:process 0, :type :invoke, :f :append, :key "0", :value "x 0 8 y"}
+{:process 0, :type :ok, :f :append, :key "0", :value "x 0 8 y"}
+{:process 0, :type :invoke, :f :put, :key "9", :value "x 0 9 y"}
+{:process 0, :type :ok, :f :put, :key "9", :value "x 0 9 y"}
+{:process 0, :type :invoke, :f :get, :key "8", :value nil}
+{:process 0, :type :ok, :f :get, :key "8", :value ""}
+{:process 0, :type :invoke, :f :get, :key "8", :value nil}
+{:process 0, :type :ok, :f :get, :key "8", :value ""}
+{:process 0, :type :invoke, :f :get, :key "9", :value nil}
+{:process 0, :type :ok, :f :get, :key "9", :value "x 0 9 y"}
+{:process 0, :type :invoke, :f :append, :key "1", :value "x 0 10 y"}
+{:process 0, :type :ok, :f :append, :key "1", :value "x 0 10 y"}
+{:process 0, :type :invoke, :f :append, :key "2", :value "x 0 11 y"}
+{:process 0, :type :ok, :f :append, :key "2", :value "x 0 11 y"}
+{:process 0, :type :invoke, :f :get, :key "7", :value nil}
+{:process 0, :type :ok, :f :get, :key "7", :value "x 0 4 y"}
+{:process 0, :type :invoke, :f :get, :key "7", :value nil}
+{:process 0, :type :ok, :f :get, :key "7", :value "x 0 4 y"}
+{:process 0, :type :invoke, :f :append, :key "5", :value "x 0 12 y"}
+{:process 0, :type :ok, :f :append, :key "5", :value "x 0 12 y"}
+{:process 0, :type :invoke, :f :get, :key "6", :value nil}
+{:process 0, :type :ok, :f :get, :key "6", :value ""}
+{:process 0, :type :invoke, :f :get, :key "5", :value nil}
+{:process 0, :type :ok, :f :get, :key "5", :value "x 0 12 y"}
+{:process 0, :type :invoke, :f :append, :key "7", :value "x 0 0 y"}
+{:process 0, :type :ok, :f :append, :key "7", :value "x 0 0 y"}
+{:process 0, :type :invoke, :f :get, :key "5", :value nil}
+{:process 0, :type :ok, :f :get, :key "5", :value "x 0 12 y"}
+{:process 0, :type :invoke, :f :append, :key "7", :value "x 0 1 y"}
+{:process 0, :type :ok, :f :append, :key "7", :value "x 0 1 y"}
+{:process 0, :type :invoke, :f :append, :key "2", :value "x 0 2 y"}
+{:process 0, :type :ok, :f :append, :key "2", :value "x 0 2 y"}
+{:process 0, :type :invoke, :f :get, :key "8", :value nil}
+{:process 0, :type :ok, :f :get, :key "8", :value ""}
+{:process 0, :type :invoke, :f :get, :key "9", :value nil}
+{:process 0, :type :ok, :f :get, :key "9", :value "x 0 9 y"}
+{:process 0, :type :invoke, :f :append, :key "8", :value "x 0 3 y"}
+{:process 0, :type :ok, :f :append, :key "8", :value "x 0 3 y"}
+{:process 0, :type :invoke, :f :append, :key "5", :value "x 0 4 y"}
+{:process 0, :type :ok, :f :append, :key "5", :value "x 0 4 y"}
+{:process 0, :type :invoke, :f :get, :key "5", :value nil}
+{:process 0, :type :ok, :f :get, :key "5", :value "x 0 12 yx 0 4 y"}
+{:process 0, :type :invoke, :f :get, :key "5", :value nil}
+{:process 0, :type :ok, :f :get, :key "5", :value "x 0 12 yx 0 4 y"}
+{:process 0, :type :invoke, :f :append, :key "1", :value "x 0 5 y"}
+{:process 0, :type :ok, :f :append, :key "1", :value "x 0 5 y"}
+{:process 0, :type :invoke, :f :append, :key "3", :value "x 0 6 y"}
+{:process 0, :type :ok, :f :append, :key "3", :value "x 0 6 y"}
+{:process 0, :type :invoke, :f :append, :key "7", :value "x 0 7 y"}
+{:process 0, :type :ok, :f :append, :key "7", :value "x 0 7 y"}
+{:process 0, :type :invoke, :f :get, :key "0", :value nil}
+{:process 0, :type :ok, :f :get, :key "0", :value "x 0 0 yx 0 8 y"}
+{:process 0, :type :invoke, :f :append, :key "2", :value "x 0 8 y"}
+{:process 0, :type :ok, :f :append, :key "2", :value "x 0 8 y"}
+{:process 0, :type :invoke, :f :append, :key "4", :value "x 0 9 y"}
+{:process 0, :type :ok, :f :append, :key "4", :value "x 0 9 y"}
+{:process 0, :type :invoke, :f :put, :key "4", :value "x 0 10 y"}
+{:process 0, :type :ok, :f :put, :key "4", :value "x 0 10 y"}
+{:process 0, :type :invoke, :f :get, :key "1", :value nil}
+{:process 0, :type :ok, :f :get, :key "1", :value "x 0 10 yx 0 5 y"}
+{:process 0, :type :invoke, :f :append, :key "7", :value "x 0 11 y"}
+{:process 0, :type :ok, :f :append, :key "7", :value "x 0 11 y"}
+{:process 0, :type :invoke, :f :append, :key "4", :value "x 0 12 y"}
+{:process 0, :type :ok, :f :append, :key "4", :value "x 0 12 y"}
+{:process 0, :type :invoke, :f :append, :key "7", :value "x 0 13 y"}
+{:process 0, :type :ok, :f :append, :key "7", :value "x 0 13 y"}
+{:process 0, :type :invoke, :f :append, :key "5", :value "x 0 14 y"}
+{:process 0, :type :ok, :f :append, :key "5", :value "x 0 14 y"}
+{:process 0, :type :invoke, :f :get, :key "8", :value nil}
+{:process 0, :type :ok, :f :get, :key "8", :value "x 0 3 y"}
+{:process 0, :type :invoke, :f :get, :key "3", :value nil}
+{:process 0, :type :ok, :f :get, :key "3", :value "x 0 6 y"}
+{:process 0, :type :invoke, :f :get, :key "3", :value nil}
+{:process 0, :type :ok, :f :get, :key "3", :value "x 0 6 y"}
+{:process 0, :type :invoke, :f :get, :key "7", :value nil}
+{:process 0, :type :ok, :f :get, :key "7", :value "x 0 4 yx 0 0 yx 0 1 yx 0 7 yx 0 11 yx 0 13 y"}
+{:process 0, :type :invoke, :f :append, :key "5", :value "x 0 15 y"}
+{:process 0, :type :ok, :f :append, :key "5", :value "x 0 15 y"}
+{:process 0, :type :invoke, :f :get, :key "3", :value nil}
+{:process 0, :type :ok, :f :get, :key "3", :value "x 0 6 y"}
+{:process 0, :type :invoke, :f :get, :key "2", :value nil}
+{:process 0, :type :ok, :f :get, :key "2", :value "x 0 6 yx 0 7 yx 0 11 yx 0 2 yx 0 8 y"}
+{:process 0, :type :invoke, :f :append, :key "2", :value "x 0 16 y"}
+{:process 0, :type :ok, :f :append, :key "2", :value "x 0 16 y"}
+{:process 0, :type :invoke, :f :append, :key "5", :value "x 0 17 y"}
+{:process 0, :type :ok, :f :append, :key "5", :value "x 0 17 y"}
+{:process 0, :type :invoke, :f :append, :key "6", :value "x 0 18 y"}
+{:process 0, :type :ok, :f :append, :key "6", :value "x 0 18 y"}
+{:process 0, :type :invoke, :f :append, :key "3", :value "x 0 19 y"}
+{:process 0, :type :ok, :f :append, :key "3", :value "x 0 19 y"}
