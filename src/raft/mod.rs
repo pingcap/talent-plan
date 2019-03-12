@@ -3,6 +3,7 @@ use std::sync::Arc;
 use futures::sync::mpsc::UnboundedSender;
 use futures::Future;
 use labcodec;
+use labrpc::RpcFuture;
 
 #[cfg(test)]
 pub mod config;
@@ -208,6 +209,7 @@ impl Node {
     /// if it's ever committed. the second return value is the current
     /// term. the third return value is true if this server believes it is
     /// the leader.
+    /// This method must return quickly.
     pub fn start<M>(&self, command: &M) -> Result<(u64, u64)>
     where
         M: labcodec::Message,
@@ -253,7 +255,7 @@ impl Node {
 
 impl RaftService for Node {
     // example RequestVote RPC handler.
-    fn request_vote(&self, args: RequestVoteArgs) -> RequestVoteReply {
+    fn request_vote(&self, args: RequestVoteArgs) -> RpcFuture<RequestVoteReply> {
         // Your code here (2A, 2B).
         unimplemented!()
     }

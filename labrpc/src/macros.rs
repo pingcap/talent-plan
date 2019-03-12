@@ -24,7 +24,7 @@ macro_rules! service {
             pub trait Service: Clone + Send + 'static {
                 $(
                     $(#[$method_attr])*
-                    fn $method_name(&self, $input) -> $output;
+                    fn $method_name(&self, $input) -> $crate::RpcFuture<$output>;
                 )*
             }
 
@@ -43,7 +43,7 @@ macro_rules! service {
                     self.client.worker.spawn(f).forget()
                 }
 
-                $(pub fn $method_name(&self, args: &$input) -> Box<dyn __futures::Future<Item = $output, Error = $crate::Error> + Send + 'static> {
+                $(pub fn $method_name(&self, args: &$input) -> $crate::RpcFuture<$output> {
                     let fq_name = concat!(stringify!($svc_name), ".", stringify!($method_name));
                     self.client.call(fq_name, args)
                 })*
@@ -56,17 +56,35 @@ macro_rules! service {
                 }
                 impl<S: Service> $crate::HandlerFactory for Factory<S> {
                     fn handler(&self, name: &'static str) -> Box<$crate::Handler> {
+                        use self::__futures::Future;
                         let s = self.svc.lock().unwrap().clone();
-                        Box::new(move |req, rsp| {
+                        Box::new(move |req| {
                             match name {
                                 $(stringify!($method_name) => {
-                                    let request = labcodec::decode(req).map_err($crate::Error::Decode)?;
-                                    let response = s.$method_name(request);
-                                    labcodec::encode(&response, rsp).map_err($crate::Error::Encode)
+                                    let request = match labcodec::decode(req) {
+                                        Ok(req) => req,
+                                        Err(e) => return Box::new (
+                                            __futures::future::result(
+                                                Err($crate::Error::Decode(e))
+                                            )
+                                        ),
+                                    };
+                                    Box::new(s.$method_name(request).then(|resp| {
+                                        match resp {
+                                            Ok(resp) => {
+                                                let mut rsp = vec![];
+                                                labcodec::encode(&resp, &mut rsp).map_err($crate::Error::Encode)?;
+                                                Ok(rsp)
+                                            }
+                                            Err(e) => Err(e),
+                                        }
+                                    }))
                                 })*
                                 other => {
-                                    Err($crate::Error::Unimplemented(
-                                        format!("unknown {} in {}", other, stringify!($svc_name))
+                                    Box::new(__futures::future::result(
+                                        Err($crate::Error::Unimplemented(
+                                            format!("unknown {} in {}", other, stringify!($svc_name))
+                                        ))
                                     ))
                                 }
                             }

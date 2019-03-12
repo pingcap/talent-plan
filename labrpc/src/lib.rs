@@ -31,7 +31,7 @@ use futures::future;
 use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures::sync::oneshot;
 use futures::{Async, Future, Poll, Select, Stream};
-use futures_cpupool::{CpuFuture, CpuPool};
+use futures_cpupool::CpuPool;
 use futures_timer::{Delay, Interval};
 use hashbrown::HashMap;
 use rand::Rng;
@@ -44,7 +44,9 @@ pub use error::{Error, Result};
 
 static ID_ALLOC: AtomicUsize = AtomicUsize::new(0);
 
-pub type Handler = Fn(&[u8], &mut Vec<u8>) -> Result<()> + Send + 'static;
+pub type RpcFuture<T> = Box<dyn Future<Item = T, Error = Error> + Send + 'static>;
+
+pub type Handler = Fn(&[u8]) -> RpcFuture<Vec<u8>>;
 
 pub trait HandlerFactory: Sync + Send + 'static {
     fn handler(&self, name: &'static str) -> Box<Handler>;
@@ -115,20 +117,35 @@ impl Server {
         &self.core.name
     }
 
-    fn dispatch(&self, fq_name: &'static str, req: &[u8], rsp: &mut Vec<u8>) -> Result<()> {
+    fn dispatch(&self, fq_name: &'static str, req: &[u8]) -> RpcFuture<Vec<u8>> {
         self.core.count.fetch_add(1, Ordering::Relaxed);
         let mut names = fq_name.split('.');
-        let service_name = names
-            .next()
-            .ok_or_else(|| Error::Unimplemented(format!("unknown {}", fq_name)))?;
-        let method_name = names
-            .next()
-            .ok_or_else(|| Error::Unimplemented(format!("unknown {}", fq_name)))?;
+        let service_name = match names.next() {
+            Some(n) => n,
+            None => {
+                return Box::new(future::result(Err(Error::Unimplemented(format!(
+                    "unknown {}",
+                    fq_name
+                )))));
+            }
+        };
+        let method_name = match names.next() {
+            Some(n) => n,
+            None => {
+                return Box::new(future::result(Err(Error::Unimplemented(format!(
+                    "unknown {}",
+                    fq_name
+                )))));
+            }
+        };
         if let Some(fact) = self.core.services.get(service_name) {
             let handle = fact.handler(method_name);
-            handle(req, rsp)
+            handle(req)
         } else {
-            Err(Error::Unimplemented(format!("unknown {}", fq_name)))
+            Box::new(future::result(Err(Error::Unimplemented(format!(
+                "unknown {}",
+                fq_name
+            )))))
         }
     }
 }
@@ -174,11 +191,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn call<Req, Rsp>(
-        &self,
-        fq_name: &'static str,
-        req: &Req,
-    ) -> Box<dyn Future<Item = Rsp, Error = Error> + Send + 'static>
+    pub fn call<Req, Rsp>(&self, fq_name: &'static str, req: &Req) -> RpcFuture<Rsp>
     where
         Req: labcodec::Message,
         Rsp: labcodec::Message + 'static,
@@ -499,7 +512,7 @@ enum ProcessState {
     },
     Ongoing {
         // I have to say it's ugly. :(
-        res: Select<CpuFuture<Vec<u8>, Error>, ServerDead>,
+        res: Select<RpcFuture<Vec<u8>>, ServerDead>,
         drop_reply: bool,
         long_reordering: Option<u64>,
     },
@@ -579,23 +592,13 @@ impl Future for ProcessRpc {
                     let server = self.server.as_ref().unwrap();
                     let fq_name = self.rpc.fq_name;
                     let req = self.rpc.req.take().unwrap();
-                    let server_ = server.clone();
-                    let res = self
-                        .network
-                        .core
-                        .worker
-                        .spawn_fn(move || {
-                            let mut buf = vec![];
-                            let res = server_.dispatch(fq_name, &req, &mut buf);
-                            res.map(|_| buf)
-                        })
-                        .select(ServerDead {
-                            interval: Interval::new(time::Duration::from_millis(100)),
-                            net: self.network.clone(),
-                            client_name: self.rpc.client_name.clone(),
-                            server_name: server.core.name.clone(),
-                            server_id: server.core.id,
-                        });
+                    let res = server.dispatch(fq_name, &req).select(ServerDead {
+                        interval: Interval::new(time::Duration::from_millis(100)),
+                        net: self.network.clone(),
+                        client_name: self.rpc.client_name.clone(),
+                        server_name: server.core.name.clone(),
+                        server_id: server.core.id,
+                    });
                     next = Some(ProcessState::Ongoing {
                         res,
                         drop_reply: *drop_reply,
@@ -718,22 +721,27 @@ mod tests {
         }
     }
     impl Junk for JunkService {
-        fn handler2(&self, args: JunkArgs) -> JunkReply {
+        fn handler2(&self, args: JunkArgs) -> RpcFuture<JunkReply> {
             self.inner.lock().unwrap().log2.push(args.x);
-            JunkReply {
+            Box::new(future::result(Ok(JunkReply {
                 x: format!("handler2-{}", args.x),
-            }
+            })))
         }
-        fn handler3(&self, args: JunkArgs) -> JunkReply {
-            thread::sleep(time::Duration::from_secs(20));
-            JunkReply {
-                x: format!("handler3-{}", -args.x),
-            }
+        fn handler3(&self, args: JunkArgs) -> RpcFuture<JunkReply> {
+            Box::new(
+                Delay::new(time::Duration::from_secs(20))
+                    .and_then(move |_| {
+                        future::result(Ok(JunkReply {
+                            x: format!("handler3-{}", -args.x),
+                        }))
+                    })
+                    .map_err(|e| panic!("{:?}", e)),
+            )
         }
-        fn handler4(&self, _: JunkArgs) -> JunkReply {
-            JunkReply {
+        fn handler4(&self, _: JunkArgs) -> RpcFuture<JunkReply> {
+            Box::new(future::result(Ok(JunkReply {
                 x: "pointer".to_owned(),
-            }
+            })))
         }
     }
 
@@ -754,8 +762,7 @@ mod tests {
         assert_eq!(builder.services.len(), prev_len);
         let server = builder.build();
 
-        let mut buf = Vec::new();
-        server.dispatch("junk.handler4", &[], &mut buf).unwrap();
+        let buf = server.dispatch("junk.handler4", &[]).wait().unwrap();
         let rsp = labcodec::decode(&buf).unwrap();
         assert_eq!(
             JunkReply {
@@ -764,23 +771,14 @@ mod tests {
             rsp,
         );
 
-        buf.clear();
         server
-            .dispatch("junk.handler4", b"bad message", &mut buf)
+            .dispatch("junk.handler4", b"bad message")
+            .wait()
             .unwrap_err();
-        assert!(buf.is_empty());
 
-        buf.clear();
-        server
-            .dispatch("badjunk.handler4", &[], &mut buf)
-            .unwrap_err();
-        assert!(buf.is_empty());
+        server.dispatch("badjunk.handler4", &[]).wait().unwrap_err();
 
-        buf.clear();
-        server
-            .dispatch("junk.badhandler", &[], &mut buf)
-            .unwrap_err();
-        assert!(buf.is_empty());
+        server.dispatch("junk.badhandler", &[]).wait().unwrap_err();
     }
 
     #[test]
@@ -1151,6 +1149,6 @@ mod tests {
         b.iter(|| {
             client.handler2(&JunkArgs { x: 111 }).wait().unwrap();
         });
-        // i5-4200U, 90 microseconds per RPC
+        // i5-4200U, 21 microseconds per RPC
     }
 }

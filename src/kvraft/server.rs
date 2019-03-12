@@ -2,6 +2,7 @@ use super::service::*;
 use crate::raft;
 
 use futures::sync::mpsc::unbounded;
+use labrpc::RpcFuture;
 
 pub struct KvServer {
     pub rf: raft::Node,
@@ -83,12 +84,12 @@ impl Node {
 }
 
 impl KvService for Node {
-    fn get(&self, arg: GetRequest) -> GetReply {
+    fn get(&self, arg: GetRequest) -> RpcFuture<GetReply> {
         // Your code here.
         unimplemented!()
     }
 
-    fn put_append(&self, arg: PutAppendRequest) -> PutAppendReply {
+    fn put_append(&self, arg: PutAppendRequest) -> RpcFuture<PutAppendReply> {
         // Your code here.
         unimplemented!()
     }

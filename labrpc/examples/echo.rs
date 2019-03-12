@@ -25,8 +25,8 @@ use echo::{add_service, Client, Service};
 struct EchoService;
 
 impl Service for EchoService {
-    fn ping(&self, input: Echo) -> Echo {
-        input.clone()
+    fn ping(&self, input: Echo) -> RpcFuture<Echo> {
+        Box::new(futures::future::result(Ok(input.clone())))
     }
 }
 
