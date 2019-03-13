@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package fixture;
+
+// A simple protobuf message.
+message Msg {
+    enum Type {
+        UNKNOWN = 0;
+        PUT = 1;
+        GET = 2;
+        DEL = 3;
+    }
+
+    Type type = 1;
+    uint64 id = 2;
+    string name = 3;
+    repeated bytes paylad = 4;
+}
