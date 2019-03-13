@@ -47,6 +47,7 @@ in the README.
 - https://github.com/nrc/talks
 - https://docs.google.com/document/d/11P5f5VRKhS7ZOB5_sbnCKJLo_zor9BiwEAZ9GvVyHWE/edit#
   - previous brainstorming
+- RustBridge
 
 ## Subjects to potentially cut
 
@@ -56,8 +57,19 @@ in the README.
 - Build time lesson
 - Collections and iterators
 
+## Contributor notes
+
+- each md file needs a relative symlink to index.html
+- lessons need a .slides.html symlink
+- links are generally to markdown files, not html files
+  - exception: links to slides from plan go to the hosted website
+  - all links rewritten when browsed locally
+- in markdown, write links as relative to current directory
+
 ## TODO
 
 - do survey of other sources' subject progression
 - lessons and labs pose questions
 - have a chinese native identify and remove 'hard' words and phrases
+- mention somewhere that we're using rust 2018 only, how to verify
+- change slides.html URLS to link to the hosted file

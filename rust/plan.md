@@ -31,7 +31,7 @@ A suggested workflow:
 
 ## Section 1 (Setup)
 
-- [Project: Tools and good bones][p-tools-etc]
+- [Project: Tools and good bones][p-tools]
 
   - Task: create an in-memory key/value store that passes simple tests
     and responds to command-line arguments.
@@ -46,7 +46,7 @@ A suggested workflow:
 
   - Extensions: structopt, log / slog
 
-- [Lesson: Whirlwind Rust][t-intro] ([slides][s-intro])
+- [Lesson: Whirlwind Rust][t-whirlwind] ([slides][s-whirlwind])
 
   - Readings:
     - [The Book - Getting Started](https://doc.rust-lang.org/book/ch01-00-getting-started.html)
@@ -236,7 +236,7 @@ A suggested workflow:
 
 <!-- section 1 -->
 
-[p-tools-etc]: todo
-[t-intro]: todo
-[s-intro]: todo
+[p-tools]: projects/tools/project.md
+[t-whirlwind]: lessons/whirlwind.md
+[s-whirlwind]: lessons/whirlwind.slides.html
 
