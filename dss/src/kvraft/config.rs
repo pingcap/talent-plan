@@ -323,7 +323,7 @@ impl Config {
         let mut p2 = Vec::with_capacity(self.n / 2);
         for i in 0..self.n {
             if i != l {
-                if p1.len() + 1 < self.n / 2 + 1 {
+                if p1.len() < self.n / 2 + 1 {
                     p1.push(i);
                 } else {
                     p2.push(i);
