@@ -66,12 +66,12 @@ where
         let cfg_ = cfg.clone();
         // a client runs the function func and then signals it is done
         let func = fact();
-        cfg.net.spawn(future::lazy(move || {
+        thread::spawn(move || {
             let ck = cfg_.make_client(&cfg_.all());
             func(cli, &ck);
             cfg_.delete_client(&ck);
             tx.send(())
-        }));
+        });
     }
     debug!("spawn_clients_and_wait: waiting for clients");
     future::join_all(cas).map(|_| ()).map_err(|e| {
