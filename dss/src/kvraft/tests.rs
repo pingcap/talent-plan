@@ -66,12 +66,12 @@ where
         let cfg_ = cfg.clone();
         // a client runs the function func and then signals it is done
         let func = fact();
-        cfg.net.spawn(future::lazy(move || {
+        thread::spawn(move || {
             let ck = cfg_.make_client(&cfg_.all());
             func(cli, &ck);
             cfg_.delete_client(&ck);
             tx.send(())
-        }));
+        });
     }
     debug!("spawn_clients_and_wait: waiting for clients");
     future::join_all(cas).map(|_| ()).map_err(|e| {
@@ -230,8 +230,8 @@ fn generic_test(
         let clnt_txs_ = clnt_txs.clone();
         let cfg_ = cfg.clone();
         let done_clients_ = done_clients.clone();
-        cfg.net
-            .spawn_poller(spawn_clients_and_wait(cfg.clone(), nclients, move || {
+        thread::spawn(move || {
+            spawn_clients_and_wait(cfg.clone(), nclients, move || {
                 let cfg1 = cfg_.clone();
                 let clnt_txs1 = clnt_txs_.clone();
                 let done_clients1 = done_clients_.clone();
@@ -244,7 +244,7 @@ fn generic_test(
                     put(&cfg1, myck, &key, &last);
                     while done_clients1.load(Ordering::Relaxed) == 0 {
                         if (rng.gen::<u32>() % 1000) < 500 {
-                            let nv = format!("x {} {} y", cli, i);
+                            let nv = format!("x {} {} y", cli, j);
                             debug!("{}: client new append {}", cli, nv);
                             last = next_value(last, &nv);
                             append(&cfg1, myck, &key, &nv);
@@ -262,7 +262,10 @@ fn generic_test(
                     }
                     clnt_txs1[cli].send(j).unwrap();
                 }
-            }));
+            })
+            .wait()
+            .unwrap()
+        });
 
         if partitions {
             // Allow the clients to perform some operations without interruption
@@ -282,7 +285,7 @@ fn generic_test(
 
         if partitions {
             debug!("wait for partitioner");
-            partitioner_rx.try_recv().unwrap();
+            partitioner_rx.recv().unwrap();
             // reconnect network and submit a request. A client may
             // have submitted a request in a minority.  That request
             // won't return until that server discovers a new term
@@ -311,7 +314,7 @@ fn generic_test(
         debug!("wait for clients");
         for (i, clnt_rx) in clnt_rxs.iter().enumerate() {
             debug!("read from clients {}", i);
-            let j = clnt_rx.try_recv().unwrap();
+            let j = clnt_rx.recv().unwrap();
             if j < 10 {
                 debug!(
                     "Warning: client {} managed to perform only {} put operations in 1 sec?",
