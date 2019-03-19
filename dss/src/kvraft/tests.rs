@@ -230,8 +230,8 @@ fn generic_test(
         let clnt_txs_ = clnt_txs.clone();
         let cfg_ = cfg.clone();
         let done_clients_ = done_clients.clone();
-        cfg.net
-            .spawn_poller(spawn_clients_and_wait(cfg.clone(), nclients, move || {
+        thread::spawn(move || {
+            spawn_clients_and_wait(cfg.clone(), nclients, move || {
                 let cfg1 = cfg_.clone();
                 let clnt_txs1 = clnt_txs_.clone();
                 let done_clients1 = done_clients_.clone();
@@ -262,7 +262,10 @@ fn generic_test(
                     }
                     clnt_txs1[cli].send(j).unwrap();
                 }
-            }));
+            })
+            .wait()
+            .unwrap()
+        });
 
         if partitions {
             // Allow the clients to perform some operations without interruption
