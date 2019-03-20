@@ -30,7 +30,7 @@ use std::{fmt, time};
 use futures::future;
 use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures::sync::oneshot;
-use futures::{Async, Future, Poll, Select, Stream};
+use futures::{Async, Future, Poll, Stream};
 use futures_cpupool::CpuPool;
 use futures_timer::{Delay, Interval};
 use hashbrown::HashMap;
@@ -164,6 +164,7 @@ pub struct Rpc {
     fq_name: &'static str,
     req: Option<Vec<u8>>,
     resp: Option<oneshot::Sender<Result<Vec<u8>>>>,
+    hooks: Arc<Mutex<Option<Arc<dyn RpcHooks>>>>,
 }
 
 impl Rpc {
@@ -181,12 +182,19 @@ impl fmt::Debug for Rpc {
     }
 }
 
+pub trait RpcHooks: Sync + Send + 'static {
+    fn before_dispatch(&self, fq_name: &str, req: &[u8]) -> Result<()>;
+    fn after_dispatch(&self, fq_name: &str, resp: Result<Vec<u8>>) -> Result<Vec<u8>>;
+}
+
 #[derive(Clone)]
 pub struct Client {
     // this end-point's name
     name: String,
     // copy of Network.sender
     sender: UnboundedSender<Rpc>,
+    hooks: Arc<Mutex<Option<Arc<dyn RpcHooks>>>>,
+
     pub worker: CpuPool,
 }
 
@@ -207,6 +215,7 @@ impl Client {
             fq_name,
             req: Some(buf),
             resp: Some(tx),
+            hooks: self.hooks.clone(),
         };
 
         // Sends requets and waits responses.
@@ -218,6 +227,14 @@ impl Client {
             Ok(Err(e)) => Err(e),
             Err(e) => Err(Error::Recv(e)),
         }))
+    }
+
+    pub fn set_hooks(&self, hooks: Arc<dyn RpcHooks>) {
+        *self.hooks.lock().unwrap() = Some(hooks);
+    }
+
+    pub fn clear_hooks(&self) {
+        *self.hooks.lock().unwrap() = None;
     }
 }
 
@@ -326,6 +343,7 @@ impl Network {
             name,
             sender,
             worker: self.core.worker.clone(),
+            hooks: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -512,7 +530,7 @@ enum ProcessState {
     },
     Ongoing {
         // I have to say it's ugly. :(
-        res: Select<RpcFuture<Vec<u8>>, ServerDead>,
+        res: Box<dyn Future<Item = Vec<u8>, Error = Error> + Send + 'static>,
         drop_reply: bool,
         long_reordering: Option<u64>,
     },
@@ -578,29 +596,57 @@ impl Future for ProcessRpc {
                     // We has finished the delay, take it out to prevent polling
                     // twice.
                     delay.take();
-                    // Execute the request (call the RPC handler)
-                    // in a separate thread so that we can periodically check
-                    // if the server has been killed and the RPC should get a
-                    // failure reply.
-                    //
-                    // do not reply if DeleteServer() has been called, i.e.
-                    // the server has been killed. this is needed to avoid
-                    // situation in which a client gets a positive reply
-                    // to an Append, but the server persisted the update
-                    // into the old Persister. config.go is careful to call
-                    // DeleteServer() before superseding the Persister.
-                    let server = self.server.as_ref().unwrap();
+
                     let fq_name = self.rpc.fq_name;
                     let req = self.rpc.req.take().unwrap();
-                    let res = server.dispatch(fq_name, &req).select(ServerDead {
-                        interval: Interval::new(time::Duration::from_millis(100)),
-                        net: self.network.clone(),
-                        client_name: self.rpc.client_name.clone(),
-                        server_name: server.core.name.clone(),
-                        server_id: server.core.id,
-                    });
+                    let before_dispatch =
+                        if let Some(hooks) = self.rpc.hooks.lock().unwrap().as_ref() {
+                            hooks.before_dispatch(fq_name, &req)
+                        } else {
+                            Ok(())
+                        };
+                    let fut: Box<dyn Future<Item = Vec<u8>, Error = Error> + Send + 'static> =
+                        if let Err(e) = before_dispatch {
+                            Box::new(future::result(Err(e)))
+                        } else {
+                            // Execute the request (call the RPC handler)
+                            // in a separate thread so that we can periodically check
+                            // if the server has been killed and the RPC should get a
+                            // failure reply.
+                            //
+                            // do not reply if DeleteServer() has been called, i.e.
+                            // the server has been killed. this is needed to avoid
+                            // situation in which a client gets a positive reply
+                            // to an Append, but the server persisted the update
+                            // into the old Persister. config.go is careful to call
+                            // DeleteServer() before superseding the Persister.
+                            let server = self.server.as_ref().unwrap();
+                            let res = server.dispatch(fq_name, &req).select(ServerDead {
+                                interval: Interval::new(time::Duration::from_millis(100)),
+                                net: self.network.clone(),
+                                client_name: self.rpc.client_name.clone(),
+                                server_name: server.core.name.clone(),
+                                server_id: server.core.id,
+                            });
+                            let hooks: Arc<_> = self.rpc.hooks.clone();
+                            let fut = res.then(move |res| {
+                                let res = match res {
+                                    // ServerDead never return Ok(_).
+                                    Ok((resp, _)) => Ok(resp),
+                                    // Server may be killed while we were waiting response.
+                                    Err((e, _)) => Err(e),
+                                };
+                                let hooks = hooks.lock().unwrap();
+                                if let Some(hooks) = hooks.as_ref() {
+                                    hooks.after_dispatch(fq_name, res)
+                                } else {
+                                    res
+                                }
+                            });
+                            Box::new(fut)
+                        };
                     next = Some(ProcessState::Ongoing {
-                        res,
+                        res: Box::new(fut),
                         drop_reply: *drop_reply,
                         long_reordering: *long_reordering,
                     });
@@ -610,9 +656,7 @@ impl Future for ProcessRpc {
                     drop_reply,
                     long_reordering,
                 } => {
-                    // Server may be killed while we were waiting,
-                    // try_ready! returns error if that's so.
-                    let (resp, _) = try_ready!(res.poll().map_err(|(e, _)| e));
+                    let resp = try_ready!(res.poll());
                     if *drop_reply {
                         //  drop the reply, return as if timeout.
                         break Err(Error::Timeout);
@@ -1135,6 +1179,62 @@ mod tests {
         net.delete_server(server_name);
         let reply = rx.recv_timeout(time::Duration::from_millis(100)).unwrap();
         assert_eq!(reply, Err(Error::Stopped));
+    }
+
+    struct Hooks {
+        drop_req: AtomicBool,
+        drop_resp: AtomicBool,
+    }
+    impl RpcHooks for Hooks {
+        fn before_dispatch(&self, _: &str, _: &[u8]) -> Result<()> {
+            if self.drop_req.load(Ordering::Relaxed) {
+                Err(Error::Other("reqhook".to_owned()))
+            } else {
+                Ok(())
+            }
+        }
+        fn after_dispatch(&self, _: &str, resp: Result<Vec<u8>>) -> Result<Vec<u8>> {
+            if self.drop_resp.load(Ordering::Relaxed) {
+                Err(Error::Other("resphook".to_owned()))
+            } else {
+                resp
+            }
+        }
+    }
+
+    #[test]
+    fn test_rpc_hooks() {
+        init_logger();
+        let (net, _, _) = junk_suit();
+
+        let raw_cli = net.create_client("test_client".to_owned());
+        let hook = Arc::new(Hooks {
+            drop_req: AtomicBool::new(false),
+            drop_resp: AtomicBool::new(false),
+        });
+        raw_cli.set_hooks(hook.clone());
+
+        let client = JunkClient::new(raw_cli);
+        net.connect("test_client", "test_server");
+        net.enable("test_client", true);
+
+        let i = 100;
+        let reply = client.handler2(&JunkArgs { x: i }).wait().unwrap();
+        assert_eq!(reply.x, format!("handler2-{}", i));
+        hook.drop_req.store(true, Ordering::Relaxed);
+        assert_eq!(
+            client.handler2(&JunkArgs { x: i }).wait().unwrap_err(),
+            Error::Other("reqhook".to_owned())
+        );
+        hook.drop_req.store(false, Ordering::Relaxed);
+        hook.drop_resp.store(true, Ordering::Relaxed);
+        assert_eq!(
+            client.handler2(&JunkArgs { x: i }).wait().unwrap_err(),
+            Error::Other("resphook".to_owned())
+        );
+        hook.drop_resp.store(false, Ordering::Relaxed);
+        client.handler2(&JunkArgs { x: i }).wait().unwrap();
+        assert_eq!(reply.x, format!("handler2-{}", i));
     }
 
     #[bench]
