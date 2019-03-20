@@ -1,8 +1,5 @@
 #[macro_use]
 extern crate prost_derive;
-extern crate futures;
-extern crate labcodec;
-extern crate labrpc;
 
 use futures::Future;
 use labrpc::*;

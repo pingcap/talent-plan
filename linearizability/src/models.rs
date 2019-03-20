@@ -99,7 +99,7 @@ mod tests {
 
     use super::super::check_events;
     use super::{KvInput, KvModel, KvOutput, Op};
-    use model::{Event, EventKind, Events, Model, Value};
+    use crate::model::{Event, EventKind, Events, Model, Value};
     use regex::Regex;
 
     fn check_kv(log_name: String, correct: bool) {
@@ -116,26 +116,26 @@ mod tests {
     fn parse_kv_log(
         file_name: &str,
     ) -> Result<Events<<KvModel as Model>::Input, <KvModel as Model>::Output>> {
-        lazy_static! {
-            static ref invoke_get: Regex = Regex::new(
+        lazy_static::lazy_static! {
+            static ref INVOKE_GET: Regex = Regex::new(
                 r#"\{:process (\d+), :type :invoke, :f :get, :key "(.*)", :value nil\}"#
             )
             .unwrap();
-            static ref invoke_put: Regex = Regex::new(
+            static ref INVOKE_PUT: Regex = Regex::new(
                 r#"\{:process (\d+), :type :invoke, :f :put, :key "(.*)", :value "(.*)"\}"#
             )
             .unwrap();
-            static ref invoke_append: Regex = Regex::new(
+            static ref INVOKE_APPEND: Regex = Regex::new(
                 r#"\{:process (\d+), :type :invoke, :f :append, :key "(.*)", :value "(.*)"\}"#
             )
             .unwrap();
-            static ref return_get: Regex =
+            static ref RETURN_GET: Regex =
                 Regex::new(r#"\{:process (\d+), :type :ok, :f :get, :key ".*", :value "(.*)"\}"#)
                     .unwrap();
-            static ref return_put: Regex =
+            static ref RETURN_PUT: Regex =
                 Regex::new(r#"\{:process (\d+), :type :ok, :f :put, :key ".*", :value ".*"\}"#)
                     .unwrap();
-            static ref return_append: Regex =
+            static ref RETURN_APPEND: Regex =
                 Regex::new(r#"\{:process (\d+), :type :ok, :f :append, :key ".*", :value ".*"\}"#)
                     .unwrap();
         }
@@ -148,7 +148,7 @@ mod tests {
 
         for line in buf_reader.lines() {
             let contents = line.unwrap();
-            if let Some(args) = invoke_get.captures(&contents) {
+            if let Some(args) = INVOKE_GET.captures(&contents) {
                 events.push(Event {
                     kind: EventKind::CallEvent,
                     value: Value::Input(KvInput {
@@ -160,7 +160,7 @@ mod tests {
                 });
                 procid_map.insert(args[1].to_string().parse().unwrap(), id);
                 id += 1;
-            } else if let Some(args) = invoke_put.captures(&contents) {
+            } else if let Some(args) = INVOKE_PUT.captures(&contents) {
                 events.push(Event {
                     kind: EventKind::CallEvent,
                     value: Value::Input(KvInput {
@@ -172,7 +172,7 @@ mod tests {
                 });
                 procid_map.insert(args[1].to_string().parse().unwrap(), id);
                 id += 1;
-            } else if let Some(args) = invoke_append.captures(&contents) {
+            } else if let Some(args) = INVOKE_APPEND.captures(&contents) {
                 events.push(Event {
                     kind: EventKind::CallEvent,
                     value: Value::Input(KvInput {
@@ -184,7 +184,7 @@ mod tests {
                 });
                 procid_map.insert(args[1].to_string().parse().unwrap(), id);
                 id += 1;
-            } else if let Some(args) = return_get.captures(&contents) {
+            } else if let Some(args) = RETURN_GET.captures(&contents) {
                 let match_id = procid_map
                     .remove(&args[1].to_string().parse().unwrap())
                     .unwrap();
@@ -195,7 +195,7 @@ mod tests {
                     }),
                     id: match_id,
                 });
-            } else if let Some(args) = return_put.captures(&contents) {
+            } else if let Some(args) = RETURN_PUT.captures(&contents) {
                 let match_id = procid_map
                     .remove(&args[1].to_string().parse().unwrap())
                     .unwrap();
@@ -206,7 +206,7 @@ mod tests {
                     }),
                     id: match_id,
                 });
-            } else if let Some(args) = return_append.captures(&contents) {
+            } else if let Some(args) = RETURN_APPEND.captures(&contents) {
                 let match_id = procid_map
                     .remove(&args[1].to_string().parse().unwrap())
                     .unwrap();

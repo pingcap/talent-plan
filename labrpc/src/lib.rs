@@ -40,7 +40,7 @@ mod error;
 #[macro_use]
 mod macros;
 
-pub use error::{Error, Result};
+pub use crate::error::{Error, Result};
 
 static ID_ALLOC: AtomicUsize = AtomicUsize::new(0);
 
@@ -722,7 +722,6 @@ mod tests {
     use std::thread;
 
     use futures::sync::oneshot::Canceled;
-    use test;
 
     use super::*;
 
@@ -735,7 +734,7 @@ mod tests {
             rpc handler4(JunkArgs) returns (JunkReply);
         }
     }
-    use tests::junk::{add_service, Client as JunkClient, Service as Junk};
+    use self::tests::junk::{add_service, Client as JunkClient, Service as Junk};
 
     // Hand-written protobuf messages.
     #[derive(Clone, PartialEq, Message)]
