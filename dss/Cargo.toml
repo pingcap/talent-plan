@@ -1,7 +1,15 @@
 [package]
 name = "labs6824"
 version = "0.1.0"
-authors = ["Neil Shen <overvenus@gmail.com>"]
+authors = [
+    "Neil Shen <overvenus@gmail.com>",
+    "ShuNing <nolouch@gmail.com>",
+    "Connor <zbk602423539@gmail.com>",
+    "庄天翼 <zty0826@gmail.com>",
+    "MIT 6.824 <6824-staff@lists.csail.mit.edu>"
+]
+edition = "2018"
+publish = false
 
 [workspace]
 members = ["labcodec", "labrpc", "linearizability"]
@@ -10,8 +18,8 @@ members = ["labcodec", "labrpc", "linearizability"]
 labrpc = { path = "labrpc" }
 labcodec = { path = "labcodec" }
 linearizability = { path = "linearizability"}
-prost = "0.4"
-prost-derive = "0.4.0"
+prost = "0.5"
+prost-derive = "0.5"
 bytes = "0.4.7"
 rand = "0.4"
 log = "0.4"

@@ -1,11 +1,3 @@
-#![feature(deadline_api)]
-
-#[cfg(test)]
-extern crate regex;
-#[cfg(test)]
-#[macro_use]
-extern crate lazy_static;
-
 mod bitset;
 pub mod model;
 pub mod models;
@@ -18,10 +10,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError};
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use bitset::Bitset;
-use model::{Event, EventKind, Events, Model, Operations, Value};
+use crate::bitset::Bitset;
+use crate::model::{Event, EventKind, Events, Model, Operations, Value};
 
 enum EntryKind {
     CallEntry,
@@ -380,7 +372,7 @@ fn wait_res(
         match if timeout.as_secs() == 0 && timeout.subsec_nanos() == 0 {
             rx.recv().map_err(From::from)
         } else {
-            rx.recv_deadline(Instant::now() + timeout)
+            rx.recv_timeout(timeout)
         } {
             Ok(res) => {
                 ok = ok && res;

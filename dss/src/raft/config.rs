@@ -7,8 +7,8 @@ use std::time::{Duration, Instant};
 use futures::{sync::mpsc::unbounded, Future, Stream};
 use labrpc;
 
-use raft;
-use raft::persister::*;
+use crate::raft;
+use crate::raft::persister::*;
 use rand::Rng;
 
 static ID: AtomicUsize = AtomicUsize::new(0);
@@ -398,7 +398,7 @@ impl Config {
                         }
                         if cmd.command_index > 1 {
                             let log = s.logs.get_mut(i - 1);
-                            if let Some(mut log) = log {
+                            if let Some(log) = log {
                                 log.insert(cmd.command_index, entry);
                             } else {
                                 panic!("server {} apply out of order {}", i, cmd.command_index);

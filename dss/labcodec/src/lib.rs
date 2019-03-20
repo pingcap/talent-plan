@@ -1,11 +1,5 @@
 //! A thin wrapper of [prost](https://docs.rs/prost/0.4.0/prost/)
 
-extern crate bytes;
-extern crate prost;
-#[cfg(test)]
-#[macro_use]
-extern crate prost_derive;
-
 use bytes::IntoBuf;
 
 /// A labcodec message.
@@ -68,7 +62,7 @@ mod tests {
     #[test]
     fn test_basic_encode_decode() {
         let msg = fixture::Msg {
-            type_: fixture::msg::Type::Put as _,
+            r#type: fixture::msg::Type::Put as _,
             id: 42,
             name: "the answer".to_owned(),
             paylad: vec![vec![7; 3]; 2],

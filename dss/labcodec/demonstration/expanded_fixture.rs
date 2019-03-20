@@ -1,12 +1,13 @@
+/// A simple protobuf message.
 pub struct Msg {
     #[prost(enumeration = "msg::Type", tag = "1")]
-    pub type_: i32,
+    pub r#type: i32,
     #[prost(uint64, tag = "2")]
     pub id: u64,
     #[prost(string, tag = "3")]
-    pub name: String,
+    pub name: std::string::String,
     #[prost(bytes, repeated, tag = "4")]
-    pub paylad: ::std::vec::Vec<Vec<u8>>,
+    pub paylad: ::std::vec::Vec<std::vec::Vec<u8>>,
 }
 #[automatically_derived]
 #[allow(unused_qualifications)]
@@ -15,12 +16,12 @@ impl ::std::clone::Clone for Msg {
     fn clone(&self) -> Msg {
         match *self {
             Msg {
-                type_: ref __self_0_0,
+                r#type: ref __self_0_0,
                 id: ref __self_0_1,
                 name: ref __self_0_2,
                 paylad: ref __self_0_3,
             } => Msg {
-                type_: ::std::clone::Clone::clone(&(*__self_0_0)),
+                r#type: ::std::clone::Clone::clone(&(*__self_0_0)),
                 id: ::std::clone::Clone::clone(&(*__self_0_1)),
                 name: ::std::clone::Clone::clone(&(*__self_0_2)),
                 paylad: ::std::clone::Clone::clone(&(*__self_0_3)),
@@ -35,13 +36,13 @@ impl ::std::cmp::PartialEq for Msg {
     fn eq(&self, other: &Msg) -> bool {
         match *other {
             Msg {
-                type_: ref __self_1_0,
+                r#type: ref __self_1_0,
                 id: ref __self_1_1,
                 name: ref __self_1_2,
                 paylad: ref __self_1_3,
             } => match *self {
                 Msg {
-                    type_: ref __self_0_0,
+                    r#type: ref __self_0_0,
                     id: ref __self_0_1,
                     name: ref __self_0_2,
                     paylad: ref __self_0_3,
@@ -58,13 +59,13 @@ impl ::std::cmp::PartialEq for Msg {
     fn ne(&self, other: &Msg) -> bool {
         match *other {
             Msg {
-                type_: ref __self_1_0,
+                r#type: ref __self_1_0,
                 id: ref __self_1_1,
                 name: ref __self_1_2,
                 paylad: ref __self_1_3,
             } => match *self {
                 Msg {
-                    type_: ref __self_0_0,
+                    r#type: ref __self_0_0,
                     id: ref __self_0_1,
                     name: ref __self_0_2,
                     paylad: ref __self_0_3,
@@ -89,8 +90,8 @@ mod Msg_MESSAGE {
         where
             B: _bytes::BufMut,
         {
-            if self.type_ != super::msg::Type::default() as i32 {
-                _prost::encoding::int32::encode(1u32, &self.type_, buf);
+            if self.r#type != super::msg::Type::default() as i32 {
+                _prost::encoding::int32::encode(1u32, &self.r#type, buf);
             }
             if self.id != 0u64 {
                 _prost::encoding::uint64::encode(2u32, &self.id, buf);
@@ -108,9 +109,9 @@ mod Msg_MESSAGE {
             const STRUCT_NAME: &'static str = "Msg";
             let (tag, wire_type) = _prost::encoding::decode_key(buf)?;
             match tag {
-                1u32 => _prost::encoding::int32::merge(wire_type, &mut self.type_, buf).map_err(
+                1u32 => _prost::encoding::int32::merge(wire_type, &mut self.r#type, buf).map_err(
                     |mut error| {
-                        error.push(STRUCT_NAME, "type_");
+                        error.push(STRUCT_NAME, "r#type");
                         error
                     },
                 ),
@@ -136,8 +137,8 @@ mod Msg_MESSAGE {
         }
         #[inline]
         fn encoded_len(&self) -> usize {
-            0 + if self.type_ != super::msg::Type::default() as i32 {
-                _prost::encoding::int32::encoded_len(1u32, &self.type_)
+            0 + if self.r#type != super::msg::Type::default() as i32 {
+                _prost::encoding::int32::encoded_len(1u32, &self.r#type)
             } else {
                 0
             } + if self.id != 0u64 {
@@ -151,7 +152,7 @@ mod Msg_MESSAGE {
             } + _prost::encoding::bytes::encoded_len_repeated(4u32, &self.paylad)
         }
         fn clear(&mut self) {
-            self.type_ = super::msg::Type::default() as i32;
+            self.r#type = super::msg::Type::default() as i32;
             self.id = 0u64;
             self.name.clear();
             self.paylad.clear();
@@ -160,7 +161,7 @@ mod Msg_MESSAGE {
     impl Default for Msg {
         fn default() -> Msg {
             Msg {
-                type_: super::msg::Type::default() as i32,
+                r#type: super::msg::Type::default() as i32,
                 id: 0u64,
                 name: ::std::string::String::new(),
                 paylad: ::std::vec::Vec::new(),
@@ -181,9 +182,9 @@ mod Msg_MESSAGE {
                             }
                         }
                     }
-                    ScalarWrapper(&self.type_)
+                    ScalarWrapper(&self.r#type)
                 };
-                builder.field("type_", &wrapper)
+                builder.field("r#type", &wrapper)
             };
             let builder = {
                 let wrapper = {
@@ -227,15 +228,16 @@ mod Msg_MESSAGE {
     }
     #[allow(dead_code)]
     impl Msg {
-        pub fn type_(&self) -> super::msg::Type {
-            super::msg::Type::from_i32(self.type_).unwrap_or(super::msg::Type::default())
+        pub fn r#type(&self) -> super::msg::Type {
+            super::msg::Type::from_i32(self.r#type).unwrap_or(super::msg::Type::default())
         }
-        pub fn set_type_(&mut self, value: super::msg::Type) {
-            self.type_ = value as i32;
+        pub fn set_type(&mut self, value: super::msg::Type) {
+            self.r#type = value as i32;
         }
     }
 }
 pub mod msg {
+    #[repr(i32)]
     #[structural_match]
     #[rustc_copy_clone_marker]
     pub enum Type {
@@ -287,8 +289,8 @@ pub mod msg {
         #[inline]
         fn eq(&self, other: &Type) -> bool {
             {
-                let __self_vi = unsafe { ::std::intrinsics::discriminant_value(&*self) } as isize;
-                let __arg_1_vi = unsafe { ::std::intrinsics::discriminant_value(&*other) } as isize;
+                let __self_vi = unsafe { ::std::intrinsics::discriminant_value(&*self) } as i32;
+                let __arg_1_vi = unsafe { ::std::intrinsics::discriminant_value(&*other) } as i32;
                 if true && __self_vi == __arg_1_vi {
                     match (&*self, &*other) {
                         _ => true,
@@ -326,8 +328,8 @@ pub mod msg {
         #[inline]
         fn partial_cmp(&self, other: &Type) -> ::std::option::Option<::std::cmp::Ordering> {
             {
-                let __self_vi = unsafe { ::std::intrinsics::discriminant_value(&*self) } as isize;
-                let __arg_1_vi = unsafe { ::std::intrinsics::discriminant_value(&*other) } as isize;
+                let __self_vi = unsafe { ::std::intrinsics::discriminant_value(&*self) } as i32;
+                let __arg_1_vi = unsafe { ::std::intrinsics::discriminant_value(&*other) } as i32;
                 if true && __self_vi == __arg_1_vi {
                     match (&*self, &*other) {
                         _ => ::std::option::Option::Some(::std::cmp::Ordering::Equal),
@@ -344,8 +346,8 @@ pub mod msg {
         #[inline]
         fn cmp(&self, other: &Type) -> ::std::cmp::Ordering {
             {
-                let __self_vi = unsafe { ::std::intrinsics::discriminant_value(&*self) } as isize;
-                let __arg_1_vi = unsafe { ::std::intrinsics::discriminant_value(&*other) } as isize;
+                let __self_vi = unsafe { ::std::intrinsics::discriminant_value(&*self) } as i32;
+                let __arg_1_vi = unsafe { ::std::intrinsics::discriminant_value(&*other) } as i32;
                 if true && __self_vi == __arg_1_vi {
                     match (&*self, &*other) {
                         _ => ::std::cmp::Ordering::Equal,
@@ -360,7 +362,7 @@ pub mod msg {
     mod Type_ENUMERATION {
         use super::*;
         impl Type {
-            #[doc = "Returns `true` if `value` is a variant of `Type`."]
+            ///Returns `true` if `value` is a variant of `Type`.
             pub fn is_valid(value: i32) -> bool {
                 match value {
                     0 => true,
@@ -370,7 +372,7 @@ pub mod msg {
                     _ => false,
                 }
             }
-            #[doc = "Converts an `i32` to a `Type`, or `None` if `value` is not a valid variant."]
+            ///Converts an `i32` to a `Type`, or `None` if `value` is not a valid variant.
             pub fn from_i32(value: i32) -> ::std::option::Option<Type> {
                 match value {
                     0 => ::std::option::Option::Some(Type::Unknown),

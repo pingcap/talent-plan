@@ -1,10 +1,12 @@
 [package]
 name = "labrpc"
 version = "0.1.0"
+edition = "2018"
+publish = false
 
 [dependencies]
 labcodec = { path = "../labcodec" }
-prost = "0.4"
+prost = "0.5"
 bytes = "0.4.7"
 rand = "0.4"
 futures = "0.1"
@@ -14,5 +16,5 @@ log = "0.4"
 hashbrown = "0.1"
 
 [dev-dependencies]
-prost-derive = "0.4.0"
+prost-derive = "0.5"
 env_logger = "0.6"
