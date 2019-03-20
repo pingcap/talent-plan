@@ -24,7 +24,7 @@ macro_rules! service {
             pub trait Service: Clone + Send + 'static {
                 $(
                     $(#[$method_attr])*
-                    fn $method_name(&self, $input) -> $crate::RpcFuture<$output>;
+                    fn $method_name(&self, req: $input) -> $crate::RpcFuture<$output>;
                 )*
             }
 

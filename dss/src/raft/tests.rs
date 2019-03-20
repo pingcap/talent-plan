@@ -10,8 +10,8 @@ use futures::sync::oneshot;
 use futures::{future, Future};
 use rand::{Rng, ThreadRng};
 
-use raft::config::{Config, Entry, Storage};
-use raft::Node;
+use crate::raft::config::{Config, Entry, Storage};
+use crate::raft::Node;
 
 /// The tester generously allows solutions to complete elections in one second
 /// (much more than the paper's range of timeouts).
@@ -197,8 +197,8 @@ fn test_concurrent_starts_2b() {
 
     cfg.begin("Test (2B): concurrent start()s");
     let mut success = false;
-    'outer: for try in 0..5 {
-        if try > 0 {
+    'outer: for tried in 0..5 {
+        if tried > 0 {
             // give solution some time to settle
             thread::sleep(Duration::from_secs(3));
         }
@@ -429,8 +429,8 @@ fn test_count_2b() {
 
     let mut total2 = 0;
     let mut success = false;
-    'outer: for try in 0..5 {
-        if try > 0 {
+    'outer: for tried in 0..5 {
+        if tried > 0 {
             // give solution some time to settle
             thread::sleep(Duration::from_secs(3));
         }

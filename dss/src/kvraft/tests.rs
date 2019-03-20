@@ -10,8 +10,8 @@ use futures::{future, Future};
 use futures_timer::Delay;
 use rand::Rng;
 
-use kvraft::client::Clerk;
-use kvraft::config::Config;
+use crate::kvraft::client::Clerk;
+use crate::kvraft::config::Config;
 use linearizability::check_operations_timeout;
 use linearizability::model::Operation;
 use linearizability::models::{KvInput, KvModel, KvOutput, Op};
@@ -564,7 +564,7 @@ fn test_unreliable_3a() {
 fn test_unreliable_one_key_3a() {
     let nservers = 3;
     let cfg = {
-        let mut cfg = Config::new(nservers, true, None);
+        let cfg = Config::new(nservers, true, None);
         cfg.begin("Test: concurrent append to same key, unreliable (3A)");
         Arc::new(cfg)
     };

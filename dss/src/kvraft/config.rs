@@ -5,13 +5,13 @@ use std::time::{Duration, Instant};
 
 use labrpc;
 
-use crate::raft;
-use crate::raft::persister::*;
-use kvraft::{
+use crate::kvraft::{
     client,
     errors::{Error, Result},
     server, service,
 };
+use crate::raft;
+use crate::raft::persister::*;
 use rand::Rng;
 
 static ID: AtomicUsize = AtomicUsize::new(300_000);
