@@ -39,7 +39,7 @@ to command-line arguments.
 
 - Install the Rust compiler and tools
 - Learn the project structure used throughout this course
-- Use `cargo init` / `run` / `test` / `clippy` / `fmt`
+- Use `cargo build` / `run` / `test` / `clippy` / `fmt`
 - Use external crates
 - Define a data type for a key-value store
 
@@ -235,7 +235,7 @@ async borrowing, Pin
 
 - reduce scope
 - fmt subject isn't _necessary_ but is a deep-dive topic
-
+- need to have a "how to get help" section somewhere
 
 
 

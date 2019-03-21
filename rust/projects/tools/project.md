@@ -15,11 +15,13 @@ to command-line arguments.
 
 **Extensions**: structopt, log / slog
 
+
 ## Introduction
 
 In this project you will create a simple in-memory key/value store that passes
 some tests and responds to command line arguments. The focus of this project is
 on the tooling and setup that goes into a typical Rust project.
+
 
 ## How to treat these projects
 
@@ -59,6 +61,11 @@ curl https://sh.rustup.rs -sSf | sh
 though that you will face more challenges than others during this course, as it
 was developed on Unix. In general, Rust development on Windows is as less
 polished experience than on Unix).
+
+Verify that the toolchain works by typing `rustc -V`. If that doesn't work, log
+out and log in again so that changes to the login profile made during
+installation can take effect.
+
 
 ## Project Setup
 
@@ -142,8 +149,29 @@ name of our binary? What are two ways we could change the name of that binary?
 Try it yourself.
 [Answers](answers.md#question-b).
 
-At this point you should be able to run the program with `cargo run`, and the
-tests with `cargo test`. All the tests will fail, like
+At this point you should be able to run the program with `cargo run`.
+
+Try it now.
+
+You are set up for this project and ready to start hacking.
+
+
+## Part 1: Make the tests compile
+
+You've been provided with a suite of unit tests in `tests/tests.rs`. Open it up
+and take a look.
+
+Try to run the tests with `cargo test`. What happens? Why?
+
+Your first task for this project is to make the tests _compile_. In `src/lib.rs`
+write the type and method definitions necessary to make `cargo test --no-run`
+complete successfully. Don't write any method bodies yet &mdash;
+instead write `panic!()`.
+
+Do that now before moving on.
+
+Once that is done, if you run `cargo test` (without `--no-run`),
+you should see that some of your tests are failing, like
 
 ```
 TODO insert after we have a sample project
@@ -181,9 +209,8 @@ might we not want them to run? Besides issuing the above command, how could
 we permanently disable the three test suites we don't care about by
 editing the project manifest (`Cargo.toml`)? [Answers](answers.md#question-d).
 
-Now you are set up for this project and ready to start hacking.
 
-## Part 1: TODO
+## Part 2: Accept command line arguments
 
 
 ## TODOs
