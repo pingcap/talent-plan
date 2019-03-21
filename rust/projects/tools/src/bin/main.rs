@@ -1,3 +1,3 @@
 fn main() {
-    println!("Hello, world!");
+    project_1::main()
 }

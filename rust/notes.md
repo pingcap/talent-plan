@@ -65,6 +65,8 @@ in the README.
   - exception: links to slides from plan go to the hosted website
   - all links rewritten when browsed locally
 - in markdown, write links as relative to current directory
+- keep "task", "goals", etc in project intros in sync between "plan.md" and
+  project pages
 
 ## TODO
 

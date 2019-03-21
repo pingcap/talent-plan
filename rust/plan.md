@@ -24,209 +24,217 @@ A suggested workflow:
   - if taking the course online, read the writeups that accompany the slides
 - Follow each project according to their own instructions, writing Rust programs
   that pass the projects' accompanying tests.
-- (Optionally) Submit project for online grading via [TODO].
 
 
 
 
 ## Section 1 (Setup)
 
-- [Project: Tools and good bones][p-tools]
+### [Project: Tools and good bones][p-tools]
 
-  - Task: create an in-memory key/value store that passes simple tests
-    and responds to command-line arguments.
+**Task**: Create an in-memory key/value store that passes simple tests and responds
+to command-line arguments.
 
-  - Goals:
-    - Get a toolchain and tools
-    - Use `cargo init / run / test`
-    - Use external crates
-    - Define a data type for a key-value store
+**Goals**:
 
-  - Topics: clap, testing, CARGO_VERSION, clippy, rustfmt
+- Install the Rust compiler and tools
+- Learn the project structure used throughout this course
+- Use `cargo init` / `run` / `test` / `clippy` / `fmt`
+- Use external crates
+- Define a data type for a key-value store
 
-  - Extensions: structopt, log / slog
+**Topics**: clap, testing, `CARGO_VERSION`, clippy, rustfmt
 
-- [Lesson: Whirlwind Rust][t-whirlwind] ([slides][s-whirlwind])
+**Extensions**: `structopt`, `log` / `slog`,
 
-  - Readings:
-    - [The Book - Getting Started](https://doc.rust-lang.org/book/ch01-00-getting-started.html)
-    - [The Book - Programming a Guessing Game](https://doc.rust-lang.org/book/ch02-00-guessing-game-tutorial.html)
-    - [The Book - Common Programming Concepts](https://doc.rust-lang.org/book/ch03-00-common-programming-concepts.html)
+### [Lesson: Whirlwind Rust][t-whirlwind] ([slides][s-whirlwind])
 
-  - Topics: Rust and cargo, ownership & borrowing / aliasing & mutability in
-    brief, resources (TODO: what else?)
+**Readings**:
 
-- Lesson: Data structures in Rust
+- [The Book - Getting Started](https://doc.rust-lang.org/book/ch01-00-getting-started.html)
+- [The Book - Programming a Guessing Game](https://doc.rust-lang.org/book/ch02-00-guessing-game-tutorial.html)
+- [The Book - Common Programming Concepts](https://doc.rust-lang.org/book/ch03-00-common-programming-concepts.html)
 
-  - Topics: when to use which struct types, impls, ctor patterns, dtors, reprs,
-    padding demo, packed structs, size and alignment in depth, enum
-    implementation and optimizations,
+**Topics**: Rust and cargo, ownership & borrowing / aliasing & mutability in
+brief, resources
 
-- Lesson: Crates and crates.io
+### [Lesson: Data structures in Rust][t-data] ([slides][s-data])
 
-  - Topics: importing crates, features, debugging and fixing dependencies,
-    std vs crate philosophy and history, finding crates
+**Topics**: when to use which struct types, impls, ctor patterns, dtors, reprs,
+padding demo, packed structs, size and alignment in depth, enum
+implementation and optimizations,
 
-- Lesson: Rust tooling
+### [Lesson: Crates and crates.io][t-crates] ([slides][s-crates])
 
-  - Topics: `#[test]`, how does test work under the hood?, what does 'cargo run'
-    actually do?, clippy, rustfmt, controlling clippy and rustfmt, links to
-    other useful tools, cargo / rustc wrapping pattern in depth (ex rustup,
-    RUSTC_WRAPPER)
+**Topics**: importing crates, features, debugging and fixing dependencies,
+std vs crate philosophy and history, finding crates
 
-- Lesson: Formatting, println et. al, log, and slog
+### [Lesson: Rust tooling][t-tools] ([slides][s-tools])
 
-  - Readings:
-    - [The Book - Macros](https://doc.rust-lang.org/book/ch19-06-macros.html)
-    - [`std::fmt`](https://doc.rust-lang.org/std/fmt/index.html)
+**Topics**: `#[test]`, how does test work?, what does `cargo run` actually do?,
+clippy, rustfmt, controlling clippy and rustfmt, links to other useful tools,
+cargo / rustc wrapping pattern in depth (ex rustup, `RUSTC_WRAPPER`)
 
-  - Topics: formatting tips, derive Debug in depth, how does format! work?, log
-    demo, slog and structured logging, env_logger, APIs that take format
-    strings,
+### [Lesson: Formatting, println et. al, log, and slog][t-fmt] ([slides][s-fmt])
 
-  - TODO: This subject isn't _needed_ to do the project, but formatting
-    is a good deep-dive opportunity
+**Readings**:
+ - [The Book - Macros](https://doc.rust-lang.org/book/ch19-06-macros.html)
+ - [`std::fmt`](https://doc.rust-lang.org/std/fmt/index.html)
 
+**Topics**: formatting tips, derive Debug in depth, how does `format!` work?,
+`log` demo, `slog` and structured logging, `env_logger`, APIs that take format
+strings
 
 
 
 
 ## Section 2 (File I/O)
 
-- Project: File I/O
+### [Project: File I/O][p-fs]
 
-  - Task: create a persistent key/value store that can be accessed from the
-    command line
+**Task**: Create a persistent key/value store that can be accessed from the
+command line
 
-  - Goals:
-    - Handle and report errors robustly
-    - Accept command line arguments
-    - Write data to disk as a write-ahead log
-    - Read the state of the key/value store from disk
-    - Use serde for serialization
-    - Maintain consistency after crashes or data corruption?
-    - Use file I/O APIs to binary search
+**Goals**:
 
-  - Extensions: range queries, convert full WAL to binary-searchable file
+- Handle and report errors robustly
+- Write data to disk as a write-ahead log
+- Read the state of the key/value store from disk
+- Use serde for serialization
+- Use file I/O APIs to binary search
 
-- Lesson: Proper error handling
+**Topics**: `failure` crate, `std::net::fs`, `Read` / `Write` traits,
+serde
 
-  - Readings:
-    - [The Book - Error Handling](https://doc.rust-lang.org/book/ch09-00-error-handling.html)
-    - [Rust Error Handling](http://blog.burntsushi.net/rust-error-handling/)
-    - [The `failure` book](https://rust-lang-nursery.github.io/failure/)
+**Extensions**: range queries, convert full WAL to binary-searchable file
 
-  - Topics: TODO, `fn main() -> Result`
+### [Lesson: Proper error handling][t-errors] ([slides][s-errors])
 
-- Lesson: Collections and iterators
+**Readings**:
+
+- [The Book - Error Handling](https://doc.rust-lang.org/book/ch09-00-error-handling.html)
+- [Rust Error Handling](http://blog.burntsushi.net/rust-error-handling/)
+- [The `failure` book](https://rust-lang-nursery.github.io/failure/)
+
+**Topics**: error patterns, `failure` crate, `fn main() -> Result`, `panic!` and
+unwinding
+
+### [Lesson: Collections and iterators][t-coll] ([slides][s-coll])
 
 
 
 
 ## Section 3 (Networking)
 
-- Project: Networking
+### [Project: Networking][p-net]
 
-  - Task: create a single-threaded, persistent key/value store server and client
-    with synchronous networking over the HTTP and GRPC protocols.
+**Task**: Create a single-threaded, persistent key/value store server and client
+with synchronous networking over the HTTP and GRPC protocols.
 
-- Lesson: Basic network APIs
+### [Lesson: Basic network APIs][t-net] ([slides][s-net])
 
-  - Topics: std networking, TCP vs UDP?, reqwest, blocking HTTP serving w/ Iron/Hyper?
+**Topics**: `std` networking, TCP vs UDP, `reqwest`, blocking HTTP serving w/ Iron
 
-- Lesson: Build-time Rust
+### [Lesson: Build-time Rust][t-build] ([slides][s-build])
 
-  - Topics: build scripts, protobuf compilation example, getting rustc version
-    and other useful info (TODO crates for this?), in-depth examples of crates
-    that rely on build scripts (e.g. skeptic, TODO), (TODO what else?)
+**Topics**: build scripts, protobuf compilation example, getting rustc version
+and other useful info, in-depth examples of crates that rely on build scripts
 
-- Lesson: GPRC and prost
+### [Lesson: GPRC and prost][t-grpc] ([slides][s-grpc])
 
 
 
 
 ## Section 4 (Parallelism)
 
-- Project: Parallelism
+### [Project: Parallelism][p-par]
 
-  - Task: create a multi-threaded, persistent key/value store server and client
-    with synchronous networking via the GRPC protocol.
+**Task**: Create a multi-threaded, persistent key/value store server and client
+with synchronous networking via the GRPC protocol.
 
-  - Goals:
-    - TODO
-    - Benchmark single-threaded vs multi-threaded
+**Goals**:
 
-- Lesson: The big problem &mdash; aliasing and mutability
+- Benchmark single-threaded vs multi-threaded
 
-  - Readings:
-    - [The Book - Understanding Ownership](https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html)
-    - [The Nomicon - Aliasing](https://doc.rust-lang.org/nomicon/aliasing.html)
-    - [The Problem with Single-threaded Shared Mutability](https://manishearth.github.io/blog/2015/05/17/the-problem-with-shared-mutability)
+### [Lesson: The big problem &mdash; aliasing and mutability][t-alias] ([slides][s-alias])
 
-  - Topics: mutable aliasing bugs, how ownership prevents mutable aliasing, Sync
-    / Sync, uniq / shared vs immutable / mutable, Rc and Arc, interior
-    mutability in depth,
+**Readings**:
 
-- Lesson: Ownership and borrowing in practice
+- [The Book - Understanding Ownership](https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html)
+- [The Nomicon - Aliasing](https://doc.rust-lang.org/nomicon/aliasing.html)
+- [The Problem with Single-threaded Shared Mutability](https://manishearth.github.io/blog/2015/05/17/the-problem-with-shared-mutability)
 
-  - Readings:
-    - [Rust - A Unique Perspective](https://limpet.net/mbrubeck/2019/02/07/rust-a-unique-perspective.html)
-    - [Too Many Linked Lists](https://cglab.ca/~abeinges/blah/too-many-lists/book)
+**Topics**: mutable aliasing bugs, how ownership prevents mutable aliasing, Sync
+/ Sync, uniq / shared vs immutable / mutable, `Rc` and `Arc`, interior
+mutability in depth,
 
-  - Topics: when to use pass-by-value, the performance impact of moves,
-    reference-bearing structs, (TODO: what other ownership and borrowing
-    topics?)
+### [Lesson: Ownership and borrowing in practice][t-own] ([slides][s-own])
 
-- Lesson: Parallel Rust
+**Readings**:
 
-  - Topics: sharing vs message passing, thread pools, (TODO what else?)
+- [Rust - A Unique Perspective](https://limpet.net/mbrubeck/2019/02/07/rust-a-unique-perspective.html)
+- [Too Many Linked Lists](https://cglab.ca/~abeinges/blah/too-many-lists/book)
 
-- Lesson: Benchmarking, profiling, and debugging
+**Topics**: when to use pass-by-value, the performance impact of moves,
+reference-bearing structs
 
-  - Topics: println debugging, RUST_BACKTRACE, perf, callgrind?, bpftrace?, criterion and critcmp, gdb and
-    Rust, blocking/ (http://www.brendangregg.com/offcpuanalysis.html), (TODO which
-    profiling / bloat tools?), std bench vs criterion, black_box and
-    alternatives, how does rust benchmarking work?,
+### [Lesson: Parallel Rust][t-par] ([slides][s-par])
+
+**Topics**: sharing vs message passing, thread pools
+
+### [Lesson: Benchmarking, profiling, and debugging][t-prof] ([slides][s-prof])
+
+**Topics**: println debugging, RUST_BACKTRACE, perf, gdb and Rust, std bench vs
+criterion, black_box and alternatives, how does rust benchmarking work?, other
+tools
 
 
 
 
 ## Section 5 (Async)
 
-- Project: Async I/O
+### [Project: Async I/O][p-async]
 
-  - Task: create a multi-threaded, persistent key/value store server and client
-    with asynchronous networking via the GRPC protocol.
+**Task**: Create a multi-threaded, persistent key/value store server and client
+with asynchronous networking via the GRPC protocol.
 
-  - Goals:
-    - Define and compile a GRPC protocol
-    - Use tokio, prost and tower-grpc for networking
-    - Support range queries
-    - Understand the distinction between concurrency and parallelism
-    - Use a thread pool to prevent "blocking"
+**Goals**:
 
-  - Extensions: tokio-file (or whatever), crash recovery, async/await, LSM
-    compaction
+- Define and compile a GRPC protocol
+- Use tokio, prost and tower-grpc for networking
+- Support range queries
+- Understand the distinction between concurrency and parallelism
+- Use a thread pool to prevent "blocking"
 
-- Lesson: Basic futures
+**Extensions**: tokio-file (or whatever), crash recovery, async/await, LSM
+compaction
 
-  - Readings
-    - [The What and How of Futures and async/await in Rust](https://www.youtube.com/watch?v=9_3krAQtD2k)
+### [Lesson: Basic futures][t-fut] ([slides][s-fut])
 
-  - Topics: what are futures?, how to think in futures, futures patterns,
-    mio? (probably should go somewhere before tokio)
+**Readings**:
 
-- Lesson: Async I/O with Tokio and Tower
+- [The What and How of Futures and async/await in Rust](https://www.youtube.com/watch?v=9_3krAQtD2k)
 
-  - Readings:
-    - [The Tokio docs](https://tokio.rs/docs/) - todo maybe list specific sections
+**Topics**: what are futures?, how to think in futures, futures patterns, mio
 
-  - Topics: (TODO need to research further), alternatives to tokio
+### [Lesson: Async I/O with Tokio and Tower][t-tokio] ([slides][s-tokio])
 
-- Lesson: `async` / `await`
+**Readings**:
 
-  - Topics: futures vs async/await, how does async / await work,
-    async borrowing, Pin
+- [The Tokio docs](https://tokio.rs/docs/) - todo maybe list specific sections
+
+### [Lesson: `async` / `await`][t-async-await] ([slides][s-async-await])
+
+**Topics**: futures vs async/await, how does async / await work,
+async borrowing, Pin
+
+
+
+
+## TODOs
+
+- reduce scope
+- fmt subject isn't _necessary_ but is a deep-dive topic
 
 
 
@@ -239,4 +247,51 @@ A suggested workflow:
 [p-tools]: projects/tools/project.md
 [t-whirlwind]: lessons/whirlwind.md
 [s-whirlwind]: lessons/whirlwind.slides.html
+[t-data]: lessons/data-structures.md
+[s-data]: lessons/data-structures.slides.html
+[t-crates]: lessons/crates.md
+[s-crates]: lessons/crates.slides.html
+[t-tools]: lessons/tools.md
+[s-tools]: lessons/tools.slides.html
+[t-fmt]: lessons/formatting.md
+[s-fmt]: lessons/formatting.slides.html
 
+<!-- section 2 -->
+
+[p-fs]: projects/file-io/project.md
+[t-errors]: lessons/error-handling.md
+[s-errors]: lessons/error-handling.slides.html
+[t-coll]: lessons/collections-and-iterators.md
+[s-coll]: lessons/collections-and-iterators.slides.html
+
+<!-- section 3 -->
+
+[p-net]: projects/networking/project.md
+[t-net]: lessons/networking.md
+[s-net]: lessons/networking.slides.html
+[t-build]: lessons/build-time.md
+[s-build]: lessons/build-time.slides.html
+[t-grpc]: lessons/grpc.md
+[s-grpc]: lessons/gprc.slides.html
+
+<!-- section 4 -->
+
+[p-par]: projects/parallelism/project.md
+[t-alias]: lessons/aliasing-and-mutability.md
+[s-alias]: lessons/aliasing-and-mutability.slides.html
+[t-own]: lessons/ownership-and-borrowing.md
+[s-own]: lessons/ownership-and-borrowing.slides.html
+[t-par]: lessons/parallelism.md
+[s-par]: lessons/parallelism.slides.html
+[t-prof]: lessons/profiling.md
+[s-prof]: lessons/profiling.slides.html
+
+<!-- section 5 -->
+
+[p-async]: projects/async-io/project.md
+[t-fut]: lessons/futures.md
+[s-fut]: lessons/futures.slides.html
+[t-tokio]: lessons/tokio.md
+[s-tokio]: lessons/tokio.slides.html
+[t-async-await]: lessons/async-await.md
+[s-async-await]: lessons/async-await.slides.html

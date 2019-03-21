@@ -1,5 +1,5 @@
 [package]
-name = "project-1"
+name = "project_1"
 version = "0.1.0"
 authors = ["Brian Anderson <andersrb@gmail.com>"]
 edition = "2018"
