@@ -8,3 +8,9 @@ section#content {
 	padding-left: 100px;
 	padding-right: 100px;
 }
+
+pre {
+	background-color: #555;
+	color: white;
+	padding: 1rem;
+}
