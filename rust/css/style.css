@@ -20,8 +20,3 @@ nav#site-nav a:hover {
 	color: orange;
 }
 
-section#content {
-	margin: 1rem;
-	margin-top: 4.5rem; /* nav border * 2 + line-height + 1rem */
-}
-

@@ -25,6 +25,7 @@ function init() {
         contentElement: contentElement,
     };
 
+    addCssForPageType(config);
     dispatchInitForPageType(config);
 }
 
@@ -43,6 +44,19 @@ function getPageType(url) {
     }
 
     return type;
+}
+
+function addCssForPageType(config) {
+    if (config.pageType === "lesson-slides") {
+        return;
+    }
+
+    let head = document.querySelector("head");
+    console.log(head);
+    let link = document.createElement("link");
+    link.setAttribute("rel", "stylesheet");
+    link.setAttribute("href", "css/text.css");
+    head.appendChild(link);
 }
 
 function dispatchInitForPageType(config) {
