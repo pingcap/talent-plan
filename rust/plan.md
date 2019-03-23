@@ -106,7 +106,7 @@ command line
 **Topics**: `failure` crate, `std::net::fs`, `Read` / `Write` traits,
 serde
 
-**Extensions**: range queries, convert full WAL to binary-searchable file
+**Extensions**: range queries, store data using bitcast algo?
 
 ### [Lesson: Proper error handling][t-errors] ([slides][s-errors])
 
@@ -129,7 +129,11 @@ unwinding
 ### [Project: Networking][p-net]
 
 **Task**: Create a single-threaded, persistent key/value store server and client
-with synchronous networking over the HTTP and GRPC protocols.
+with synchronous networking over the HTTP protocol.
+
+**Goals**:
+
+- Use hyper for synchronous networking
 
 ### [Lesson: Basic network APIs][t-net] ([slides][s-net])
 
@@ -150,10 +154,12 @@ and other useful info, in-depth examples of crates that rely on build scripts
 ### [Project: Parallelism][p-par]
 
 **Task**: Create a multi-threaded, persistent key/value store server and client
-with synchronous networking via the GRPC protocol.
+with synchronous networking via HTTP.
 
 **Goals**:
 
+- Write a simple thread-pool
+- Use crossbeam channels
 - Benchmark single-threaded vs multi-threaded
 
 ### [Lesson: The big problem &mdash; aliasing and mutability][t-alias] ([slides][s-alias])
@@ -196,18 +202,16 @@ tools
 ### [Project: Async I/O][p-async]
 
 **Task**: Create a multi-threaded, persistent key/value store server and client
-with asynchronous networking via the GRPC protocol.
+with asynchronous networking via HTTP.
 
 **Goals**:
 
-- Define and compile a GRPC protocol
-- Use tokio, prost and tower-grpc for networking
+- Use async hyper and futures
 - Support range queries
 - Understand the distinction between concurrency and parallelism
 - Use a thread pool to prevent "blocking"
 
-**Extensions**: tokio-file (or whatever), crash recovery, async/await, LSM
-compaction
+**Extensions**: crash recovery, async/await
 
 ### [Lesson: Basic futures][t-fut] ([slides][s-fut])
 
@@ -216,12 +220,6 @@ compaction
 - [The What and How of Futures and async/await in Rust](https://www.youtube.com/watch?v=9_3krAQtD2k)
 
 **Topics**: what are futures?, how to think in futures, futures patterns, mio
-
-### [Lesson: Async I/O with Tokio and Tower][t-tokio] ([slides][s-tokio])
-
-**Readings**:
-
-- [The Tokio docs](https://tokio.rs/docs/) - todo maybe list specific sections
 
 ### [Lesson: `async` / `await`][t-async-await] ([slides][s-async-await])
 
@@ -291,7 +289,5 @@ async borrowing, Pin
 [p-async]: projects/async-io/project.md
 [t-fut]: lessons/futures.md
 [s-fut]: lessons/futures.slides.html
-[t-tokio]: lessons/tokio.md
-[s-tokio]: lessons/tokio.slides.html
 [t-async-await]: lessons/async-await.md
 [s-async-await]: lessons/async-await.slides.html
