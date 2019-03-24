@@ -1,3 +1,3 @@
 fn main() {
-    project_1::main()
+    kvs::main()
 }

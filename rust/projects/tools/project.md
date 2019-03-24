@@ -8,12 +8,12 @@ to command-line arguments.
 - Install the Rust compiler and tools
 - Learn the project structure used throughout this course
 - Use `cargo init` / `run` / `test` / `clippy` / `fmt`
-- Use external crates
-- Define a data type for a key-value store
+- Learn how to find and import crates from crates.io
+- Define an appropriate data type for a key-value store
 
-**Topics**: clap, testing, `CARGO_VERSION`, clippy, rustfmt
+**Topics**: testing, clap, `CARGO_VERSION` etc., clippy, rustfmt
 
-**Extensions**: structopt, log / slog
+**Extensions**: structopt
 
 
 ## Introduction
@@ -21,6 +21,42 @@ to command-line arguments.
 In this project you will create a simple in-memory key/value store that passes
 some tests and responds to command line arguments. The focus of this project is
 on the tooling and setup that goes into a typical Rust project.
+
+
+## Project spec
+
+The cargo project, `kvs`, builds a command-line key-value store client called
+`kvs`, which in turn calls into a library called `kvs`.
+
+The `kvs` executable supports the following command line arguments:
+
+- `kvs set [KEY] [VALUE]`
+
+  Set the value of a string key to a string
+
+- `kvs get [KEY]`
+
+  Get the string value of a given string key
+
+- `kvs -V`
+
+  Print the version
+
+The `kvs` library contains a type, `KvStore`, that supports the following
+methods:
+
+- `KvStore::set(key: String, value: String)`
+
+  Set the value of a string key to a string
+
+- `KvStore::get(key: String) -> String`
+
+  Get the string value of the a string key
+
+The `KvStore` type stores values in-memory, and thus the command-line client can
+do little more than print the version. The `get`/ `set` commands will return an
+"unimplemented" error when run from the command line. Future projects will store
+values on disk and have a working command line interface.
 
 
 ## How to treat these projects
@@ -67,7 +103,7 @@ out and log in again so that changes to the login profile made during
 installation can take effect.
 
 
-## Project Setup
+## Project setup
 
 You will do the work for this project in your own git repository, with your own
 Cargo project. You will import the test cases for the project from the [source
@@ -109,9 +145,10 @@ The `Cargo.toml`, `lib.rs` and `main.rs` files look as follows:
 
 ```toml
 [package]
-name = "project_1"
+name = "kvs"
 version = "0.1.0"
 authors = ["Brian Anderson <andersrb@gmail.com>"]
+description = "A key-value store"
 edition = "2018"
 ```
 
@@ -127,13 +164,14 @@ pub fn main() {
 
 ```rust
 fn main() {
-    project_1::main()
+    kvs::main()
 }
 ```
 
-The `name` and `authors` values can be whatever you like, Note though that the
-contents of `main.rs` are affected by the package name, which is also the name
-of the library within the package. (TODO clarify)
+The `name` and `authors` values can be whatever you like, and the author should
+be yourself. Note though that the contents of `main.rs` are affected by the
+package name, which is also the name of the library within the package. (TODO
+clarify)
 
 Finally, the `tests.rs` file is copied from the course materials. In this case,
 copy from the course repository the file `rust/project/tools/tests/tests.rs`
@@ -149,9 +187,9 @@ name of our binary? What are two ways we could change the name of that binary?
 Try it yourself.
 [Answers](answers.md#question-b).
 
-At this point you should be able to run the program with `cargo run`.
+At this point you should be able to run the program with `cargo run`. It should 
 
-Try it now.
+_Try it now._
 
 You are set up for this project and ready to start hacking.
 
@@ -168,7 +206,7 @@ write the type and method definitions necessary to make `cargo test --no-run`
 complete successfully. Don't write any method bodies yet &mdash;
 instead write `panic!()`.
 
-Do that now before moving on.
+_Do that now before moving on._
 
 Once that is done, if you run `cargo test` (without `--no-run`),
 you should see that some of your tests are failing, like
@@ -179,7 +217,8 @@ TODO insert after we have a sample project
 
 **Question C**: Notice that there are _four_ different set of tests running
 (each could be called a "test suite"). Where do each of those test suites come
-from? [Answers](answers.md#question-c).
+from?
+[Answers](answers.md#question-c).
 
 In practice, particularly with large projects, you won't run the entire set of
 test suites while developing a single feature. To narrow down the set of tests
@@ -195,10 +234,17 @@ this case the tests in `tests.rs` (`--test tests`). We can even narrow our testi
 down to a single test case within the `tests` test suite, like
 
 ```
-cargo test --test tests -- (TODO after we have a test name to put here)
+cargo test --test tests -- cli_no_args
 ```
 
-Try it.
+or, by matching multiple test cases, a few, like:
+
+
+```
+cargo test --test tests -- cli
+```
+
+_Try it now._
 
 That's probably how you will be running the tests yourself as you work
 through the project, otherwise you will be distracted by the many failing tests
@@ -207,11 +253,160 @@ that you have not yet fixed.
 **Question D**: even if a given test suite doesn't contain any tests, why
 might we not want them to run? Besides issuing the above command, how could
 we permanently disable the three test suites we don't care about by
-editing the project manifest (`Cargo.toml`)? [Answers](answers.md#question-d).
+editing the project manifest (`Cargo.toml`)?
+[Answers](answers.md#question-d).
 
 
 ## Part 2: Accept command line arguments
 
+The key / value stores throughout this course are all controlled through a
+command-line client. In this project the command-line client is very simple
+because the state of the key-value store is only stored in memory, not persisted
+to disk.
+
+In this part you will make the `cli_*` test cases pass. Notice that these test
+cases all call the `main` function from your `kvs` library. This is
+why we've put the "real" `main` function in `lib.rs` (the `kvs` library),
+instead of `main.rs` (the `kvs` CLI).
+
+**Question E**: This pattern of having the executable do nothing but call into
+the library's `main` function is often a reasonable thing to do, though it is
+not often used for production libraries. What are some downsides of placing a
+program's user interface into a library instead of directly into the executable?
+[Answers](answers.md#question-e).
+
+Recall how to run individual test cases from previous sections
+of 
+
+Again, the interface for the CLI is:
+
+- `kvs set [KEY] [VALUE]`
+
+  Set the value of a string key to a string
+
+- `kvs get [KEY]`
+
+  Get the string value of a given string key
+
+- `kvs -V`
+
+  Print the version
+
+In this iteration though, the `get` and `set` commands will print to stderr the
+string, "unimplemented", and exiting with a non-zero exit code, indicating an
+error.
+
+You will use the `clap` crate to handle command-line arguments.
+
+_Use [crates.io](https://crates.io) to find the documentation
+for the `clap` crate, and implement the command line interface
+such that the `cli_*` test cases pass._
+
+
+## Part 3: Cargo environment variables
+
+When you set up `clap` to parse your command line arguments, you probably set
+the name, version, authors, and description (if not, do so). This information is
+redundant w/ values provided in `Cargo.toml`. Cargo sets environment variables
+that can be accessed through Rust source code, at build time.
+
+_Modify your clap setup to set these values from standard cargo environment
+variables._
+
+
+
+
+## Part 3: Store values in memory
+
+Now that your command line scaffolding is done, let's turn to the implementation
+of `KvStore`, and make the remaining test cases pass.
+
+The behavior of `KvStore`'s methods are fully-defined through the test cases
+themselves &mdash; you don't need any further description to complete the
+code for this project.
+
+_Make the remaining test cases pass by implementing methods on `KvStore`._
+
+
+## Part 4: Documentation
+
+You have implemented the project's functionality, but there are still a few more
+things to do before it is a polished piece of Rust software, ready for
+contributions or publication.
+
+First, public items should have doc comments.
+
+Doc comments are displayed in a crate's API documentation. API documentation can
+be generated with the command, `cargo doc`, which will render them as HTML to
+the `target/doc` folder. Note though that `target/doc` folder does not contain
+an `index.html`. Your crate's documentation will be located at
+`target/doc/kvs/index.html`. You can launch a web browser at that location with
+`cargo doc --open`.
+
+[Good doc comments][gdc] do not just repeat the name of the function, nor repeat
+information gathered from the type signature. They explain why and how one would
+use a function, what the return value is on both success and failure, error and
+panic conditions. The library you have written is very simple so the
+documentation can be simple as well.
+
+Doc comments contain examples, and those examples can be tested with `cargo test
+--doc`.
+
+You may want to add `#![deny(missing_docs)]` to the top of `src/lib.rs`
+to enforce that all public items have doc comments.
+
+_Add doc comments to the types and methods in your library. Follow the
+[documentatine guidelines][gdc]. Give each an example and make sure they pass
+`cargo test --doc`._
+
+[gdc]: https://rust-lang-nursery.github.io/api-guidelines/documentation.html
+
+
+## Part 5: Ensure good style with `clippy` and `rustfmt`
+
+`clippy` and `rustfmt` are tools for enforcing common Rust style. `clippy` helps
+ensure that code uses modern idioms, and prevents patterns that commonly lead to
+errors. `rustfmt` enforces that code is formatted consistently.
+
+Both tools are included in the Rust toolchain, but not installed by default.
+They can be installed with the following commands:
+
+```
+rustup component add clippy
+rustup component add rustfix
+```
+
+_Do that now._
+
+Both tools are invoked as cargo subcommands, `clippy` as `cargo clippy` and
+`rustfmt` as `cargo fmt`. Note that `cargo fmt` modifies your source code, so
+you might want to check in any changes before running it to avoid accidentally
+making unwanted changes, after which you can include the changes as part of the
+previous commit with `git commit --amend`.
+
+_Run `clippy` against your project and make any suggested changes. Run `rustfmt`
+against yur project and commit any changes it makes._
+
+Congratulations, you are done with project 1! If you like you
+may complete the remaining "extensions". They are optional.
+
+
+## Extension 1: `structopt`
+
+In this project we used `clap` to parse command line arguments. It's typical to
+represent a program's parsed command line arguments as a struct, perhaps named
+`Config` or `Options`. Doing so requires calling the appropriate methods on
+`clap`'s `ArgMatches` type. Both steps, for larger programs, require _a lot_ of
+boilerplate code. The `structopt` crate greatly reduces boilerplate by allowing
+you to define a `Config` struct, annotated to automatically produce a `clap`
+command line parser that produces that struct. Some find this approach nicer
+than writing the `clap` code explicitly.
+
+_Modify your program to use `structopt` for parsing command line
+arguments instead of using `clap` directly._
+
+
+<!--
 
 ## TODOs
 
@@ -221,5 +416,17 @@ editing the project manifest (`Cargo.toml`)? [Answers](answers.md#question-d).
   - explain why we're doing this setup
     (makes main testable) though this will
 	become evident as they work through the tests
+- doc comments
+- make sure there's enough background reading to support the project
+- resources (whether / where to put these?)
+  - https://docs.rs/clap/2.32.0/clap/
+  - https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo
+  - https://rust-lang-nursery.github.io/api-guidelines/documentation.html#documentation
+  - https://doc.rust-lang.org/std/macro.env.html
+  - https://github.com/rust-lang/rust-clippy/blob/master/README.md
+  - https://github.com/rust-lang/rustfmt/blob/master/README.md
+- do range lookups (`scan`)?
+- README.md?
+- GitHub CI setup?
 
-
+-->

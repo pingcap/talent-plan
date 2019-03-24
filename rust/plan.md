@@ -25,10 +25,23 @@ A suggested workflow:
 - Follow each project according to their own instructions, writing Rust programs
   that pass the projects' accompanying tests.
 
+As you work through the course content, _please_ be on the lookout for things
+you would improve about the course, and either [submit issues][si] explaining,
+or [submit pull requests][spr] with improvements. _Each accepted pull request
+counts toward extra credit during final evaluation_. Pull requests to any other
+project used during this course count as well. This is an opportunity to gain
+experience contributing to an open-source Rust project. Make this a better
+course for the next to take it than it was for you. That is how open source
+projects evolve.
+
+[si]: https://github.com/pingcap/talent-plan/issues/new
+[spr]: https://github.com/pingcap/talent-plan/compare
+
 
 
 
 ## Section 1 (Setup)
+
 
 ### [Project: Tools and good bones][p-tools]
 
@@ -47,16 +60,6 @@ to command-line arguments.
 
 **Extensions**: `structopt`, `log` / `slog`,
 
-### [Lesson: Whirlwind Rust][t-whirlwind] ([slides][s-whirlwind])
-
-**Readings**:
-
-- [The Book - Getting Started](https://doc.rust-lang.org/book/ch01-00-getting-started.html)
-- [The Book - Programming a Guessing Game](https://doc.rust-lang.org/book/ch02-00-guessing-game-tutorial.html)
-- [The Book - Common Programming Concepts](https://doc.rust-lang.org/book/ch03-00-common-programming-concepts.html)
-
-**Topics**: Rust and cargo, ownership & borrowing / aliasing & mutability in
-brief, resources
 
 ### [Lesson: Data structures in Rust][t-data] ([slides][s-data])
 
@@ -64,16 +67,23 @@ brief, resources
 padding demo, packed structs, size and alignment in depth, enum
 implementation and optimizations,
 
+
 ### [Lesson: Crates and crates.io][t-crates] ([slides][s-crates])
 
 **Topics**: importing crates, features, debugging and fixing dependencies,
 std vs crate philosophy and history, finding crates
 
+
 ### [Lesson: Rust tooling][t-tools] ([slides][s-tools])
+
+**Readings**:
+  - [`clippy` README](https://github.com/rust-lang/rust-clippy/blob/master/README.md)
+  - [`rustfmt` README](https://github.com/rust-lang/rustfmt/blob/master/README.md)
 
 **Topics**: `#[test]`, how does test work?, what does `cargo run` actually do?,
 clippy, rustfmt, controlling clippy and rustfmt, links to other useful tools,
 cargo / rustc wrapping pattern in depth (ex rustup, `RUSTC_WRAPPER`)
+
 
 ### [Lesson: Formatting, println et. al, log, and slog][t-fmt] ([slides][s-fmt])
 
@@ -89,6 +99,7 @@ strings
 
 
 ## Section 2 (File I/O)
+
 
 ### [Project: File I/O][p-fs]
 
@@ -126,6 +137,7 @@ unwinding
 
 ## Section 3 (Networking)
 
+
 ### [Project: Networking][p-net]
 
 **Task**: Create a single-threaded, persistent key/value store server and client
@@ -135,14 +147,17 @@ with synchronous networking over the HTTP protocol.
 
 - Use hyper for synchronous networking
 
+
 ### [Lesson: Basic network APIs][t-net] ([slides][s-net])
 
 **Topics**: `std` networking, TCP vs UDP, `reqwest`, blocking HTTP serving w/ Iron
+
 
 ### [Lesson: Build-time Rust][t-build] ([slides][s-build])
 
 **Topics**: build scripts, protobuf compilation example, getting rustc version
 and other useful info, in-depth examples of crates that rely on build scripts
+
 
 ### [Lesson: GPRC and prost][t-grpc] ([slides][s-grpc])
 
@@ -150,6 +165,7 @@ and other useful info, in-depth examples of crates that rely on build scripts
 
 
 ## Section 4 (Parallelism)
+
 
 ### [Project: Parallelism][p-par]
 
@@ -161,6 +177,7 @@ with synchronous networking via HTTP.
 - Write a simple thread-pool
 - Use crossbeam channels
 - Benchmark single-threaded vs multi-threaded
+
 
 ### [Lesson: The big problem &mdash; aliasing and mutability][t-alias] ([slides][s-alias])
 
@@ -174,6 +191,7 @@ with synchronous networking via HTTP.
 / Sync, uniq / shared vs immutable / mutable, `Rc` and `Arc`, interior
 mutability in depth,
 
+
 ### [Lesson: Ownership and borrowing in practice][t-own] ([slides][s-own])
 
 **Readings**:
@@ -184,9 +202,11 @@ mutability in depth,
 **Topics**: when to use pass-by-value, the performance impact of moves,
 reference-bearing structs
 
+
 ### [Lesson: Parallel Rust][t-par] ([slides][s-par])
 
 **Topics**: sharing vs message passing, thread pools
+
 
 ### [Lesson: Benchmarking, profiling, and debugging][t-prof] ([slides][s-prof])
 
@@ -198,6 +218,7 @@ tools
 
 
 ## Section 5 (Async)
+
 
 ### [Project: Async I/O][p-async]
 
@@ -213,6 +234,7 @@ with asynchronous networking via HTTP.
 
 **Extensions**: crash recovery, async/await
 
+
 ### [Lesson: Basic futures][t-fut] ([slides][s-fut])
 
 **Readings**:
@@ -220,6 +242,7 @@ with asynchronous networking via HTTP.
 - [The What and How of Futures and async/await in Rust](https://www.youtube.com/watch?v=9_3krAQtD2k)
 
 **Topics**: what are futures?, how to think in futures, futures patterns, mio
+
 
 ### [Lesson: `async` / `await`][t-async-await] ([slides][s-async-await])
 
@@ -229,11 +252,16 @@ async borrowing, Pin
 
 
 
+<!--
+
 ## TODOs
 
 - reduce scope
 - fmt subject isn't _necessary_ but is a deep-dive topic
 - need to have a "how to get help" section somewhere
+
+-->
+
 
 
 

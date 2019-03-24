@@ -117,7 +117,7 @@ recommended to teach this course.
 
 ## Contributing
 
-TODO
+See [CONTRIBUTING.md].
 
 ## License
 
@@ -147,3 +147,4 @@ TODO
 [The Rust Book]: https://doc.rust-lang.org/book/
 [plan]: plan.md
 [serde]: todo
+[CONTRIBUTING.md]: CONTRIBUTING.md

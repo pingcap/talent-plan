@@ -37,6 +37,9 @@ in the README.
   - Ana likes this
 - variable shadowing
 - DSTs
+- configuring clippy / rustfmt
+- scripting clippy / rustfmt for CI
+- CI setup
 
 ## Sources
 
@@ -56,17 +59,6 @@ in the README.
 - Formatting lesson
 - Build time lesson
 - Collections and iterators
-
-## Contributor notes
-
-- each md file needs a relative symlink to index.html
-- lessons need a .slides.html symlink
-- links are generally to markdown files, not html files
-  - exception: links to slides from plan go to the hosted website
-  - all links rewritten when browsed locally
-- in markdown, write links as relative to current directory
-- keep "task", "goals", etc in project intros in sync between "plan.md" and
-  project pages
 
 ## TODO
 
