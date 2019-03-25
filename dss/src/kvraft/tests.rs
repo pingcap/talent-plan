@@ -231,7 +231,7 @@ fn generic_test(
         let cfg_ = cfg.clone();
         let done_clients_ = done_clients.clone();
         thread::spawn(move || {
-            spawn_clients_and_wait(cfg.clone(), nclients, move || {
+            spawn_clients_and_wait(cfg_.clone(), nclients, move || {
                 let cfg1 = cfg_.clone();
                 let clnt_txs1 = clnt_txs_.clone();
                 let done_clients1 = done_clients_.clone();
