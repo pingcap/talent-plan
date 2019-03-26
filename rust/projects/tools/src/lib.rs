@@ -7,7 +7,7 @@ pub use kv::KvStore;
 mod kv;
 
 /// Run the command line interface.
-pub fn main() {
+pub fn run() {
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))

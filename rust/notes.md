@@ -54,11 +54,17 @@ in the README.
 
 ## Subjects to potentially cut
 
-- Whirlwind rust lesson
 - Parallelism section
 - Formatting lesson
 - Build time lesson
 - Collections and iterators
+
+## Grading
+
+- automated text-based cheat detection
+- automated grading of test cases
+- automated grading of non-unit-test requirements via python script
+- how to grade freeform answers?
 
 ## TODO
 
