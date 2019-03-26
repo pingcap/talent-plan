@@ -17,6 +17,7 @@ export function init(config) {
     });
 
     common.insertRenderedFile(config, mdUrl, function() {
+        common.showPage();
         restoreScrollPos(config);
     });
 }

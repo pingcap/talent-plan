@@ -110,3 +110,8 @@ function isRelative(url) {
 
     return true;
 }
+
+export function showPage() {
+    let html = document.getElementsByTagName("html")[0];
+    html.style = "display:block;";
+}
