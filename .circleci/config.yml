@@ -1,14 +1,16 @@
 version: 2
 jobs:
-  rust:
+  dss:
     docker:
       - image: circleci/rust:stretch
     environment:
       RUST_BACKTRACE: "1"
       RUSTFLAGS: "-Dwarnings"
+    working_directory: ~/talent-plan/dss
     steps:
-      - checkout
-      - run: rustup override set nightly
+      - checkout:
+          path: ~/talent-plan
+      - run: rustup override set nightly-2019-03-05
       - run: rustup component add clippy-preview rustfmt-preview
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all --tests -- -D clippy::all
@@ -19,4 +21,4 @@ workflows:
   version: 2
   ci-test:
       jobs:
-        - rust
+        - dss
