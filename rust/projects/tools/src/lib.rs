@@ -1,6 +1,7 @@
 #![deny(missing_docs)]
 //! A simple key/value store.
 
+use std::process::exit;
 use clap::{App, AppSettings, Arg, SubCommand};
 pub use kv::KvStore;
 
@@ -34,10 +35,12 @@ pub fn run() {
 
     match matches.subcommand() {
         ("set", Some(matches)) => {
-            println!("Unimplemented!");
+            eprintln!("Unimplemented!");
+            exit(1);
         }
         ("get", Some(matches)) => {
-            println!("Unimplemented!");
+            eprintln!("Unimplemented!");
+            exit(1);
         }
         _ => unreachable!(),
     }

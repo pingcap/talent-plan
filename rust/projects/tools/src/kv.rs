@@ -11,7 +11,7 @@ use std::collections::HashMap;
 /// let mut store = KvStore::new();
 /// store.set("key".to_owned(), "value".to_owned());
 /// let val = store.get("key".to_owned());
-/// assert_eq!(val, "value");
+/// assert_eq!(val, Some("value".to_owned()));
 /// ```
 pub struct KvStore {
     map: HashMap<String, String>,
@@ -34,10 +34,8 @@ impl KvStore {
 
     /// Gets the string value of a given string key.
     ///
-    /// # Panic
-    ///
-    /// Panics if the given key is not found.
-    pub fn get(&self, key: String) -> String {
-        self.map.get(&key).expect("Key not found").clone()
+    /// Returns `None` if the given key does not exist.
+    pub fn get(&self, key: String) -> Option<String> {
+        self.map.get(&key).cloned()
     }
 }
