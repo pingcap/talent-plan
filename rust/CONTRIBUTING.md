@@ -4,11 +4,14 @@ Every md file has a html relative symlink to index.html:
 
 `ln -s index.html CONTRIBUTING.html`
 
+The static website loads the page content from markdown dynamically,
+based on the URL of its HTML page.
+
 Project text doesn't link directly to documentation resources containing
 solutions - students should learn where to get the answers from the
 pre-requisites and lessons.
 
-Proect text may include inline links to pages that offer explanatios of terms
+Project text may include inline links to pages that offer explanatios of terms
 and concepts.
 
 Keep the project summary (the **Task**, **Goals**, etc. text) synced between
@@ -31,9 +34,9 @@ In projects, be clear on when the student should start hacking, and what they
 should be hacking, by writing an imperative statement. Format that command in
 italics:
 
-> _Use [crates.io](https://crates.io) to find the documentation
+> <i>Use [crates.io](https://crates.io) to find the documentation
 for the `clap` crate, and implement the command line interface
-such that the `cli_*` test cases pass._
+such that the `cli_*` test cases pass.</i>
 
 > _Try it now._
 
@@ -78,7 +81,7 @@ end of a project.
 
 ## Contributor notes
 
-- each md file needs a relative symlink to index.html
+- each md file needs an html relative symlink to index.html
 - lessons need a .slides.html symlink
 - links are generally to markdown files, not html files
   - exception: links to slides from plan go to the hosted website

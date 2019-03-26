@@ -1,3 +1,3 @@
 fn main() {
-    kvs::main()
+    kvs::run()
 }

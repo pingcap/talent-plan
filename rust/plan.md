@@ -159,9 +159,6 @@ with synchronous networking over the HTTP protocol.
 and other useful info, in-depth examples of crates that rely on build scripts
 
 
-### [Lesson: GPRC and prost][t-grpc] ([slides][s-grpc])
-
-
 
 
 ## Section 4 (Parallelism)

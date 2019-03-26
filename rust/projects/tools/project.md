@@ -30,11 +30,11 @@ The cargo project, `kvs`, builds a command-line key-value store client called
 
 The `kvs` executable supports the following command line arguments:
 
-- `kvs set [KEY] [VALUE]`
+- `kvs set <KEY> <VALUE>`
 
   Set the value of a string key to a string
 
-- `kvs get [KEY]`
+- `kvs get <KEY>`
 
   Get the string value of a given string key
 
@@ -49,9 +49,10 @@ methods:
 
   Set the value of a string key to a string
 
-- `KvStore::get(key: String) -> String`
+- `KvStore::get(key: String) -> Option<String>`
 
-  Get the string value of the a string key
+  Get the string value of the a string key. If the key does not exist,
+  return `None`.
 
 The `KvStore` type stores values in-memory, and thus the command-line client can
 do little more than print the version. The `get`/ `set` commands will return an
@@ -155,7 +156,7 @@ edition = "2018"
 `lib.rs`:
 
 ```rust
-pub fn main() {
+pub fn run() {
     println!("Hello, world!");
 }
 ```
@@ -164,7 +165,7 @@ pub fn main() {
 
 ```rust
 fn main() {
-    kvs::main()
+    kvs::run()
 }
 ```
 
@@ -250,10 +251,9 @@ That's probably how you will be running the tests yourself as you work
 through the project, otherwise you will be distracted by the many failing tests
 that you have not yet fixed.
 
-**Question D**: even if a given test suite doesn't contain any tests, why
-might we not want them to run? Besides issuing the above command, how could
-we permanently disable the three test suites we don't care about by
-editing the project manifest (`Cargo.toml`)?
+**Question D**: Why might we not want to run empty test suites? Besides issuing
+the above command, how could we permanently disable the three test suites we
+don't care about by editing the project manifest (`Cargo.toml`)?
 [Answers](answers.md#question-d).
 
 
@@ -280,11 +280,11 @@ of
 
 Again, the interface for the CLI is:
 
-- `kvs set [KEY] [VALUE]`
+- `kvs set <KEY> <VALUE>`
 
   Set the value of a string key to a string
 
-- `kvs get [KEY]`
+- `kvs get <KEY>`
 
   Get the string value of a given string key
 
@@ -298,9 +298,9 @@ error.
 
 You will use the `clap` crate to handle command-line arguments.
 
-_Use [crates.io](https://crates.io) to find the documentation
+<i>Use [crates.io](https://crates.io) to find the documentation
 for the `clap` crate, and implement the command line interface
-such that the `cli_*` test cases pass._
+such that the `cli_*` test cases pass.</i>
 
 
 ## Part 3: Cargo environment variables
