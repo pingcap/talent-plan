@@ -2,13 +2,20 @@
 
 ## Question A
 
-> What does this directory layout suggest about how `lib.rs`, `main.rs`, and
-`tests.rs` are compiled, and how they are linked to each other?
+> What does this directory layout suggest about how `lib.rs`,
+  `main.rs`, and `tests.rs` are compiled, and how they are linked to each other?
+  How many libraries and executables will this project build? Which source files
+  are compiled into each library and executable? Which executables link to which
+  libraries?
 
-Answer: The compilation of our library file `lib.rs` is independent from
-`main.rs` and `tests.rs`. The library becomes an implicit dependency of
-`main.rs` and `tests.rs`, and is linked to the binaries `main.rs` and
-`tests.rs` compile into.
+Answer: The default library file is `src/lib.rs`. Executable source code
+can be placed in `src/bin/*.rs`. Integration tests go in the `tests` directory.
+If you organize your code this way, cargo will know which type each file is.
+
+Cargo compiles `src/lib.rs` into a library. `src/bin/main.rs` can be built
+into an executable with the library linked to it. `tests/tests.rs` is compiled
+into a test binary via `cargo test`. Of course, the library is linked to the
+test binary, too.
 
 ## Question B
 
@@ -46,20 +53,18 @@ will be the same as the package name (`kvs` in this case).
 > Notice that there are _four_ different set of tests running (each could be
 called a "test suite"). Where do each of those test suites come from?
 
-Answer: `cargo test` run unit tests, integration tests and documentation
+Answer: `cargo test` runs unit tests, integration tests and documentation
 tests. In our case, the four test suites include two unit test suites from
 the binary and the library respectively, one integration test suite from
 `tests/tests.rs` and one documentation test from the library only.
 
 ## Question D
-> Even if a given test suite doesn't contain any tests, why
-might we not want them to run? Besides issuing the above command, how could
-we permanently disable the three test suites we don't care about by
-editing the project manifest (`Cargo.toml`)?
+> Why might we not want to run empty test suites? Besides issuing
+  the above command, how could we permanently disable the three test suites we
+  don't care about by editing the project manifest (`Cargo.toml`)?
 
 Answer: An empty test suite also needs the library to be built and linked
-to it. So we can use `cargo test` to make sure our library can be
-successfully built and linked.
+to it. It can be more and more time consuming as the project grows.
 
 Unit tests and doc tests can be disabled in `Cargo.toml`.
 Here is a possible answer:
@@ -81,10 +86,6 @@ the library's `main` function is often a reasonable thing to do, though it is
 not often used for production libraries. What are some downsides of placing a
 program's user interface into a library instead of directly into the executable?
 
-Answer: A library is usually used by various users and applications.
-If the user interface is placed into the library, we tend to hide
-everything else in our library because our binary need not know them.
-Not exposing public APIs prevents us from distributing the library to other
-users who need the functions inside and do not need the user interface.
-Even though there are necessary public APIs, the user interface is definitely
-a waste of space and confusing to other users.
+Answer: If you put the UI in the library, the library consumers are going to be
+forced to link to the UI code along with the dependencies that are only needed
+by the UI. This will increase their compilation time and binary size.
