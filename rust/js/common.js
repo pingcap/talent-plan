@@ -22,7 +22,7 @@ export function mdUrlFromUrl(url) {
     return mdUrl;
 }
 
-export function insertRenderedFile(config, mdUrl) {
+export function insertRenderedFile(config, mdUrl, cb) {
     // TODO handle async failure
     require(["js/marked/lib/marked"], function(marked) {
         let req = new XMLHttpRequest();
@@ -39,6 +39,8 @@ export function insertRenderedFile(config, mdUrl) {
             config.contentElement.innerHTML = renderedHtml;
 
             rewriteUrls(config.contentElement);
+
+            cb();
         }
     });
 }
@@ -107,4 +109,9 @@ function isRelative(url) {
     }
 
     return true;
+}
+
+export function showPage() {
+    let html = document.getElementsByTagName("html")[0];
+    html.style = "display:block;";
 }
