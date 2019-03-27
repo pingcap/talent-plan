@@ -1,27 +1,32 @@
-# Project: Tools and good bones
+# Project: File I/O
 
-**Task**: Create an in-memory key/value store that passes simple tests and responds
-to command-line arguments.
+**Task**: Create a persistent key/value store that can be accessed from the
+command line
 
 **Goals**:
 
-- Install the Rust compiler and tools
-- Learn the project structure used throughout this course
-- Use `cargo init` / `run` / `test` / `clippy` / `fmt`
-- Learn how to find and import crates from crates.io
-- Define an appropriate data type for a key-value store
+- Handle and report errors robustly
+- Write data to disk as a write-ahead log using standard file APIs.
+- Read the state of the key/value store from disk
+- Use serde for serialization
+- Use file I/O APIs to binary search
 
-**Topics**: testing, clap, `CARGO_VERSION` etc., clippy, rustfmt
+**Topics**: `failure` crate, `std::net::fs`, `Read` / `Write` traits,
+serde
 
-**Extensions**: structopt
+**Extensions**: range queries, store data using bitcast algo?
 
 
 ## Introduction
 
-In this project you will create a simple in-memory key/value store that passes
-some tests and responds to command line arguments. The focus of this project is
-on the tooling and setup that goes into a typical Rust project.
+In this project you will create a simple on-disk key/value store that can be
+modified and queried from the command line. You will start by maintaining a
+[write-ahead log][wal] (WAL) on disk of previous commands that is loaded into
+memory before fulfilling each command. Then you will extend that by periodically
+converting the WAL to a searchable on-disk format. At the end of this project
+you will have built a simple database using Rust file APIs.
 
+[wal]: https://en.wikipedia.org/wiki/Write-ahead_logging
 
 ## Project spec
 
@@ -32,11 +37,13 @@ The `kvs` executable supports the following command line arguments:
 
 - `kvs set <KEY> <VALUE>`
 
-  Set the value of a string key to a string
+  Set the value of a string key to a string.
+  Print an error and return a non-zero exit code on failure.
 
 - `kvs get <KEY>`
 
-  Get the string value of a given string key
+  Get the string value of a given string key.
+  Print an error and return a non-zero exit code on failure.
 
 - `kvs -V`
 
@@ -45,391 +52,157 @@ The `kvs` executable supports the following command line arguments:
 The `kvs` library contains a type, `KvStore`, that supports the following
 methods:
 
-- `KvStore::set(key: String, value: String)`
+- `KvStore::set(key: String, value: String) -> Result<()>`
 
-  Set the value of a string key to a string
+  Set the value of a string key to a string.
+  Return an error if the value is not written successfully.
 
-- `KvStore::get(key: String) -> Option<String>`
+- `KvStore::get(key: String) -> Result<Option<String>>`
 
-  Get the string value of the a string key. If the key does not exist,
-  return `None`.
+  Get the string value of the a string key.
+  If the key does not exist, return `None`.
+  Return an error if the value is not read successfully.
 
-The `KvStore` type stores values in-memory, and thus the command-line client can
-do little more than print the version. The `get`/ `set` commands will return an
-"unimplemented" error when run from the command line. Future projects will store
-values on disk and have a working command line interface.
+When setting a key to a value, `kvs` writes the `set` command to disk in a
+write-ahead log. On startup, the commands in the WAL are re-evaluated and the
+state cached in memory.
 
+When the size of the WAL reaches a given threshold, `kvs` writes it to disk in a
+searchable format and clears the WAL. When retrieving a value for a key with the
+`get` command, first the in-memory WAL cache is searched, and if not found, then
+the on-disk values are searched.
 
-## How to treat these projects
-
-The more you find the answers for yourself, the more you learn. So even though
-this course comes with solutions and answers to every project, don't just go
-read the answers and move on. Read the material, do the projects, and answer the
-questions yourself.
-
-It is ok to get help though. In particular, you are encouraged
-to ask questions an the #beginners channel in [the Rust Discord][rd]
-or the #rust-beginners channel or [Mozilla IRC][mi].
-
-[rd]: https://discord.gg/rust-lang
-[mi]: https://chat.mibbit.com/?server=irc.mozilla.org&channel=%23rust
-
-For each project, your task is to make the provided tests pass, as described
-below. If you are submitting the project for evaluation, then this is the part
-that will be evaluated. In addition, the projects pose questions periodically.
-These are to encourage you to think deeper about the subject matter, though your
-answers won't be evaluated.
-
-
-## Installation
-
-At this point in your Rust programming experience you should know
-how to install Rust via [rustup].
-
-[rustup]: https://www.rustup.rs
-
-If you haven't already, do so now by running
-
-```
-curl https://sh.rustup.rs -sSf | sh
-```
-
-(If you are running Windows then follow the instructions on rustup.rs. Note
-though that you will face more challenges than others during this course, as it
-was developed on Unix. In general, Rust development on Windows is as less
-polished experience than on Unix).
-
-Verify that the toolchain works by typing `rustc -V`. If that doesn't work, log
-out and log in again so that changes to the login profile made during
-installation can take effect.
+Note that our `kvs` project is both a stateless command-line program, and a
+library containing a stateful `KvStore` type, and thus have different
+requirements.
 
 
 ## Project setup
 
-You will do the work for this project in your own git repository, with your own
-Cargo project. You will import the test cases for the project from the [source
-repository for this course][course].
-
-[course]: https://github.com/pingcap/talent-plan
-
-Note that within that repository, all content related to this course is within
-the `rust` subdirectory. You may ignore any other directories.
-
-The projects in this course contain both libraries and executables. They are
-executables because we are developing an application that can be run. They are
-libraries because the supplied test cases must link to them.
-
-We'll use the same setup for each project in this course.
-
-The directory layout we will use is:
-
-```
-Cargo.toml
-  src/
-    lib.rs
-	bin/
-	  main.rs
-  tests/
-    tests.rs
-```
-
-**Question A**: What does this directory layout suggest about how `lib.rs`,
-`main.rs`, and `tests.rs` are compiled, and how they are linked to each other?
-How many libraries and executables will this project build? Which source files
-are compiled into each library and executable? Which executables link to which
-libraries?
-[Answers](answers.md#question-a).
-
-The `Cargo.toml`, `lib.rs` and `main.rs` files look as follows:
-
-`Cargo.toml`:
-
-```toml
-[package]
-name = "kvs"
-version = "0.1.0"
-authors = ["Brian Anderson <andersrb@gmail.com>"]
-description = "A key-value store"
-edition = "2018"
-```
-
-`lib.rs`:
-
-```rust
-pub fn run() {
-    println!("Hello, world!");
-}
-```
-
-`main.rs`:
-
-```rust
-fn main() {
-    kvs::run()
-}
-```
-
-The `name` and `authors` values can be whatever you like, and the author should
-be yourself. Note though that the contents of `main.rs` are affected by the
-package name, which is also the name of the library within the package. (TODO
-clarify)
-
-Finally, the `tests.rs` file is copied from the course materials. In this case,
-copy from the course repository the file `rust/project/tools/tests/tests.rs`
-into your own repository, as `tests/tests.rs`
-
-You may set up this project with `cargo new --lib`, `cargo init --lib`, or
-manually. You'll probably also want to initialize a git repository in the same
-directory.
-
-**Question B**: This is the simplest project setup that accomplishes our goals. In
-practice we might not name `src/bin/main.rs` as `main.rs`. Why not? What's the
-name of our binary? What are two ways we could change the name of that binary?
-Try it yourself.
-[Answers](answers.md#question-b).
-
-At this point you should be able to run the program with `cargo run`. It should 
-
-_Try it now._
-
-You are set up for this project and ready to start hacking.
-
-
-## Part 1: Make the tests compile
-
-You've been provided with a suite of unit tests in `tests/tests.rs`. Open it up
-and take a look.
-
-Try to run the tests with `cargo test`. What happens? Why?
-
-Your first task for this project is to make the tests _compile_. In `src/lib.rs`
-write the type and method definitions necessary to make `cargo test --no-run`
-complete successfully. Don't write any method bodies yet &mdash;
-instead write `panic!()`.
-
-_Do that now before moving on._
-
-Once that is done, if you run `cargo test` (without `--no-run`),
-you should see that some of your tests are failing, like
-
-```
-TODO insert after we have a sample project
-```
-
-**Question C**: Notice that there are _four_ different set of tests running
-(each could be called a "test suite"). Where do each of those test suites come
-from?
-[Answers](answers.md#question-c).
-
-In practice, particularly with large projects, you won't run the entire set of
-test suites while developing a single feature. To narrow down the set of tests
-to the ones we care about, run the following:
-
-```
-cargo test --test tests
-```
-
-That reads pretty silly: "test test tests". What it means though is that we're
-testing (`cargo test`), we want to run a specific suite of tests (`--test`), in
-this case the tests in `tests.rs` (`--test tests`). We can even narrow our testing
-down to a single test case within the `tests` test suite, like
-
-```
-cargo test --test tests -- cli_no_args
-```
-
-or, by matching multiple test cases, a few, like:
-
-
-```
-cargo test --test tests -- cli
-```
-
-_Try it now._
-
-That's probably how you will be running the tests yourself as you work
-through the project, otherwise you will be distracted by the many failing tests
-that you have not yet fixed.
-
-**Question D**: Why might we not want to run empty test suites? Besides issuing
-the above command, how could we permanently disable the three test suites we
-don't care about by editing the project manifest (`Cargo.toml`)?
-[Answers](answers.md#question-d).
-
-
-## Part 2: Accept command line arguments
-
-The key / value stores throughout this course are all controlled through a
-command-line client. In this project the command-line client is very simple
-because the state of the key-value store is only stored in memory, not persisted
-to disk.
-
-In this part you will make the `cli_*` test cases pass. Notice that these test
-cases all call the `main` function from your `kvs` library. This is
-why we've put the "real" `main` function in `lib.rs` (the `kvs` library),
-instead of `main.rs` (the `kvs` CLI).
-
-**Question E**: This pattern of having the executable do nothing but call into
-the library's `main` function is often a reasonable thing to do, though it is
-not often used for production libraries. What are some downsides of placing a
-program's user interface into a library instead of directly into the executable?
-[Answers](answers.md#question-e).
-
-Recall how to run individual test cases from previous sections
-of 
-
-Again, the interface for the CLI is:
-
-- `kvs set <KEY> <VALUE>`
-
-  Set the value of a string key to a string
-
-- `kvs get <KEY>`
-
-  Get the string value of a given string key
-
-- `kvs -V`
-
-  Print the version
-
-In this iteration though, the `get` and `set` commands will print to stderr the
-string, "unimplemented", and exiting with a non-zero exit code, indicating an
-error.
-
-You will use the `clap` crate to handle command-line arguments.
-
-<i>Use [crates.io](https://crates.io) to find the documentation
-for the `clap` crate, and implement the command line interface
-such that the `cli_*` test cases pass.</i>
-
-
-## Part 3: Cargo environment variables
-
-When you set up `clap` to parse your command line arguments, you probably set
-the name, version, authors, and description (if not, do so). This information is
-redundant w/ values provided in `Cargo.toml`. Cargo sets environment variables
-that can be accessed through Rust source code, at build time.
-
-_Modify your clap setup to set these values from standard cargo environment
-variables._
-
-
-
-
-## Part 3: Store values in memory
-
-Now that your command line scaffolding is done, let's turn to the implementation
-of `KvStore`, and make the remaining test cases pass.
-
-The behavior of `KvStore`'s methods are fully-defined through the test cases
-themselves &mdash; you don't need any further description to complete the
-code for this project.
-
-_Make the remaining test cases pass by implementing methods on `KvStore`._
-
-
-## Part 4: Documentation
-
-You have implemented the project's functionality, but there are still a few more
-things to do before it is a polished piece of Rust software, ready for
-contributions or publication.
-
-First, public items should generally have doc comments.
-
-Doc comments are displayed in a crate's API documentation. API documentation can
-be generated with the command, `cargo doc`, which will render them as HTML to
-the `target/doc` folder. Note though that `target/doc` folder does not contain
-an `index.html`. Your crate's documentation will be located at
-`target/doc/kvs/index.html`. You can launch a web browser at that location with
-`cargo doc --open`.
-
-[Good doc comments][gdc] do not just repeat the name of the function, nor repeat
-information gathered from the type signature. They explain why and how one would
-use a function, what the return value is on both success and failure, error and
-panic conditions. The library you have written is very simple so the
-documentation can be simple as well. If you truly cannot think of anything
-useful to add through doc comments then it can be ok to not add a doc comment
-(this is a matter of preference). With no doc comments it should be obvious how
-the type or function is used from the name and type signature alone.
-
-Doc comments contain examples, and those examples can be tested with `cargo test
---doc`.
-
-You may want to add `#![deny(missing_docs)]` to the top of `src/lib.rs`
-to enforce that all public items have doc comments.
-
-_Add doc comments to the types and methods in your library. Follow the
-[documentatine guidelines][gdc]. Give each an example and make sure they pass
-`cargo test --doc`._
-
-[gdc]: https://rust-lang-nursery.github.io/api-guidelines/documentation.html
-
-
-## Part 5: Ensure good style with `clippy` and `rustfmt`
-
-`clippy` and `rustfmt` are tools for enforcing common Rust style. `clippy` helps
-ensure that code uses modern idioms, and prevents patterns that commonly lead to
-errors. `rustfmt` enforces that code is formatted consistently.
-
-Both tools are included in the Rust toolchain, but not installed by default.
-They can be installed with the following commands:
-
-```
-rustup component add clippy
-rustup component add rustfmt
-```
+Create a new cargo project and copy `tests/tests.rs` into it. Like project 1,
+this project should contain a library and an executable, both named `kvs`.
+
+As with the previous project, use `clap` or `structopt` to handle the command
+line arguments. They are the same as last time.
 
 _Do that now._
 
-Both tools are invoked as cargo subcommands, `clippy` as `cargo clippy` and
-`rustfmt` as `cargo fmt`. Note that `cargo fmt` modifies your source code, so
-you might want to check in any changes before running it to avoid accidentally
-making unwanted changes, after which you can include the changes as part of the
-previous commit with `git commit --amend`.
 
-_Run `clippy` against your project and make any suggested changes. Run `rustfmt`
-against yur project and commit any changes it makes._
+## Part 1: Error handling
 
-Congratulations, you are done with project 1! If you like you
-may complete the remaining "extensions". They are optional.
+In this project it will be possible for the code to fail due to I/O errors. So
+before we get started implementing a database we need to do one more thing that
+is crucial to Rust projects: decide on an error handling strategy.
+
+Rust's error handling is powerful, but involves a lot of boilerplate to use
+correctly. For this project the [`failure`] crate will provide the tools to
+easily handle errors of all kinds.
+
+_Find the latest version of the failure crate and add it to your dependencies in
+`Cargo.toml`._
+
+[`failure`]: https://docs.rs/failure/0.1.5/failure/
+
+The [failure guide][fg] describes [several] error handling patterns.
+
+[fg]: https://boats.gitlab.io/failure/
+[several]: https://boats.gitlab.io/failure/guidance.html
+
+Pick one of those strategies and, in your library, either define your own error
+type or import `failure`s `Error`. This is the error type you will use in all of
+your `Result`s, converting error types from other crates to your own with the
+`?` operator.
+
+After that, define a type alias for `Result` that includes your concrete error
+type, so that you don't need to type `Result<T, YourErrorType>` everywhere, but
+can simply type `Result<T>`. This type alias is also typically called `Result`,
+[shadowing] the standard library's.
+
+[shadowing]: https://en.wikipedia.org/wiki/Variable_shadowing
+
+Finally, import those types into your executable with `use` statements, and
+chainge `main`s function signature to return `Result<()>`. All functions in your
+library that may fail will pass these `Results` back down the stack all the way
+to `main`, and then to the Rust runtime, which will print an error.
+
+Run `cargo check` to look for compiler errors, then fix them. For now it's
+ok to end `main` with `panic!()` to make the project build.
+
+_Set up your error handling strategy before continuing._
+
+As with the previous project, you'll want to create placeholder data structures
+and methods so that the tests compile. Now that you have defined an error type
+this should be straightforward. Add panics anywhere necessary to get the test to
+compile (`cargo test --no-run`).
 
 
-## Extension 1: `structopt`
+## Part 2: Storing writes in a write-ahead log
 
-In this project we used `clap` to parse command line arguments. It's typical to
-represent a program's parsed command line arguments as a struct, perhaps named
-`Config` or `Options`. Doing so requires calling the appropriate methods on
-`clap`'s `ArgMatches` type. Both steps, for larger programs, require _a lot_ of
-boilerplate code. The `structopt` crate greatly reduces boilerplate by allowing
-you to define a `Config` struct, annotated to automatically produce a `clap`
-command line parser that produces that struct. Some find this approach nicer
-than writing the `clap` code explicitly.
+Now we are finally going to begin implementing the beginnings of a real
+database, by storing its contents to disk. You will use [`serde`] to serialize
+the "get" command to a string, and the standard file I/O APIs to write it to
+disk.
 
-_Modify your program to use `structopt` for parsing command line
-arguments instead of using `clap` directly._
+[`serde`]: https://serde.rs/
+
+This is the basic behavior of `kvs` with a write-ahead log:
+
+- "set"
+  - The user invokes `kvs set mykey, myvalue`
+  - `kvs` creates a struct representing the "get" command, containing its key and
+    value
+  - It then serializes that command to a `String`
+  - It then appends the serialized command to a file containing the WAL
+  - If that succeeds, it exits silently with error code 0
+  - If it fails, it exits by printing the error and return a non-zero error code
+- "get"
+  - The user invokes `kvs get mykey`
+  - `kvs` deserializes the entire WAL, one command at a time, executing the
+    command against an in-memory map, and thus reconstructing the database state
+    in memory
+  - It then checks the map for the key
+  - If it succeeds, it prints the key to stdout and exits with exit code 0
+  - If it fails, it prints "Key not found", and exits with exit code 0
+
+You will start by implementing the "set" flow. There are a number of steps here.
+Most of them are straightforward to implement and you can verify you've done so
+by running the appropriate `cli_*` test cases.
+
+`serde` is a large library, with many options, and supporting many serialization
+formats. Basic serialization and deserialization only requires annotating
+your data structure correctly, and calling a function to write it
+either to a `String` or a stream implementing `Write`.
+
+You need to pick a serialization format. Think about the properties you want in
+your serialization format &mdash; do you want to prioritize performance? Do you
+want to be able to read the content of the WAL in plain text? It's your choice,
+but maybe you should include a comment in the code explaining it.
+
+Some of the APIs you will call may fail, return a `Result` of some error type.
+Make sure that your calling functions return a `Result` of _your own_ error type,
+and that you convert between the two with `?`.
+
+You may implement the "set" command now, or you can proceed to the next section
+to read about the "get" command. It may help to keep both in mind, or to
+implement them both simultaniously. Your choice.
+
+
+## Part 3: Reading from the write-ahead log
+
+
 
 
 <!--
 
 ## TODOs
 
-- use "test suite" as-is here or pick different terminology?
-- set the binary's name
-- ask about pros / cons of this main.rs setup
-  - explain why we're doing this setup
-    (makes main testable) though this will
-	become evident as they work through the tests
-- doc comments
-- make sure there's enough background reading to support the project
-- resources (whether / where to put these?)
-  - https://docs.rs/clap/2.32.0/clap/
-  - https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo
-  - https://rust-lang-nursery.github.io/api-guidelines/documentation.html#documentation
-  - https://doc.rust-lang.org/std/macro.env.html
-  - https://github.com/rust-lang/rust-clippy/blob/master/README.md
-  - https://github.com/rust-lang/rustfmt/blob/master/README.md
-- do range lookups (`scan`)?
-- README.md?
-- GitHub CI setup?
+- is there a term for converting a WAL to it's permanent format?
+- custom main error handling
+- limits on k/v size?
+- maintaining data integrity on failure 
+- todo: `Result<Option<String>>` vs `Result<String>`
+  - is "not found" exit code 0 or !0?
+- error context
+- serialize directly to file stream
 
 -->
