@@ -376,7 +376,7 @@ They can be installed with the following commands:
 
 ```
 rustup component add clippy
-rustup component add rustfix
+rustup component add rustfmt
 ```
 
 _Do that now._
