@@ -8,6 +8,8 @@ export function mdUrlFromUrl(url) {
     let mdUrl = url;
     if (url.indexOf("index.html") != -1) {
         mdUrl = url.replace("index.html", "README.md");
+    } else if (url.endsWith("/")) {
+        mdUrl = url + "README.md";
     } else if (url.indexOf(".slides.html") != -1) {
         mdUrl = url.replace(".slides.html", ".md");
     } else if (url.indexOf(".html") != -1) {

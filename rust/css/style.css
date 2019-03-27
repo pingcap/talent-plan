@@ -4,7 +4,7 @@ nav#site-nav {
 	position: absolute;
 	top: 0px;
 	width: 100%;
-	background: #666666;
+	background: #555;
 	color: white;
 	padding: 1rem;
 	line-height: 1.5rem
@@ -18,10 +18,5 @@ nav#site-nav a:visited {
 }
 nav#site-nav a:hover {
 	color: orange;
-}
-
-section#content {
-	margin: 1rem;
-	margin-top: 4.5rem; /* nav border * 2 + line-height + 1rem */
 }
 
