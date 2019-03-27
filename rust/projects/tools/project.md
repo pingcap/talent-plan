@@ -334,7 +334,7 @@ You have implemented the project's functionality, but there are still a few more
 things to do before it is a polished piece of Rust software, ready for
 contributions or publication.
 
-First, public items should have doc comments.
+First, public items should generally have doc comments.
 
 Doc comments are displayed in a crate's API documentation. API documentation can
 be generated with the command, `cargo doc`, which will render them as HTML to
@@ -347,7 +347,10 @@ an `index.html`. Your crate's documentation will be located at
 information gathered from the type signature. They explain why and how one would
 use a function, what the return value is on both success and failure, error and
 panic conditions. The library you have written is very simple so the
-documentation can be simple as well.
+documentation can be simple as well. If you truly cannot think of anything
+useful to add through doc comments then it can be ok to not add a doc comment
+(this is a matter of preference). With no doc comments it should be obvious how
+the type or function is used from the name and type signature alone.
 
 Doc comments contain examples, and those examples can be tested with `cargo test
 --doc`.

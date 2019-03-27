@@ -31,8 +31,8 @@ or [submit pull requests][spr] with improvements. _Each accepted pull request
 counts toward extra credit during final evaluation_. Pull requests to any other
 project used during this course count as well. This is an opportunity to gain
 experience contributing to an open-source Rust project. Make this a better
-course for the next to take it than it was for you. That is how open source
-projects evolve.
+course for the next student to take it than it was for you. That is how open
+source projects evolve.
 
 [si]: https://github.com/pingcap/talent-plan/issues/new
 [spr]: https://github.com/pingcap/talent-plan/compare
