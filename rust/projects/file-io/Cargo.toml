@@ -5,6 +5,6 @@ authors = ["Brian Anderson <andersrb@gmail.com>"]
 description = "A key-value store"
 edition = "2018"
 
-[[bin]]
-name = "kvs"
-path = "src/bin/main.rs"
+[dependencies]
+clap = "2.32.0"
+failure = "0.1.5"
