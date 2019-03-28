@@ -133,13 +133,6 @@ The directory layout we will use is:
     └── tests.rs
 ```
 
-**Question A**: What does this directory layout suggest about how `lib.rs`,
-`main.rs`, and `tests.rs` are compiled, and how they are linked to each other?
-How many libraries and executables will this project build? Which source files
-are compiled into each library and executable? Which executables link to which
-libraries?
-[Answers](answers.md#question-a).
-
 The `Cargo.toml`, `lib.rs` and `kvs.rs` files look as follows:
 
 `Cargo.toml`:
@@ -180,12 +173,6 @@ You may set up this project with `cargo new --lib`, `cargo init --lib`, or
 manually. You'll probably also want to initialize a git repository in the same
 directory.
 
-**Question B**: This is the simplest project setup that accomplishes our goals. In
-practice we might not name `src/bin/main.rs` as `main.rs`. Why not? What's the
-name of our binary? What are two ways we could change the name of that binary?
-Try it yourself.
-[Answers](answers.md#question-b).
-
 At this point you should be able to run the program with `cargo run`. It should 
 
 _Try it now._
@@ -213,11 +200,6 @@ you should see that some of your tests are failing, like
 ```
 TODO insert after we have a sample project
 ```
-
-**Question C**: Notice that there are _four_ different set of tests running
-(each could be called a "test suite"). Where do each of those test suites come
-from?
-[Answers](answers.md#question-c).
 
 In practice, particularly with large projects, you won't run the entire set of
 test suites while developing a single feature. To narrow down the set of tests
@@ -249,11 +231,6 @@ That's probably how you will be running the tests yourself as you work
 through the project, otherwise you will be distracted by the many failing tests
 that you have not yet fixed.
 
-**Question D**: Why might we not want to run empty test suites? Besides issuing
-the above command, how could we permanently disable the three test suites we
-don't care about by editing the project manifest (`Cargo.toml`)?
-[Answers](answers.md#question-d).
-
 
 ## Part 2: Accept command line arguments
 
@@ -263,12 +240,6 @@ because the state of the key-value store is only stored in memory, not persisted
 to disk.
 
 In this part you will make the `cli_*` test cases pass.
-
-**Question E**: This pattern of having the executable do nothing but call into
-the library's `main` function is often a reasonable thing to do, though it is
-not often used for production libraries. What are some downsides of placing a
-program's user interface into a library instead of directly into the executable?
-[Answers](answers.md#question-e).
 
 Recall how to run individual test cases from previous sections
 of 
