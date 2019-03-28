@@ -1,0 +1,13 @@
+[package]
+name = "kvs"
+version = "0.1.0"
+authors = ["Brian Anderson <andersrb@gmail.com>"]
+description = "A key-value store"
+edition = "2018"
+
+[dependencies]
+clap = "2.32.0"
+
+[[bin]]
+name = "kvs"
+path = "src/bin/main.rs"

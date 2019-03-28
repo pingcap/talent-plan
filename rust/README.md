@@ -3,16 +3,14 @@
 A training course on practical software construction in Rust.
 
 The final project in this course is a networked, persistent [key-value store]
-with multithreading, asynchronous I/O (via [tokio] and [tower]), a
-high-performance network protocol ([GRPC] via [prost] and [tower-grpc]),
-backed by a simple [LSM-tree] that the student will write themselves.
+with multithreading, asynchronous I/O (via [hyper]).
 
 Subjects covered include:
 
 - Structuring and maintaining Rust programs
 - Fun and foolproof parallel programming
-- Asyncronous programming with [futures] and [tokio]
-- High-performance networking with [GRPC] and [prost]
+- Asyncronous programming with [futures]
+- Networking with [hyper]
 - Benchmarking with [criterion] and [critcmp]
 - Robust and reliable error handling with [failure]
 - Serialization with [serde]
@@ -119,7 +117,7 @@ recommended to teach this course.
 
 ## Contributing
 
-TODO
+See [CONTRIBUTING.md].
 
 ## License
 
@@ -149,3 +147,4 @@ TODO
 [The Rust Book]: https://doc.rust-lang.org/book/
 [plan]: plan.md
 [serde]: todo
+[CONTRIBUTING.md]: CONTRIBUTING.md

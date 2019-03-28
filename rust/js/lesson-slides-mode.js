@@ -62,6 +62,7 @@ export function init(config) {
             common.rewriteUrls(revealDiv);
         });
 
+        common.showPage();
         reveal.initialize(revealCfg);
     });
 }

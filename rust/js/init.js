@@ -3,7 +3,6 @@
 "use strict";
 
 import * as mdMode from "./md-mode.js";
-import * as lessonTextMode from "./lesson-text-mode.js";
 import * as lessonSlidesMode from "./lesson-slides-mode.js";
 
 if (document.readyState === "complete") {
@@ -25,6 +24,7 @@ function init() {
         contentElement: contentElement,
     };
 
+    addCssForPageType(config);
     dispatchInitForPageType(config);
 }
 
@@ -36,8 +36,6 @@ function getPageType(url) {
     let type = "unknown";
     if (url.indexOf(".slides.") != -1) {
         type = "lesson-slides";
-    } else if (url.indexOf("lessons/") != -1) {
-        type = "lesson-text";
     } else {
         type = "md";
     }
@@ -45,12 +43,22 @@ function getPageType(url) {
     return type;
 }
 
+function addCssForPageType(config) {
+    if (config.pageType === "lesson-slides") {
+        return;
+    }
+
+    let head = document.querySelector("head");
+    let link = document.createElement("link");
+    link.setAttribute("rel", "stylesheet");
+    link.setAttribute("href", "css/text.css");
+    head.appendChild(link);
+}
+
 function dispatchInitForPageType(config) {
     let mainModule = null;
     if (config.pageType === "md") {
         mainModule = mdMode;
-    } else if (config.pageType === "lesson-text") {
-        mainModule = lessonTextMode;
     } else if (config.pageType === "lesson-slides") {
         mainModule = lessonSlidesMode;
     }

@@ -1,0 +1,20 @@
+/* Styles for non-slide pages */
+
+section#content {
+	margin-top: 5.5rem; /* nav border * 2 + line-height + 2rem */
+}
+
+section#content {
+	padding-left: 100px;
+	padding-right: 100px;
+}
+
+pre {
+	background-color: #555;
+	color: white;
+	padding: 1rem;
+}
+
+body {
+	margin-bottom: 5rem;
+}
