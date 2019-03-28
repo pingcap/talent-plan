@@ -1,27 +1,14 @@
 # Practical Networked Applications in Rust - Lesson plan
 
 This course is divided into five _sections_, each with a _project_ designed to
-give you exposure to practical Rust programming subjects. Each section's
-_lessons_ and accompanying external pre-requisite _readings_ provide the
-resources necessary to complete the projects.
-
-Note that it is not sufficient to follow the lessons without reading the
-external reading material. The readings are the foundation necessary to
-understand and complete the projects; the lessons themselves are intended to
-provide additional insight and in-depth explorations beyond the background
-reading.
+give you exposure to practical Rust programming subjects.
 
 Each project builds on experience from the previous project. It is reasonable to
 start each project by copy-pasting the previous.
 
 A suggested workflow:
 
-- Skim the project for the next section to get an idea of what you need to learn
-  from the next lessons.
-- Prior to following a lesson, read the pre-requisite readings.
-- During the lesson, follow the slides, and
-  - if taking the course live, ask questions
-  - if taking the course online, read the writeups that accompany the slides
+- Skim the project for the next section to get an idea of what you need to learn.
 - Follow each project according to their own instructions, writing Rust programs
   that pass the projects' accompanying tests.
 
@@ -36,9 +23,6 @@ source projects evolve.
 
 [si]: https://github.com/pingcap/talent-plan/issues/new
 [spr]: https://github.com/pingcap/talent-plan/compare
-
-
-
 
 ## Section 1 (Setup)
 
@@ -59,44 +43,6 @@ to command-line arguments.
 **Topics**: clap, testing, `CARGO_VERSION`, clippy, rustfmt
 
 **Extensions**: `structopt`, `log` / `slog`,
-
-
-### [Lesson: Data structures in Rust][t-data] ([slides][s-data])
-
-**Topics**: when to use which struct types, impls, ctor patterns, dtors, reprs,
-padding demo, packed structs, size and alignment in depth, enum
-implementation and optimizations,
-
-
-### [Lesson: Crates and crates.io][t-crates] ([slides][s-crates])
-
-**Topics**: importing crates, features, debugging and fixing dependencies,
-std vs crate philosophy and history, finding crates
-
-
-### [Lesson: Rust tooling][t-tools] ([slides][s-tools])
-
-**Readings**:
-  - [`clippy` README](https://github.com/rust-lang/rust-clippy/blob/master/README.md)
-  - [`rustfmt` README](https://github.com/rust-lang/rustfmt/blob/master/README.md)
-
-**Topics**: `#[test]`, how does test work?, what does `cargo run` actually do?,
-clippy, rustfmt, controlling clippy and rustfmt, links to other useful tools,
-cargo / rustc wrapping pattern in depth (ex rustup, `RUSTC_WRAPPER`)
-
-
-### [Lesson: Formatting, println et. al, log, and slog][t-fmt] ([slides][s-fmt])
-
-**Readings**:
- - [The Book - Macros](https://doc.rust-lang.org/book/ch19-06-macros.html)
- - [`std::fmt`](https://doc.rust-lang.org/std/fmt/index.html)
-
-**Topics**: formatting tips, derive Debug in depth, how does `format!` work?,
-`log` demo, `slog` and structured logging, `env_logger`, APIs that take format
-strings
-
-
-
 
 ## Section 2 (File I/O)
 
@@ -119,22 +65,6 @@ serde
 
 **Extensions**: range queries, store data using bitcast algo?
 
-### [Lesson: Proper error handling][t-errors] ([slides][s-errors])
-
-**Readings**:
-
-- [The Book - Error Handling](https://doc.rust-lang.org/book/ch09-00-error-handling.html)
-- [Rust Error Handling](http://blog.burntsushi.net/rust-error-handling/)
-- [The `failure` book](https://rust-lang-nursery.github.io/failure/)
-
-**Topics**: error patterns, `failure` crate, `fn main() -> Result`, `panic!` and
-unwinding
-
-### [Lesson: Collections and iterators][t-coll] ([slides][s-coll])
-
-
-
-
 ## Section 3 (Networking)
 
 
@@ -146,20 +76,6 @@ with synchronous networking over the HTTP protocol.
 **Goals**:
 
 - Use hyper for synchronous networking
-
-
-### [Lesson: Basic network APIs][t-net] ([slides][s-net])
-
-**Topics**: `std` networking, TCP vs UDP, `reqwest`, blocking HTTP serving w/ Iron
-
-
-### [Lesson: Build-time Rust][t-build] ([slides][s-build])
-
-**Topics**: build scripts, protobuf compilation example, getting rustc version
-and other useful info, in-depth examples of crates that rely on build scripts
-
-
-
 
 ## Section 4 (Parallelism)
 
@@ -174,45 +90,6 @@ with synchronous networking via HTTP.
 - Write a simple thread-pool
 - Use crossbeam channels
 - Benchmark single-threaded vs multi-threaded
-
-
-### [Lesson: The big problem &mdash; aliasing and mutability][t-alias] ([slides][s-alias])
-
-**Readings**:
-
-- [The Book - Understanding Ownership](https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html)
-- [The Nomicon - Aliasing](https://doc.rust-lang.org/nomicon/aliasing.html)
-- [The Problem with Single-threaded Shared Mutability](https://manishearth.github.io/blog/2015/05/17/the-problem-with-shared-mutability)
-
-**Topics**: mutable aliasing bugs, how ownership prevents mutable aliasing, Sync
-/ Sync, uniq / shared vs immutable / mutable, `Rc` and `Arc`, interior
-mutability in depth,
-
-
-### [Lesson: Ownership and borrowing in practice][t-own] ([slides][s-own])
-
-**Readings**:
-
-- [Rust - A Unique Perspective](https://limpet.net/mbrubeck/2019/02/07/rust-a-unique-perspective.html)
-- [Too Many Linked Lists](https://cglab.ca/~abeinges/blah/too-many-lists/book)
-
-**Topics**: when to use pass-by-value, the performance impact of moves,
-reference-bearing structs
-
-
-### [Lesson: Parallel Rust][t-par] ([slides][s-par])
-
-**Topics**: sharing vs message passing, thread pools
-
-
-### [Lesson: Benchmarking, profiling, and debugging][t-prof] ([slides][s-prof])
-
-**Topics**: println debugging, RUST_BACKTRACE, perf, gdb and Rust, std bench vs
-criterion, black_box and alternatives, how does rust benchmarking work?, other
-tools
-
-
-
 
 ## Section 5 (Async)
 
@@ -230,23 +107,6 @@ with asynchronous networking via HTTP.
 - Use a thread pool to prevent "blocking"
 
 **Extensions**: crash recovery, async/await
-
-
-### [Lesson: Basic futures][t-fut] ([slides][s-fut])
-
-**Readings**:
-
-- [The What and How of Futures and async/await in Rust](https://www.youtube.com/watch?v=9_3krAQtD2k)
-
-**Topics**: what are futures?, how to think in futures, futures patterns, mio
-
-
-### [Lesson: `async` / `await`][t-async-await] ([slides][s-async-await])
-
-**Topics**: futures vs async/await, how does async / await work,
-async borrowing, Pin
-
-
 
 
 <!--
