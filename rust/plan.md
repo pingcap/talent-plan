@@ -6,12 +6,6 @@ give you exposure to practical Rust programming subjects.
 Each project builds on experience from the previous project. It is reasonable to
 start each project by copy-pasting the previous.
 
-A suggested workflow:
-
-- Skim the project for the next section to get an idea of what you need to learn.
-- Follow each project according to their own instructions, writing Rust programs
-  that pass the projects' accompanying tests.
-
 As you work through the course content, _please_ be on the lookout for things
 you would improve about the course, and either [submit issues][si] explaining,
 or [submit pull requests][spr] with improvements. _Each accepted pull request
