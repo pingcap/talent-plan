@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 /// The `KvStore` stores string key/value pairs.
 ///
-/// Key/value pairs are stored in a `HashMap` in memory and not persisted to disk.
+/// Key/value pairs are stored in a `HashMap` in memory and also persisted to disk using a WAL.
 ///
 /// Example:
 ///
@@ -31,6 +31,10 @@ impl KvStore {
     /// Opens a `KvStore` with the given path.
     ///
     /// This will create a new directory if the given one does not exist.
+    ///
+    /// # Error
+    ///
+    /// It propagates I/O or deserialization errors during the WAL replay.
     pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
         let path = path.into();
         create_dir_all(&path)?;
@@ -53,6 +57,10 @@ impl KvStore {
     /// Sets the value of a string key to a string.
     ///
     /// If the key already exists, the previous value will be overwritten.
+    ///
+    /// # Error
+    ///
+    /// It propagates I/O or serialization errors during writing the WAL.
     pub fn set(&mut self, key: String, value: String) -> Result<()> {
         let cmd = SetCommand::new(key, value);
         to_writer(&mut self.wal_writer, &cmd)?;
