@@ -124,16 +124,16 @@ We'll use the same setup for each project in this course.
 The directory layout we will use is:
 
 ```
-Cargo.toml
-  src/
-    lib.rs
-	bin/
-	  main.rs
-  tests/
-    tests.rs
+├── Cargo.toml
+├── src
+│   ├── bin
+│   │   └── kvs.rs
+│   └── lib.rs
+└── tests
+    └── tests.rs
 ```
 
-The `Cargo.toml`, `lib.rs` and `main.rs` files look as follows:
+The `Cargo.toml`, `lib.rs` and `kvs.rs` files look as follows:
 
 `Cargo.toml`:
 
@@ -149,21 +149,19 @@ edition = "2018"
 `lib.rs`:
 
 ```rust
-pub fn run() {
+// just leave it empty for now
+```
+
+`kvs.rs`:
+
+```rust
+fn main() {
     println!("Hello, world!");
 }
 ```
 
-`main.rs`:
-
-```rust
-fn main() {
-    kvs::run()
-}
-```
-
 The `name` and `authors` values can be whatever you like, and the author should
-be yourself. Note though that the contents of `main.rs` are affected by the
+be yourself. Note though that the contents of `kvs.rs` are affected by the
 package name, which is also the name of the library within the package. (TODO
 clarify)
 
@@ -241,10 +239,7 @@ command-line client. In this project the command-line client is very simple
 because the state of the key-value store is only stored in memory, not persisted
 to disk.
 
-In this part you will make the `cli_*` test cases pass. Notice that these test
-cases all call the `main` function from your `kvs` library. This is
-why we've put the "real" `main` function in `lib.rs` (the `kvs` library),
-instead of `main.rs` (the `kvs` CLI).
+In this part you will make the `cli_*` test cases pass.
 
 Recall how to run individual test cases from previous sections
 of 
