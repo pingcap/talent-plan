@@ -7,19 +7,26 @@ in the README.
 
 - error handling
   - simple vs. complex, Fail vs StdError, etc
+  - `fn main() -> Result`
+  - `panic!` and unwinding
 - logging w/ log and slog
   - how env_logger works?
 - trees vs maps
 - async vs sync networking
+  - `std` networking
+  - TCP vs UDP
+  - `reqwest`
+  - blocking HTTP serving w/ Iron
 - sync file io and solutions to blocking
 - buffered vs unbuffered i/o
 - benchmarking, criterion and critcmp, black_box
 - RUST_BACKTRACE
-- how to find crates
 - where to ask questions
 - futures
 - tokio
+- mio?
 - async/await? - maybe future iterations
+- Pin?
 - generic placeholder idiom - let foo: Vec<_> =
 - construction w/ iterators idiom
 - semver trick
@@ -30,6 +37,9 @@ in the README.
   - we'll just asume rust 2018 and not mention 2015 unless necessary
 - tools most rust programmers should know
 - build scripts
+  - protobuf compilation example
+  - getting rustc version
+  - in-depth examples of crates that rely on build scripts
 - using RUSTFLAGS
 - debugging
 - profiling
@@ -40,6 +50,22 @@ in the README.
 - configuring clippy / rustfmt
 - scripting clippy / rustfmt for CI
 - CI setup
+- when to use which struct types, impls, ctor patterns, dtors, reprs,
+  padding demo, packed structs, size and alignment in depth, enum
+  implementation and optimizations
+- importing crates, features, debugging and fixing dependencies,
+  std vs crate philosophy and history, finding crates
+- how does testing work?
+- what does `cargo run` do?
+- cargo / rustc wrapping pattern in depth (ex rustup, `RUSTC_WRAPPER`)
+- formatting tips, derive Debug in depth, how does `format!` work?
+- mutable aliasing bugs, how ownership prevents mutable aliasing
+- Sync / Send, uniq / shared vs immutable / mutable
+- `Rc` and `Arc`, interior mutability in depth
+- when to use pass-by-value, the performance impact of moves
+- reference-bearing structs
+- sharing vs message passing
+- thread pools
 
 ## Sources
 
