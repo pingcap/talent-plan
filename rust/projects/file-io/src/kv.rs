@@ -1,9 +1,9 @@
 use crate::Result;
 use serde::{Deserialize, Serialize};
-use serde_json::{to_writer, Deserializer};
+use serde_json::Deserializer;
 use std::collections::HashMap;
 use std::fs::{create_dir_all, File, OpenOptions};
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 /// The `KvStore` stores string key/value pairs.
@@ -43,8 +43,7 @@ impl KvStore {
         let path = path.into();
         create_dir_all(&path)?;
 
-        let mut wal_path = path.clone();
-        wal_path.push("wal.log");
+        let wal_path = path.join("wal.log");
         let wal = OpenOptions::new()
             .create(true)
             .read(true)
@@ -67,7 +66,8 @@ impl KvStore {
     /// It propagates I/O or serialization errors during writing the WAL.
     pub fn set(&mut self, key: String, value: String) -> Result<()> {
         let cmd = SetCommand::new(key, value);
-        to_writer(&mut self.wal_writer, &cmd)?;
+        serde_json::to_writer(&mut self.wal_writer, &cmd)?;
+        self.wal_writer.flush()?;
         self.map.insert(cmd.key, cmd.value);
         Ok(())
     }
