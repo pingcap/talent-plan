@@ -13,11 +13,15 @@ use std::path::{Path, PathBuf};
 /// Example:
 ///
 /// ```rust
-/// # use kvs::KvStore;
-/// let mut store = KvStore::new();
-/// store.set("key".to_owned(), "value".to_owned());
-/// let val = store.get("key".to_owned());
+/// # use kvs::{KvStore, Result};
+/// # fn try_main() -> Result<()> {
+/// use std::env::current_dir;
+/// let mut store = KvStore::open(current_dir()?)?;
+/// store.set("key".to_owned(), "value".to_owned())?;
+/// let val = store.get("key".to_owned())?;
 /// assert_eq!(val, Some("value".to_owned()));
+/// # Ok(())
+/// # }
 /// ```
 pub struct KvStore {
     // directory for wal and other data
