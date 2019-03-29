@@ -2,7 +2,7 @@ export RUSTFLAGS=-Dwarnings
 export RUST_TEST_THREADS=1
 export RUST_BACKTRACE=1
 
-LOG_LEVEL ?= lab6824=info
+LOG_LEVEL ?= labs6824=info
 
 check:
 	cargo fmt --all
