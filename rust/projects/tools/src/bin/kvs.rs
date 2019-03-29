@@ -1,5 +1,5 @@
-use std::process::exit;
 use clap::{App, AppSettings, Arg, SubCommand};
+use std::process::exit;
 
 fn main() {
     let matches = App::new(env!("CARGO_PKG_NAME"))
@@ -28,11 +28,11 @@ fn main() {
 
     match matches.subcommand() {
         ("set", Some(matches)) => {
-            eprintln!("Unimplemented!");
+            eprintln!("unimplemented");
             exit(1);
         }
         ("get", Some(matches)) => {
-            eprintln!("Unimplemented!");
+            eprintln!("unimplemented");
             exit(1);
         }
         _ => unreachable!(),
