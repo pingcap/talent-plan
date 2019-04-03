@@ -105,3 +105,5 @@ in the README.
 - change slides.html URLS to link to the hosted file
 - add more description of how to treat the projects
   - note that improvements beyond the scope of the project are encouraged - comment them
+- add TOC to each project
+- use fail-rs for consistency tests

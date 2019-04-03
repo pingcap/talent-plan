@@ -53,6 +53,7 @@ different terminology.
 - _log compaction_ - todo
 - _in-memory index_ (or _index_) - todo
 - _index file_ - todo
+- _command_ - todo
 
 simplifications:
 - single log and index
@@ -398,5 +399,7 @@ projects will give you opportunities to optimize.
 - add code samples and digarams to illustrate the text and
   be less monotonous
 - maintain the index file!
+- specify where data should be stored
+- caching the index
 
 -->
