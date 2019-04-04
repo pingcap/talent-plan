@@ -5,6 +5,8 @@ use std::iter::empty;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use tempfile::TempDir;
+use std::collections::HashMap;
+use rand::{thread_rng, Rng};
 
 // `kvs` with no args should exit with a non-zero code.
 #[test]
@@ -118,6 +120,34 @@ fn get_non_existent_value() -> Result<()> {
     drop(store);
     let mut store = KvStore::open(temp_dir.path())?;
     assert_eq!(store.get("key2".to_owned())?, None);
+
+    Ok(())
+}
+
+// Insert lots of updates and verify the correctness.
+// Please adjust your parameters to make your KvStore trigger
+// compaction more often.
+#[test]
+fn compaction() -> Result<()> {
+    // map in memory for verifying correctness
+    let mut map = HashMap::new();
+    let mut rng = thread_rng();
+
+    let temp_dir = TempDir::new().expect("unable to create temporary working directory");
+    let mut store = KvStore::open(temp_dir.path())?;
+
+    for _ in 0..10_000 {
+        let key = format!("key{}", rng.gen::<u8>());
+        let value = format!("{}", rng.gen::<u64>());
+        map.insert(key.clone(), value.clone());
+        store.set(key, value)?;
+
+        if rng.gen::<f64>() < 0.1 {
+            for (k, v) in &map {
+                assert_eq!(store.get(k.clone())?.as_ref(), Some(v));
+            }
+        }
+    }
 
     Ok(())
 }
