@@ -1,11 +1,16 @@
 use crate::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
+use std::cmp;
 use std::collections::HashMap;
-use std::fs::{create_dir_all, File, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::mem;
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+const COMPACTION_THRESHOLD: u64 = 1024;
 
 /// The `KvStore` stores string key/value pairs.
 ///
@@ -27,12 +32,8 @@ use std::path::PathBuf;
 /// ```
 pub struct KvStore {
     // directory for the log and other data
-    #[allow(dead_code)]
     path: PathBuf,
-    log_reader: BufReaderWithPos<File>,
-    log_writer: BufWriterWithPos<File>,
-    // stores keys and the pos of the last command to modify each
-    index: HashMap<String, CommandPos>,
+    kv_log: KvLog,
 }
 
 impl KvStore {
@@ -45,30 +46,11 @@ impl KvStore {
     /// It propagates I/O or deserialization errors during the log replay.
     pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
         let path = path.into();
-        create_dir_all(&path)?;
+        fs::create_dir_all(&path)?;
+        let mut kv_log = KvLog::open(latest_log_path(&path)?)?;
+        kv_log.load()?;
 
-        let log_path = path.join("data.log");
-
-        let mut log_writer = BufWriterWithPos::new(
-            OpenOptions::new()
-                .create(true)
-                .read(true)
-                .append(true)
-                .open(&log_path)?,
-        )?;
-        // Set pos to end of file
-        log_writer.seek(SeekFrom::End(0))?;
-
-        let log_reader = BufReaderWithPos::new(File::open(&log_path)?)?;
-
-        let mut store = KvStore {
-            path,
-            log_reader,
-            log_writer,
-            index: HashMap::new(),
-        };
-        store.load_from_log()?;
-        Ok(store)
+        Ok(KvStore { path, kv_log })
     }
 
     /// Sets the value of a string key to a string.
@@ -79,12 +61,10 @@ impl KvStore {
     ///
     /// It propagates I/O or serialization errors during writing the log.
     pub fn set(&mut self, key: String, value: String) -> Result<()> {
-        let cmd = SetCommand::new(key, value);
-        let pos = self.log_writer.pos;
-        serde_json::to_writer(&mut self.log_writer, &cmd)?;
-        self.log_writer.flush()?;
-        self.index
-            .insert(cmd.key, (pos..self.log_writer.pos).into());
+        self.kv_log.set(key, value)?;
+        if self.kv_log.uncompacted > COMPACTION_THRESHOLD {
+            self.compact()?;
+        }
         Ok(())
     }
 
@@ -92,9 +72,107 @@ impl KvStore {
     ///
     /// Returns `None` if the given key does not exist.
     pub fn get(&mut self, key: String) -> Result<Option<String>> {
+        self.kv_log.get(key)
+    }
+
+    fn compact(&mut self) -> Result<()> {
+        // The new log file for merged entries
+        let tmp_log_path = self.path.join("data.log.new");
+        let mut new_writer = BufWriter::new(
+            OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&tmp_log_path)?,
+        );
+
+        // Copy content in order to reduce seeks
+        let mut pos_vec: Vec<_> = self.kv_log.index.iter().collect();
+        pos_vec.sort_unstable_by_key(|(_, cmd_pos)| cmd_pos.pos);
+        let mut new_pos = 0; // pos in the new log file
+        // index map for the new log file
+        let mut new_index = HashMap::new();
+        for (key, cmd_pos) in pos_vec {
+            if self.kv_log.reader.pos != cmd_pos.pos {
+                self.kv_log.reader.seek(SeekFrom::Start(cmd_pos.pos))?;
+            }
+
+            let mut entry_reader = (&mut self.kv_log.reader).take(cmd_pos.len);
+            let len = io::copy(&mut entry_reader, &mut new_writer)?;
+            new_index.insert(key.clone(), (new_pos..new_pos + len).into());
+            new_pos += len;
+        }
+        drop(new_writer);
+
+        // As all entries are written to the log, we can safely rename it to a valid log file name
+        let log_path = new_log_path(&self.path);
+        fs::rename(tmp_log_path, &log_path)?;
+
+        // Reopen using the new file name
+        let mut kv_log = KvLog::open(&log_path)?;
+        // Use the index map built on writing instead of reloading the log file
+        kv_log.index = new_index;
+        // Update the KvLog we are using
+        mem::swap(&mut self.kv_log, &mut kv_log);
+
+        // Close old log file before removing it. (It's a must on Windows I think)
+        let old_path = kv_log.path.clone();
+        drop(kv_log);
+        fs::remove_file(old_path)?;
+
+        Ok(())
+    }
+}
+
+struct KvLog {
+    path: PathBuf,
+    reader: BufReaderWithPos<File>,
+    writer: BufWriterWithPos<File>,
+    // stores keys and the pos of the last command to modify each
+    index: HashMap<String, CommandPos>,
+    uncompacted: u64,
+}
+
+impl KvLog {
+    // Pay attention that it does not load the log file automatically
+    fn open(path: impl Into<PathBuf>) -> Result<Self> {
+        let path = path.into();
+        let mut writer = BufWriterWithPos::new(
+            OpenOptions::new()
+                .create(true)
+                .read(true)
+                .append(true)
+                .open(&path)?,
+        )?;
+        // Set pos to end of file
+        writer.seek(SeekFrom::End(0))?;
+
+        let reader = BufReaderWithPos::new(File::open(&path)?)?;
+
+        Ok(KvLog {
+            path,
+            reader,
+            writer,
+            index: HashMap::new(),
+            uncompacted: 0,
+        })
+    }
+
+    fn set(&mut self, key: String, value: String) -> Result<()> {
+        let cmd = SetCommand::new(key, value);
+        let pos = self.writer.pos;
+        serde_json::to_writer(&mut self.writer, &cmd)?;
+        self.writer.flush()?;
+        if let Some(old_cmd) = self.index.insert(cmd.key, (pos..self.writer.pos).into()) {
+            self.uncompacted += old_cmd.len;
+        }
+        Ok(())
+    }
+
+    fn get(&mut self, key: String) -> Result<Option<String>> {
         if let Some(cmd_pos) = self.index.get(&key) {
-            self.log_reader.seek(SeekFrom::Start(cmd_pos.pos))?;
-            let cmd_reader = (&mut self.log_reader).take(cmd_pos.len);
+            self.reader.seek(SeekFrom::Start(cmd_pos.pos))?;
+            let cmd_reader = (&mut self.reader).take(cmd_pos.len);
             let set_cmd: SetCommand = serde_json::from_reader(cmd_reader)?;
             Ok(Some(set_cmd.value))
         } else {
@@ -102,12 +180,14 @@ impl KvStore {
         }
     }
 
-    fn load_from_log(&mut self) -> Result<()> {
-        let mut pos = self.log_reader.seek(SeekFrom::Start(0))?;
-        let mut stream = Deserializer::from_reader(&mut self.log_reader).into_iter::<SetCommand>();
+    fn load(&mut self) -> Result<()> {
+        let mut pos = self.reader.seek(SeekFrom::Start(0))?;
+        let mut stream = Deserializer::from_reader(&mut self.reader).into_iter::<SetCommand>();
         while let Some(set_cmd) = stream.next() {
             let new_pos = stream.byte_offset() as u64;
-            self.index.insert(set_cmd?.key, (pos..new_pos).into());
+            if let Some(old_cmd) = self.index.insert(set_cmd?.key, (pos..new_pos).into()) {
+                self.uncompacted += old_cmd.len;
+            }
             pos = new_pos;
         }
         Ok(())
@@ -202,4 +282,30 @@ impl<W: Write + Seek> Seek for BufWriterWithPos<W> {
         self.pos = self.writer.seek(pos)?;
         Ok(self.pos)
     }
+}
+
+// Log files are named after milliseconds since epoch with a "log" extension name.
+// This function finds the latest log file.
+fn latest_log_path(dir: impl AsRef<Path>) -> Result<PathBuf> {
+    let mut latest: Option<PathBuf> = None;
+    for entry in fs::read_dir(&dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if entry.file_type()?.is_file() && path.extension() == Some("log".as_ref()) {
+            latest = cmp::max(latest, Some(path));
+        }
+    }
+
+    if let Some(path) = latest {
+        Ok(path)
+    } else {
+        Ok(new_log_path(dir))
+    }
+}
+
+fn new_log_path(dir: impl AsRef<Path>) -> PathBuf {
+    let time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("SystemTime before epoch");
+    dir.as_ref().join(format!("{}.log", time.as_millis()))
 }
