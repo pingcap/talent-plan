@@ -184,7 +184,7 @@ This is the basic behavior of `kvs` with a log:
 
 - "set"
   - The user invokes `kvs set mykey, myvalue`
-  - `kvs` creates a struct representing the "get" command, containing its key and
+   - `kvs` creates a struct representing the "set" command, containing its key and
     value
   - It then serializes that command to a `String`
   - It then appends the serialized command to a file containing the log
