@@ -76,7 +76,6 @@ impl KvStore {
     }
 
     fn compact(&mut self) -> Result<()> {
-        print!("Compaction..");
         // The new log file for merged entries
         let tmp_log_path = self.path.join("data.log.new");
         let mut new_writer = BufWriter::new(
@@ -120,7 +119,6 @@ impl KvStore {
         let old_path = kv_log.path.clone();
         drop(kv_log);
         fs::remove_file(old_path)?;
-        println!("OK!");
 
         Ok(())
     }

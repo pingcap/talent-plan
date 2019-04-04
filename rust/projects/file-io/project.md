@@ -94,13 +94,14 @@ methods:
   Return an error if the value is not read successfully.
 
 When setting a key to a value, `kvs` writes the `set` command to disk in a
-sequential log. On startup, the commands in the log are re-evaluated and the log
-pointer (file offset) of the last command to modify each key recorded in the
-in-memory index.
+sequential log, then stores the log pointer (file offset) of that command in the
+in-memory index from key to pointer. When retrieving a value for a key with the
+`get` command, it searches the index, and if found then loads from the log the
+command at the corresponding log pointer, evaluates the command and returns the
+result.
 
-When retrieving a value for a key with the `get` command, it searches the index,
-and if found then loads from the log, and evaluates, the command at the
-corresponding log pointer.
+On startup, the commands in the log are traversed from oldest to newest, and the
+in-memory index rebuilt.
 
 When the size of the uncompacted log entries reach a given threshold, `kvs`
 compacts it into a new log, removing redundent entries to reclaim disk space.
@@ -119,6 +120,10 @@ this project should contain a library and an executable, both named `kvs`.
 
 As with the previous project, use `clap` or `structopt` to handle the command
 line arguments. They are the same as last time.
+
+As with project 1, go ahead and write enough empty tor panicking definitions to
+make the test cases build. This time you'll need to add `dev-dependencies` to
+`Cargo.toml`.
 
 _Do that now._
 
@@ -183,8 +188,8 @@ disk.
 This is the basic behavior of `kvs` with a log:
 
 - "set"
-  - The user invokes `kvs set mykey, myvalue`
-  - `kvs` creates a struct representing the "get" command, containing its key and
+  - The user invokes `kvs set mykey myvalue`
+   - `kvs` creates a value representing the "set" command, containing its key and
     value
   - It then serializes that command to a `String`
   - It then appends the serialized command to a file containing the log
@@ -206,7 +211,7 @@ The log is a record of the transactions committed to the database. By
 of the database.
 
 In this iteration you may store the value of the keys directly in memory.
-In a future iteration you will store only "file pointers" (file offsets) into the log.
+In a future iteration you will store only "log pointers" (file offsets) into the log.
 
 You will start by implementing the "set" flow. There are a number of steps here.
 Most of them are straightforward to implement and you can verify you've done so
@@ -227,13 +232,14 @@ where do you need buffering? What is the impact of buffering on subsequent
 reads? When should you open and close file handles? For each command? For the
 lifetime of the `KvStore`?
 
-Some of the APIs you will call may fail, return a `Result` of some error type.
+Some of the APIs you will call may fail, and return a `Result` of some error type.
 Make sure that your calling functions return a `Result` of _your own_ error type,
 and that you convert between the two with `?`.
 
-You may implement the "set" command now, or you can proceed to the next section
-to read about the "get" command. It may help to keep both in mind, or to
-implement them both simultaniously. Your choice.
+You may implement the "set" command now, focusing on the `set` test cases, or
+you can proceed to the next section to read about the "get" command. It may help
+to keep both in mind, or to implement them both simultaniously. It is your
+choice.
 
 
 ## Part 3: Reading from the log
@@ -250,14 +256,14 @@ Think about the way reading from I/O streams interacts with thet kernel.
 
 Remember that "get" may not find a value and that case has to be handled
 specially. Here, our API returns `None` and our command line client prints
-a particular message and exits with a non-zero exit code.
+a particular message and exits with a zero exit code.
 
 There's one complication to reading the log, and you may have already considered
 it while writing thet "set" code: how do you distinguish between each record in
 the log? That is, how do you know when to stop reading one record, and start
 reading the next? Do you even need to? Maybe serde will deserialize a record
 directly from an I/O stream and stop reading when it's done, leaving the
-[cursor] in the correct place to read subsequent records. Maybe serde will
+file cursor in the correct place to read subsequent records. Maybe serde will
 report an error when it sees two records back-to-back. Maybe you need to insert
 additional information to distinguish the length of each record. Maybe not.
 
@@ -266,7 +272,7 @@ additional information to distinguish the length of each record. Maybe not.
 _Implement "get" now_.
 
 
-# Part 5: Storing log pointers in the index
+## Part 4: Storing log pointers in the index
 
 At this point most, if not all, of the test suite should pass. The changes
 introduced in the next steps are simple optimizations, necessary for fast
@@ -286,7 +292,7 @@ memory, now is the time to update your code to store log pointers instead,
 loading from disk on demand._
 
 
-# Part 6: Stateless vs. stateful `KvStore`
+## Part 5: Stateless vs. stateful `KvStore`
 
 Remember that our project is both a library and a command-line program.
 They have sligtly different requirements: the `kvs` CLI commits a single change
@@ -294,7 +300,7 @@ to disk, then exits (it is stateless); the `KvStore` type commits
 changes to disk, then stays resident in memory to service future
 queries (it is stateful).
 
-Is your `KvsStore` stateful or stateless?
+Is your `KvStore` stateful or stateless?
 
 _Make your `KvStore` retain the index in memory so it doesn't need to
 re-evaluate it for every call to `get`._
@@ -302,29 +308,21 @@ re-evaluate it for every call to `get`._
 
 
 
-# Part 7: Compacting the log
+## Part 6: Compacting the log
 
 At this point the database works just fine, but the log grows indefinitely. That
 is appropriate for some databases, but not the one we're building &mdash; we
 want to minimize disk usage as much as we can.
 
 So the final step in creating your database is to compact the log. Consider
-that as the log grows that multiple entries may set the value of a given key:
-
-| idx | command |
-|:---:|:--------|
-| 0 | Command::Set("key-1", "value-1a") |
-| 1 | Command::Set("key-2", "value-2") |
-| | ... |
-| 100 | Command::Set("key-1", "value-1b") |
-
+that as the log grows that multiple entries may set the value of a given key.
 Consider also that only the most recent command that modified a given key has
 any effect on the current value of that key:
 
 | idx | command |
 |:---:|:--------|
 | 0 | ~Command::Set("key-1", "value-1a")~ |
-| 1 | Command::Set("key-2", "value-2") |
+| 20 | Command::Set("key-2", "value-2") |
 | | ... |
 | 100 | Command::Set("key-1", "value-1b") |
 
@@ -340,9 +338,8 @@ redundancy:
 
 Here's the basic algorithm you will use:
 
-- After a commit ...
-- If the _total on-disk size of all un-compacted log entries is greater than 1MB_ ...
-- Re-build the log to remove redundant entries
+TODO: Think about this. should the algorithm be specified? what _is_ a
+good heuristic to rebuild the log? always rebuild the entire log?
 
 _How_ you re-build the log is up to you. Consider questions like: what is the
 naive solution? How much memory do you need? What is the minimum amount of
@@ -356,6 +353,9 @@ is the worst case complexity of calling `set`? The worst case is the case with
 maximum write latency. Think about how you could reduce the worst-case latency
 of the compaction strategy you've implemented. You may find good opportunities
 to reconsider your compaction algorithm in future projects. For now though ...
+
+TODO: Think about the above paragraph, what the actual answers are and whether
+the questions make sense.
 
 **Congratulations! You have written a fully-functional database. And it is quite
 good as-is.**
@@ -395,5 +395,6 @@ projects will give you opportunities to optimize.
 - need readings for WAL
 - add code samples and digarams to illustrate the text and
   be less monotonous
+- maintain the index file!
 
 -->
