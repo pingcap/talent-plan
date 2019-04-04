@@ -294,7 +294,7 @@ to disk, then exits (it is stateless); the `KvStore` type commits
 changes to disk, then stays resident in memory to service future
 queries (it is stateful).
 
-Is your `KvsStore` stateful or stateless?
+Is your `KvStore` stateful or stateless?
 
 _Make your `KvStore` retain the index in memory so it doesn't need to
 re-evaluate it for every call to `get`._
