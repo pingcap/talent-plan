@@ -3,12 +3,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 use std::collections::HashMap;
 use std::fs::{create_dir_all, File, OpenOptions};
-use std::io::{BufReader, BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::ops::Range;
+use std::path::PathBuf;
 
 /// The `KvStore` stores string key/value pairs.
 ///
-/// Key/value pairs are stored in a `HashMap` in memory and also persisted to disk using a WAL.
+/// Key/value pairs are persisted to disk in a log. A `HashMap` in memory
+/// stores the keys and the value locations for fast query.
 ///
 /// Example:
 ///
@@ -24,11 +26,13 @@ use std::path::{Path, PathBuf};
 /// # }
 /// ```
 pub struct KvStore {
-    // directory for wal and other data
+    // directory for the log and other data
     #[allow(dead_code)]
     path: PathBuf,
-    wal_writer: BufWriter<File>,
-    map: HashMap<String, String>,
+    log_reader: BufReaderWithPos<File>,
+    log_writer: BufWriterWithPos<File>,
+    // stores keys and the pos of the last command to modify each
+    index: HashMap<String, CommandPos>,
 }
 
 impl KvStore {
@@ -38,23 +42,33 @@ impl KvStore {
     ///
     /// # Error
     ///
-    /// It propagates I/O or deserialization errors during the WAL replay.
+    /// It propagates I/O or deserialization errors during the log replay.
     pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
         let path = path.into();
         create_dir_all(&path)?;
 
-        let wal_path = path.join("wal.log");
-        let wal = OpenOptions::new()
-            .create(true)
-            .read(true)
-            .append(true)
-            .open(&wal_path)?;
+        let log_path = path.join("data.log");
 
-        Ok(KvStore {
+        let mut log_writer = BufWriterWithPos::new(
+            OpenOptions::new()
+                .create(true)
+                .read(true)
+                .append(true)
+                .open(&log_path)?,
+        )?;
+        // Set pos to end of file
+        log_writer.seek(SeekFrom::End(0))?;
+
+        let log_reader = BufReaderWithPos::new(File::open(&log_path)?)?;
+
+        let mut store = KvStore {
             path,
-            wal_writer: BufWriter::new(wal),
-            map: KvStore::load_from_wal(&wal_path)?,
-        })
+            log_reader,
+            log_writer,
+            index: HashMap::new(),
+        };
+        store.load_from_log()?;
+        Ok(store)
     }
 
     /// Sets the value of a string key to a string.
@@ -63,31 +77,40 @@ impl KvStore {
     ///
     /// # Error
     ///
-    /// It propagates I/O or serialization errors during writing the WAL.
+    /// It propagates I/O or serialization errors during writing the log.
     pub fn set(&mut self, key: String, value: String) -> Result<()> {
         let cmd = SetCommand::new(key, value);
-        serde_json::to_writer(&mut self.wal_writer, &cmd)?;
-        self.wal_writer.flush()?;
-        self.map.insert(cmd.key, cmd.value);
+        let pos = self.log_writer.pos;
+        serde_json::to_writer(&mut self.log_writer, &cmd)?;
+        self.log_writer.flush()?;
+        self.index
+            .insert(cmd.key, (pos..self.log_writer.pos).into());
         Ok(())
     }
 
     /// Gets the string value of a given string key.
     ///
     /// Returns `None` if the given key does not exist.
-    pub fn get(&self, key: String) -> Result<Option<String>> {
-        Ok(self.map.get(&key).cloned())
+    pub fn get(&mut self, key: String) -> Result<Option<String>> {
+        if let Some(cmd_pos) = self.index.get(&key) {
+            self.log_reader.seek(SeekFrom::Start(cmd_pos.pos))?;
+            let cmd_reader = (&mut self.log_reader).take(cmd_pos.len);
+            let set_cmd: SetCommand = serde_json::from_reader(cmd_reader)?;
+            Ok(Some(set_cmd.value))
+        } else {
+            Ok(None)
+        }
     }
 
-    fn load_from_wal(wal_path: impl AsRef<Path>) -> Result<HashMap<String, String>> {
-        let mut map = HashMap::new();
-        let reader = BufReader::new(File::open(wal_path)?);
-        let stream = Deserializer::from_reader(reader).into_iter::<SetCommand>();
-        for set_cmd in stream {
-            let set_cmd = set_cmd?;
-            map.insert(set_cmd.key, set_cmd.value);
+    fn load_from_log(&mut self) -> Result<()> {
+        let mut pos = self.log_reader.seek(SeekFrom::Start(0))?;
+        let mut stream = Deserializer::from_reader(&mut self.log_reader).into_iter::<SetCommand>();
+        while let Some(set_cmd) = stream.next() {
+            let new_pos = stream.byte_offset() as u64;
+            self.index.insert(set_cmd?.key, (pos..new_pos).into());
+            pos = new_pos;
         }
-        Ok(map)
+        Ok(())
     }
 }
 
@@ -101,5 +124,82 @@ struct SetCommand {
 impl SetCommand {
     fn new(key: String, value: String) -> SetCommand {
         SetCommand { key, value }
+    }
+}
+
+/// Represents the position and length of a json-serialized command in the log
+struct CommandPos {
+    pos: u64,
+    len: u64,
+}
+
+impl From<Range<u64>> for CommandPos {
+    fn from(range: Range<u64>) -> Self {
+        CommandPos {
+            pos: range.start,
+            len: range.end - range.start,
+        }
+    }
+}
+
+struct BufReaderWithPos<R: Read + Seek> {
+    reader: BufReader<R>,
+    pos: u64,
+}
+
+impl<R: Read + Seek> BufReaderWithPos<R> {
+    fn new(mut inner: R) -> Result<Self> {
+        let pos = inner.seek(SeekFrom::Current(0))?;
+        Ok(BufReaderWithPos {
+            reader: BufReader::new(inner),
+            pos,
+        })
+    }
+}
+
+impl<R: Read + Seek> Read for BufReaderWithPos<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.reader.read(buf)
+    }
+}
+
+impl<R: Read + Seek> Seek for BufReaderWithPos<R> {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.pos = self.reader.seek(pos)?;
+        Ok(self.pos)
+    }
+}
+
+struct BufWriterWithPos<W: Write + Seek> {
+    writer: BufWriter<W>,
+    pos: u64,
+}
+
+impl<W: Write + Seek> BufWriterWithPos<W> {
+    fn new(mut inner: W) -> Result<Self> {
+        let pos = inner.seek(SeekFrom::Current(0))?;
+        Ok(BufWriterWithPos {
+            writer: BufWriter::new(inner),
+            pos,
+        })
+    }
+}
+
+impl<W: Write + Seek> Write for BufWriterWithPos<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let len = self.writer.write(buf)?;
+        self.pos += len as u64;
+        Ok(len)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush()
+    }
+}
+
+impl<W: Write + Seek> Seek for BufWriterWithPos<W> {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.pos = self.writer.seek(pos)?;
+        Ok(self.pos)
     }
 }
