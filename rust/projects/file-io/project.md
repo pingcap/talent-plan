@@ -348,14 +348,16 @@ do you maintain data-integrity of compaction fails?
 
 _Implement log compaction for your database._
 
+TODO: Think about the below paragraph, what the actual answers are and whether
+the questions make sense. sticnarf and brson had discussion here:
+
+- https://github.com/pingcap/talent-plan/pull/36#issuecomment-479773794
+
 With compaction, what is the amortized complexity (big O) of calling `set`? What
 is the worst case complexity of calling `set`? The worst case is the case with
 maximum write latency. Think about how you could reduce the worst-case latency
 of the compaction strategy you've implemented. You may find good opportunities
 to reconsider your compaction algorithm in future projects. For now though ...
-
-TODO: Think about the above paragraph, what the actual answers are and whether
-the questions make sense.
 
 **Congratulations! You have written a fully-functional database. And it is quite
 good as-is.**
