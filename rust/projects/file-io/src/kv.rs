@@ -90,8 +90,7 @@ impl KvStore {
         let mut pos_vec: Vec<_> = self.kv_log.index.iter().collect();
         pos_vec.sort_unstable_by_key(|(_, cmd_pos)| cmd_pos.pos);
         let mut new_pos = 0; // pos in the new log file
-        // index map for the new log file
-        let mut new_index = HashMap::new();
+        let mut new_index = HashMap::new(); // index map for the new log file
         for (key, cmd_pos) in pos_vec {
             if self.kv_log.reader.pos != cmd_pos.pos {
                 self.kv_log.reader.seek(SeekFrom::Start(cmd_pos.pos))?;

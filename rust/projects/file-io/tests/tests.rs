@@ -1,12 +1,12 @@
 use kvs::{KvStore, Result};
+use rand::{thread_rng, Rng};
+use std::collections::HashMap;
 use std::env::{current_dir, current_exe};
 use std::ffi::OsStr;
 use std::iter::empty;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use tempfile::TempDir;
-use std::collections::HashMap;
-use rand::{thread_rng, Rng};
 
 // `kvs` with no args should exit with a non-zero code.
 #[test]
@@ -29,7 +29,7 @@ fn cli_get_nothing() {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
     let output = run_with_dir_and_args(temp_dir.path(), &["get", "key1"]);
     let stdout = String::from_utf8(output.stdout).expect("Invalid UTF-8 output");
-    assert!(dbg!(stdout).contains("Key not found"));
+    assert_eq!(stdout.trim(), "Key not found");
     assert!(output.status.success());
 }
 
@@ -45,6 +45,28 @@ fn cli_set() {
     let output = run_with_dir_and_args(temp_dir.path(), &["set", "key1", "value1"]);
     assert!(output.stdout.is_empty());
     assert!(output.status.success());
+}
+
+#[test]
+fn cli_get_stored() -> Result<()> {
+    let temp_dir = TempDir::new().expect("unable to create temporary working directory");
+
+    let mut store = KvStore::open(temp_dir.path())?;
+    store.set("key1".to_owned(), "value1".to_owned())?;
+    store.set("key2".to_owned(), "value2".to_owned())?;
+    drop(store);
+
+    let output = run_with_dir_and_args(temp_dir.path(), &["get", "key1"]);
+    let stdout = String::from_utf8(output.stdout).expect("Invalid UTF-8 output");
+    assert_eq!(stdout.trim(), "value1");
+    assert!(output.status.success());
+
+    let output = run_with_dir_and_args(temp_dir.path(), &["get", "key2"]);
+    let stdout = String::from_utf8(output.stdout).expect("Invalid UTF-8 output");
+    assert_eq!(stdout.trim(), "value2");
+    assert!(output.status.success());
+
+    Ok(())
 }
 
 #[test]
