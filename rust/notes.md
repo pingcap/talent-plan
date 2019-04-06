@@ -78,6 +78,10 @@ in the README.
   - previous brainstorming
 - RustBridge
 
+## Readings
+
+- http://highscalability.com/blog/2011/1/10/riaks-bitcask-a-log-structured-hash-table-for-fast-keyvalue.html
+
 ## Subjects to potentially cut
 
 - Parallelism section
@@ -99,3 +103,5 @@ in the README.
 - have a chinese native identify and remove 'hard' words and phrases
 - mention somewhere that we're using rust 2018 only, how to verify
 - change slides.html URLS to link to the hosted file
+- add more description of how to treat the projects
+  - note that improvements beyond the scope of the project are encouraged - comment them
