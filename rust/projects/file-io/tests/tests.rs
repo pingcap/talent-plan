@@ -125,6 +125,8 @@ fn overwrite_value() -> Result<()> {
     drop(store);
     let mut store = KvStore::open(temp_dir.path())?;
     assert_eq!(store.get("key1".to_owned())?, Some("value2".to_owned()));
+    store.set("key1".to_owned(), "value3".to_owned())?;
+    assert_eq!(store.get("key1".to_owned())?, Some("value3".to_owned()));
 
     Ok(())
 }
@@ -146,9 +148,7 @@ fn get_non_existent_value() -> Result<()> {
     Ok(())
 }
 
-// Insert lots of updates and verify the correctness.
-// Please adjust your parameters to make your KvStore trigger
-// compaction more often.
+// Insert random data and call compact function. Test if data is correct after compaction.
 #[test]
 fn compaction() -> Result<()> {
     // map in memory for verifying correctness
@@ -158,16 +158,17 @@ fn compaction() -> Result<()> {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
     let mut store = KvStore::open(temp_dir.path())?;
 
-    for _ in 0..10_000 {
-        let key = format!("key{}", rng.gen::<u8>());
-        let value = format!("{}", rng.gen::<u64>());
-        map.insert(key.clone(), value.clone());
-        store.set(key, value)?;
+    for _ in 0..100 {
+        for _ in 0..100 {
+            let key = format!("key{}", rng.gen::<u8>());
+            let value = format!("{}", rng.gen::<u64>());
+            map.insert(key.clone(), value.clone());
+            store.set(key, value)?;
+        }
 
-        if rng.gen::<f64>() < 0.1 {
-            for (k, v) in &map {
-                assert_eq!(store.get(k.clone())?.as_ref(), Some(v));
-            }
+        store.compact()?;
+        for (k, v) in &map {
+            assert_eq!(store.get(k.clone())?.as_ref(), Some(v));
         }
     }
 

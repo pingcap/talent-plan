@@ -2,7 +2,7 @@ use crate::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 use std::cmp;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::mem;
@@ -75,7 +75,8 @@ impl KvStore {
         self.kv_log.get(key)
     }
 
-    fn compact(&mut self) -> Result<()> {
+    /// Clears stale entries in the log.
+    pub fn compact(&mut self) -> Result<()> {
         // The new log file for merged entries
         let tmp_log_path = self.path.join("data.log.new");
         let mut new_writer = BufWriter::new(
@@ -86,12 +87,9 @@ impl KvStore {
                 .open(&tmp_log_path)?,
         );
 
-        // Copy content in order to reduce seeks
-        let mut pos_vec: Vec<_> = self.kv_log.index.iter().collect();
-        pos_vec.sort_unstable_by_key(|(_, cmd_pos)| cmd_pos.pos);
         let mut new_pos = 0; // pos in the new log file
-        let mut new_index = HashMap::new(); // index map for the new log file
-        for (key, cmd_pos) in pos_vec {
+        let mut new_index = BTreeMap::new(); // index map for the new log file
+        for (key, cmd_pos) in &self.kv_log.index {
             if self.kv_log.reader.pos != cmd_pos.pos {
                 self.kv_log.reader.seek(SeekFrom::Start(cmd_pos.pos))?;
             }
@@ -101,6 +99,7 @@ impl KvStore {
             new_index.insert(key.clone(), (new_pos..new_pos + len).into());
             new_pos += len;
         }
+        new_writer.flush()?;
         drop(new_writer);
 
         // As all entries are written to the log, we can safely rename it to a valid log file name
@@ -111,11 +110,13 @@ impl KvStore {
         let mut kv_log = KvLog::open(&log_path)?;
         // Use the index map built on writing instead of reloading the log file
         kv_log.index = new_index;
+        kv_log.loaded = true;
         // Update the KvLog we are using
         mem::swap(&mut self.kv_log, &mut kv_log);
 
         // Close old log file before removing it. (It's a must on Windows I think)
         let old_path = kv_log.path.clone();
+        // The old file is useless. It's safe we just drop it.
         drop(kv_log);
         fs::remove_file(old_path)?;
 
@@ -128,22 +129,18 @@ struct KvLog {
     reader: BufReaderWithPos<File>,
     writer: BufWriterWithPos<File>,
     // stores keys and the pos of the last command to modify each
-    index: HashMap<String, CommandPos>,
+    index: BTreeMap<String, CommandPos>,
     uncompacted: u64,
+    loaded: bool,
 }
 
 impl KvLog {
     // Pay attention that it does not load the log file automatically
     fn open(path: impl Into<PathBuf>) -> Result<Self> {
         let path = path.into();
-        let mut writer = BufWriterWithPos::new(
-            OpenOptions::new()
-                .create(true)
-                .read(true)
-                .append(true)
-                .open(&path)?,
-        )?;
-        // Set pos to end of file
+        let mut writer =
+            BufWriterWithPos::new(OpenOptions::new().create(true).append(true).open(&path)?)?;
+        // Because file mode is set to append, we need to set pos to end of file manually to keep synced
         writer.seek(SeekFrom::End(0))?;
 
         let reader = BufReaderWithPos::new(File::open(&path)?)?;
@@ -152,12 +149,15 @@ impl KvLog {
             path,
             reader,
             writer,
-            index: HashMap::new(),
+            index: BTreeMap::new(),
             uncompacted: 0,
+            loaded: false,
         })
     }
 
     fn set(&mut self, key: String, value: String) -> Result<()> {
+        assert!(self.loaded);
+
         let cmd = SetCommand::new(key, value);
         let pos = self.writer.pos;
         serde_json::to_writer(&mut self.writer, &cmd)?;
@@ -169,6 +169,8 @@ impl KvLog {
     }
 
     fn get(&mut self, key: String) -> Result<Option<String>> {
+        assert!(self.loaded);
+
         if let Some(cmd_pos) = self.index.get(&key) {
             self.reader.seek(SeekFrom::Start(cmd_pos.pos))?;
             let cmd_reader = (&mut self.reader).take(cmd_pos.len);
@@ -189,6 +191,7 @@ impl KvLog {
             }
             pos = new_pos;
         }
+        self.loaded = true;
         Ok(())
     }
 }
