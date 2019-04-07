@@ -1,14 +1,14 @@
-use crate::Result;
-use serde::{Deserialize, Serialize};
-use serde_json::Deserializer;
-use std::cmp;
 use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::mem;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+
+use serde::{Deserialize, Serialize};
+use serde_json::Deserializer;
+
+use crate::Result;
 
 const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
 
@@ -34,6 +34,7 @@ pub struct KvStore {
     // directory for the log and other data
     path: PathBuf,
     kv_log: KvLog,
+    log_gen: u64,
 }
 
 impl KvStore {
@@ -47,10 +48,15 @@ impl KvStore {
     pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
         let path = path.into();
         fs::create_dir_all(&path)?;
-        let mut kv_log = KvLog::open(latest_log_path(&path)?)?;
+        let log_gen = latest_gen(&path)?;
+        let mut kv_log = KvLog::open(path.join(format!("{}.log", log_gen)))?;
         kv_log.load()?;
 
-        Ok(KvStore { path, kv_log })
+        Ok(KvStore {
+            path,
+            kv_log,
+            log_gen,
+        })
     }
 
     /// Sets the value of a string key to a string.
@@ -103,8 +109,9 @@ impl KvStore {
         drop(new_writer);
 
         // As all entries are written to the log, we can safely rename it to a valid log file name
-        let log_path = new_log_path(&self.path);
+        let log_path = self.path.join(format!("{}.log", self.log_gen + 1));
         fs::rename(tmp_log_path, &log_path)?;
+        self.log_gen += 1;
 
         // Reopen using the new file name
         let mut kv_log = KvLog::open(&log_path)?;
@@ -286,28 +293,23 @@ impl<W: Write + Seek> Seek for BufWriterWithPos<W> {
     }
 }
 
-// Log files are named after milliseconds since epoch with a "log" extension name.
-// This function finds the latest log file.
-fn latest_log_path(dir: impl AsRef<Path>) -> Result<PathBuf> {
-    let mut latest: Option<PathBuf> = None;
-    for entry in fs::read_dir(&dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if entry.file_type()?.is_file() && path.extension() == Some("log".as_ref()) {
-            latest = cmp::max(latest, Some(path));
-        }
-    }
-
-    if let Some(path) = latest {
-        Ok(path)
-    } else {
-        Ok(new_log_path(dir))
-    }
-}
-
-fn new_log_path(dir: impl AsRef<Path>) -> PathBuf {
-    let time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("SystemTime before epoch");
-    dir.as_ref().join(format!("{}.log", time.as_millis()))
+const INIT_GEN: u64 = 1;
+// Log files are named after a generation number with a "log" extension name.
+// This function finds the latest generation number.
+fn latest_gen(dir: impl AsRef<Path>) -> Result<u64> {
+    let latest: Option<u64> = fs::read_dir(&dir)?
+        .flat_map(|res| res)
+        .filter_map(|entry| match entry.file_type() {
+            Ok(file_type) if file_type.is_file() => entry.file_name().into_string().ok(),
+            _ => None,
+        })
+        .filter_map(|file_name| {
+            if file_name.ends_with(".log") {
+                file_name.trim_end_matches(".log").parse::<u64>().ok()
+            } else {
+                None
+            }
+        })
+        .max();
+    Ok(latest.unwrap_or(INIT_GEN))
 }
