@@ -108,3 +108,4 @@ in the README.
 - add TOC to each project
 - use fail-rs for consistency tests
 - mention the test names that should be focused on each part of each project
+- find a way to use specialization via the KvsEngine trait
