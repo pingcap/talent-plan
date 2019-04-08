@@ -2,6 +2,7 @@ package framework
 
 import (
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -34,12 +35,13 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 	// Your code here (Part III, Part IV).
 	//
 	var wg sync.WaitGroup
+	wg.Add(ntasks)
 	for i := 0; i < ntasks; i++ {
-		file := ""
+		var file string
 		if phase == mapPhase {
 			file = mapFiles[i]
 		}
-		args := DoTaskArgs{
+		args := &DoTaskArgs{
 			JobName:       jobName,
 			File:          file,
 			Phase:         phase,
@@ -47,15 +49,14 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 			NumOtherPhase: n_other,
 		}
 
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
-			for {
-				addr := <-registerChan
-				if call(addr, "Worker.DoTask", &args, nil) {
-					go func() { registerChan <- addr }()
-					break
-				}
+			addr := <-registerChan
+			defer func() {
+				wg.Done()
+				registerChan <- addr
+			}()
+			if !call(addr, "Worker.DoTask", args, nil) {
+				log.Fatalln("Call worker error", args)
 			}
 		}()
 	}

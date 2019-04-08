@@ -2,6 +2,7 @@ package framework
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"os"
 	"sort"
@@ -51,29 +52,30 @@ func doReduce(
 	//
 	// Your code here (Part I).
 	//
-	data := make(map[string][]string)
+	data := make(map[string][]string, 64)
 	for i := 0; i < nMap; i++ {
 		file, err := os.Open(reduceName(jobName, i, reduceTask))
 		if err != nil {
 			log.Fatal(err)
 		}
-
 		dec := json.NewDecoder(file)
 		for {
 			var kv KeyValue
-			err := dec.Decode(&kv)
-			if err != nil {
-				break
-			}
-			if _, ok := data[kv.Key]; !ok {
-				data[kv.Key] = []string{}
+			if err := dec.Decode(&kv); err != nil {
+				if err == io.EOF {
+					break
+				} else {
+					log.Fatalln("Decode reduce file error", err)
+				}
 			}
 			data[kv.Key] = append(data[kv.Key], kv.Value)
 		}
-		file.Close()
+		if err := file.Close(); err != nil {
+			log.Println("Close reduce file error", err)
+		}
 	}
 
-	keys := []string{}
+	keys := make([]string, 0, len(data))
 	for key := range data {
 		keys = append(keys, key)
 	}
@@ -85,13 +87,15 @@ func doReduce(
 		log.Fatal(err)
 	}
 
-	defer f.Close()
-
 	enc := json.NewEncoder(f)
 	for _, k := range keys {
 		err := enc.Encode(KeyValue{k, reduceF(k, data[k])})
 		if err != nil {
 			log.Fatal(err)
 		}
+	}
+	
+	if err := f.Close(); err != nil {
+		log.Println("Close output file error", err)
 	}
 }

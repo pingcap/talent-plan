@@ -62,18 +62,17 @@ func doMap(
 		log.Fatalln(err)
 	}
 	files := make([]*os.File, nReduce)
-	for f := range files {
-		file, err := os.Create(reduceName(jobName, mapTask, f))
+	for i := range files {
+		file, err := os.Create(reduceName(jobName, mapTask, i))
 		if err != nil {
 			log.Fatalln(err)
 		}
-		files[f] = file
+		files[i] = file
 	}
 
 	for _, kv := range mapF(inFile, string(contents)) {
 		enc := json.NewEncoder(files[ihash(kv.Key)%nReduce])
-		err := enc.Encode(&kv)
-		if err != nil {
+		if err := enc.Encode(&kv); err != nil {
 			log.Fatalln(err)
 		}
 	}

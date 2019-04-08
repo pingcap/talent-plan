@@ -129,7 +129,7 @@ func RunWorker(MasterAddress string, me string,
 	wk.nRPC = nRPC
 	wk.parallelism = parallelism
 	rpcs := rpc.NewServer()
-	rpcs.Regist8811er(wk)
+	rpcs.Register(wk)
 	os.Remove(me) // only needed for "unix"
 	l, e := net.Listen("unix", me)
 	if e != nil {
