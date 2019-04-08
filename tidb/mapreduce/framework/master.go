@@ -55,30 +55,6 @@ func newMaster(master string) (mr *Master) {
 	return
 }
 
-// Sequential runs map and reduce tasks sequentially, waiting for each task to
-// complete before running the next.
-func Sequential(jobName string, files []string, nreduce int,
-	mapF func(string, string) []KeyValue,
-	reduceF func(string, []string) string,
-) (mr *Master) {
-	mr = newMaster("master")
-	go mr.run(jobName, files, nreduce, func(phase jobPhase) {
-		switch phase {
-		case mapPhase:
-			for i, f := range mr.files {
-				doMap(mr.jobName, i, f, mr.nReduce, mapF)
-			}
-		case reducePhase:
-			for i := 0; i < mr.nReduce; i++ {
-				doReduce(mr.jobName, i, mergeName(mr.jobName, i), len(mr.files), reduceF)
-			}
-		}
-	}, func() {
-		mr.stats = []int{len(files) + nreduce}
-	})
-	return
-}
-
 // helper function that sends information about all existing
 // and newly registered workers to channel ch. schedule()
 // reads ch to learn about workers.

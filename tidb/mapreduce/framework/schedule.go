@@ -1,6 +1,9 @@
 package framework
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 //
 // schedule() starts and waits for all tasks in the given phase (mapPhase
@@ -30,5 +33,32 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 	//
 	// Your code here (Part III, Part IV).
 	//
+	var wg sync.WaitGroup
+	for i := 0; i < ntasks; i++ {
+		file := ""
+		if phase == mapPhase {
+			file = mapFiles[i]
+		}
+		args := DoTaskArgs{
+			JobName:       jobName,
+			File:          file,
+			Phase:         phase,
+			TaskNumber:    i,
+			NumOtherPhase: n_other,
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				addr := <-registerChan
+				if call(addr, "Worker.DoTask", &args, nil) {
+					go func() { registerChan <- addr }()
+					break
+				}
+			}
+		}()
+	}
+	wg.Wait()
 	fmt.Printf("Schedule: %v done\n", phase)
 }

@@ -143,22 +143,6 @@ func cleanup(mr *Master) {
 	}
 }
 
-func TestSequentialSingle(t *testing.T) {
-	mr := Sequential("test", makeInputs(1), 1, MapFunc, ReduceFunc)
-	mr.Wait()
-	check(t, mr.files)
-	checkWorker(t, mr.stats)
-	cleanup(mr)
-}
-
-func TestSequentialMany(t *testing.T) {
-	mr := Sequential("test", makeInputs(5), 3, MapFunc, ReduceFunc)
-	mr.Wait()
-	check(t, mr.files)
-	checkWorker(t, mr.stats)
-	cleanup(mr)
-}
-
 func TestParallelBasic(t *testing.T) {
 	mr := setup()
 	for i := 0; i < 2; i++ {
