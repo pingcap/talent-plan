@@ -1,7 +1,7 @@
-use clap::{App, AppSettings, Arg, SubCommand};
-use kvs::{KvStore, Result};
-use std::env::current_dir;
+use clap::AppSettings;
+use kvs::{KvsClient, Result};
 use std::net::SocketAddr;
+use std::process::exit;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -9,7 +9,6 @@ use structopt::StructOpt;
     name = "kvs-client",
     raw(global_settings = "&[\
                            AppSettings::DisableHelpSubcommand,\
-                           AppSettings::SubcommandRequiredElseHelp,\
                            AppSettings::VersionlessSubcommands]")
 )]
 struct Opt {
@@ -41,8 +40,27 @@ enum Command {
     },
 }
 
-fn main() -> Result<()> {
+fn main() {
     let opt = Opt::from_args();
-    println!("{:?}", opt);
+    if let Err(e) = run(opt) {
+        eprintln!("{}", e);
+        exit(1);
+    }
+}
+
+fn run(opt: Opt) -> Result<()> {
+    let mut client = KvsClient::connect(opt.addr)?;
+    match opt.command {
+        Command::Get { key } => {
+            if let Some(value) = client.get(key)? {
+                println!("{}", value);
+            } else {
+                println!("Key not found");
+            }
+        }
+        Command::Set { key, value } => {
+            client.set(key, value)?;
+        }
+    }
     Ok(())
 }

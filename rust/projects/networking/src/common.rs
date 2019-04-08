@@ -1,4 +1,3 @@
-use crate::Result;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
