@@ -1,12 +1,12 @@
 use crate::engines::KvsEngine;
 use crate::{KvStore, Result};
-use lock_api::{Mutex};
+use lock_api::Mutex;
 use parking_lot::RawMutex;
 
 /// The `KvStore` engine
 pub struct KvStoreEngine {
     // TODO: Use channel and thread pool in KvStore to eliminate the lock?
-    store: Mutex<RawMutex, KvStore>
+    store: Mutex<RawMutex, KvStore>,
 }
 
 impl KvStoreEngine {
