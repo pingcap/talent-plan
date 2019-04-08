@@ -107,3 +107,4 @@ in the README.
   - note that improvements beyond the scope of the project are encouraged - comment them
 - add TOC to each project
 - use fail-rs for consistency tests
+- mention the test names that should be focused on each part of each project

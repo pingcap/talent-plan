@@ -181,7 +181,7 @@ compile (`cargo test --no-run`).
 
 Now we are finally going to begin implementing the beginnings of a real
 database, by storing its contents to disk. You will use [`serde`] to serialize
-the "get" command to a string, and the standard file I/O APIs to write it to
+the "set" command to a string, and the standard file I/O APIs to write it to
 disk.
 
 [`serde`]: https://serde.rs/
