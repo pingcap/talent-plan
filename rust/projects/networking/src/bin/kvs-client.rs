@@ -3,7 +3,12 @@ use kvs::{KvStore, Result};
 use std::env::current_dir;
 
 fn main() -> Result<()> {
-    let matches = App::new(env!("CARGO_PKG_NAME"))
+    let server_addr_arg = Arg::with_name("addr")
+        .help("Sets the server address")
+        .long("addr")
+        .value_name("IP:PORT")
+        .default_value("127.0.0.1:4000");
+    let matches = App::new("kvs-client")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
@@ -13,17 +18,21 @@ fn main() -> Result<()> {
         .subcommand(
             SubCommand::with_name("set")
                 .about("Set the value of a string key to a string")
+                .usage("kvs-client set <KEY> <VALUE> [--addr IP:PORT]")
                 .arg(Arg::with_name("KEY").help("A string key").required(true))
                 .arg(
                     Arg::with_name("VALUE")
                         .help("The string value of the key")
                         .required(true),
-                ),
+                )
+                .arg(server_addr_arg.clone()),
         )
         .subcommand(
             SubCommand::with_name("get")
                 .about("Get the string value of a given string key")
-                .arg(Arg::with_name("KEY").help("A string key").required(true)),
+                .usage("kvs-client get <KEY> [--addr IP:PORT]")
+                .arg(Arg::with_name("KEY").help("A string key").required(true))
+                .arg(server_addr_arg),
         )
         .get_matches();
 

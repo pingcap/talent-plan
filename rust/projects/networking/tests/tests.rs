@@ -123,10 +123,14 @@ fn get_non_existent_value() -> Result<()> {
 }
 
 #[test]
-fn cli_log_configuration() { panic!() }
+fn cli_log_configuration() {
+    panic!()
+}
 
 #[test]
-fn cli_wrong_engine() { panic!() }
+fn cli_wrong_engine() {
+    panic!()
+}
 
 // Path to kvs binary
 fn binary_path() -> PathBuf {

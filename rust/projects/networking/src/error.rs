@@ -10,6 +10,9 @@ pub enum KvsError {
     /// Serialization or deserialization error
     #[fail(display = "{}", _0)]
     Serde(#[cause] serde_json::Error),
+    /// Error with a string message
+    #[fail(display = "{}", _0)]
+    StringError(String),
 }
 
 impl From<io::Error> for KvsError {
