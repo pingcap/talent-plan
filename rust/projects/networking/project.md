@@ -281,11 +281,14 @@ Cargo supports benchmarking with `cargo bench`. The benchmarks may either be
 written using Rust's built in benchmark harness, or an external one.
 
 The built-in harness creates benchmarks from functions with the `#[bench]`
-attribute. It cannot be used on the Rust stable channel though, and does not
-appear to even be officially documented outside of the brief [API docs for the
-test crate][tc]. It is though widely used throughout the Rust ecosystem &mdash;
-crates that use it, even if they compile with stable releases, do benchmarking
-with nightly releases.
+attribute. It cannot be used on the Rust stable channel though, and is only
+documented briefly in [the unstable book][tb] and the [`test` crate docs][tc].
+It is though widely used throughout the Rust ecosystem &mdash; crates that use
+it, even if they compile with stable releases, do benchmarking with nightly
+releases.
+
+[tb]: https://doc.rust-lang.org/stable/unstable-book/library-features/test.html
+[tc]: https://doc.rust-lang.org/stable/test/index.html
 
 That system though is effectively deprecated &mdash; it is not being updated and
 will seemingly never be promoted to the stable release channel.
@@ -316,7 +319,6 @@ defines the code that is run for the benchmark. Code before and after the call
 to `iter` is not timed.
 
 [criterion]: https://docs.rs/criterion
-[tc]: https://doc.rust-lang.org/stable/test/index.html
 
 Prepare for writing bechmarks by creating a file called `benches/benches.rs`.
 Like `tests/tests.rs`, cargo will automatically find this file and compile it as
