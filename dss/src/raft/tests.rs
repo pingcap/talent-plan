@@ -421,6 +421,7 @@ fn test_count_2b() {
 
     cfg.begin("Test (2B): RPC counts aren't too high");
 
+    cfg.check_one_leader();
     let mut total1 = rpcs(&cfg);
 
     if total1 > 30 || total1 < 1 {
@@ -665,7 +666,7 @@ fn test_persist3_2c() {
 // The leader in a new term may try to finish replicating log entries that
 // haven't been committed yet.
 #[test]
-fn test_figure_82c() {
+fn test_figure_8_2c() {
     let servers = 5;
     let mut cfg = Config::new(servers, false);
 

@@ -18,3 +18,13 @@ pre {
 body {
 	margin-bottom: 5rem;
 }
+
+table {
+	border-collapse: collapse;
+	margin: 1rem auto 1rem 2rem;
+}
+
+th, td {
+	border: 1px solid black;
+	padding: 0.2rem 0.5rem 0.2rem 0.5rem;
+}
