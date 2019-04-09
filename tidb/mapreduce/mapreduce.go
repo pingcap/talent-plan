@@ -18,10 +18,10 @@ type KeyValue struct {
 	Value string
 }
 
-// Reduce function from MIT 6.824 LAB1
+// ReduceF function from MIT 6.824 LAB1
 type ReduceF func(key string, values []string) string
 
-// Map function from MIT 6.824 LAB1
+// MapF function from MIT 6.824 LAB1
 type MapF func(filename string, contents string) []KeyValue
 
 // jobPhase indicates whether a task is scheduled as a map or reduce task.
