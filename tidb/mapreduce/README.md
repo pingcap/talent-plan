@@ -20,11 +20,11 @@ Please implement your own `MapF` and `ReduceF` in `urltop10.go` to accomplish th
 
 All data files will be generated in memory at runtime, which is implemented in `casegen.go`.
 
-Each test cases has different data distribution and you should take it into account.
+Each test cases has **different data distribution** and you should take it into account.
 
 ## Requirements and rating principles
 
-* (30%) Pass the unit test.
+* (30%) Pass all test cases.
 * (30%) Performs better than `urltop10_example`.
 * (20%) Profile your program with `pprof`, analyze the performance bottleneck (both the framework and your own code).
 * (10%) Have a good code style.
@@ -36,8 +36,7 @@ NOTE: **go 1.12 is required**
 
 Please implement your own `MapF` and `ReduceF` in `urltop10.go` to accomplish this task.
 
-**NOTE**:
-1. There is a builtin unit test defined in `urltop10_test.go`, however, you still can write your own unit tests.
+There is a builtin unit test defined in `urltop10_test.go`, however, you still can write your own unit tests.
 
 How to run example:
 ```
