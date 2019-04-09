@@ -2,11 +2,13 @@
 
 This is the Map-Reduce homework for PingCAP Talent Plan Online of week 2.
 
-There is a simple Map-Reduce framework and you should use it to extract the 10 most frequent URLs from data files.
+There is a uncompleted Map-Reduce framework, you should complete it and use it to extract the 10 most frequent URLs from data files.
 
 ## Getting familiar with the source
 
 The simple Map-Reduce framework is defined in `mapreduce.go`.
+
+It is uncompleted and you should fill your code below comments `YOUR CODE HERE`.
 
 The map and reduce function are defined as same as MIT 6.824 lab 1.
 ```
@@ -14,11 +16,15 @@ type ReduceF func(key string, values []string) string
 type MapF func(filename string, contents string) []KeyValue
 ```
 
-There is an example in `urltop10_example.go` which you can use for reference.
+There is an example in `urltop10_example.go` which is used to extract the 10 most frequent URLs.
 
-Please implement your own `MapF` and `ReduceF` in `urltop10.go` to accomplish this task.
+After completing the framework, you can run this example by `make test_example`.
 
-All data files will be generated in memory at runtime, which is implemented in `casegen.go`.
+And then please implement your own `MapF` and `ReduceF` in `urltop10.go` to accomplish this task.
+
+After filling your code, please use `make test_homework` to test.
+
+All data files will be generated at runtime, and you can use `make cleanup` to clean all test data.
 
 Each test cases has **different data distribution** and you should take it into account.
 
@@ -34,7 +40,9 @@ NOTE: **go 1.12 is required**
 
 ## How to use
 
-Please implement your own `MapF` and `ReduceF` in `urltop10.go` to accomplish this task.
+Fill your code below comments `YOUR CODE HERE` in `mapreduce.go` to complete this framework.
+
+Implement your own `MapF` and `ReduceF` in `urltop10.go` and use `make test_homework` to test it.
 
 There is a builtin unit test defined in `urltop10_test.go`, however, you still can write your own unit tests.
 
@@ -43,7 +51,17 @@ How to run example:
 make test_example
 ```
 
-How to run your implementation:
+How to test your implementation:
 ```
 make test_homework
+```
+
+How to clean up all test data:
+```
+make cleanup
+```
+
+How to generate test data again:
+```
+make gendata
 ```
