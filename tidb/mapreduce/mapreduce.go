@@ -109,7 +109,6 @@ func (c *MRCluster) worker() {
 				}
 			} else {
 				// YOUR CODE HERE :)
-				panic("not implement")
 			}
 			t.wg.Done()
 		case <-c.exit:
@@ -156,7 +155,6 @@ func (c *MRCluster) run(jobName, dataDir string, mapF MapF, reduceF ReduceF, map
 
 	// reduce phase
 	// YOUR CODE HERE :D
-	panic("not implement")
 }
 
 func ihash(s string) int {

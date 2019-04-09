@@ -77,7 +77,7 @@ func CreateFileAndBuf(fpath string) (*os.File, *bufio.Writer) {
 	if err != nil {
 		panic(err)
 	}
-	return f, bufio.NewWriter(f)
+	return f, bufio.NewWriterSize(f, 1<<20)
 }
 
 // OpenFileAndBuf opens a specific file for reading.
@@ -108,4 +108,10 @@ func SafeClose(f *os.File, buf *bufio.Writer) {
 	if err := f.Close(); err != nil {
 		panic(err)
 	}
+}
+
+// FileOrDirExist tests if this file or dir exist in a simple way.
+func FileOrDirExist(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
 }

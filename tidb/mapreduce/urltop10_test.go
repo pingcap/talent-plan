@@ -4,15 +4,42 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"runtime"
 	"testing"
 	"time"
 )
 
 func testDataScale() ([]DataSize, []int) {
-	dataSize := []DataSize{5 * MB, 10 * MB, 50 * MB, 100 * MB, 200 * MB, 1 * GB, 10 * GB}
+	dataSize := []DataSize{1 * MB, 10 * MB, 100 * MB, 500 * MB, 1 * GB}
 	nMapFiles := []int{5, 10, 20, 40, 60}
 	return dataSize, nMapFiles
+}
+
+const (
+	dataDir = "/tmp/mr_homework"
+)
+
+func dataPrefix(i int, ds DataSize, nMap int) string {
+	return path.Join(dataDir, fmt.Sprintf("case%d-%s-%d", i, ds, nMap))
+}
+
+func TestGenData(t *testing.T) {
+	gens := AllCaseGenFs()
+	dataSize, nMapFiles := testDataScale()
+	for k := range dataSize {
+		for i, gen := range gens {
+			fmt.Printf("generate data file for cast%d, dataSize=%v, nMap=%v\n", i, dataSize[k], nMapFiles[k])
+			prefix := dataPrefix(i, dataSize[k], nMapFiles[k])
+			gen(prefix, int(dataSize[k]), nMapFiles[k])
+		}
+	}
+}
+
+func TestCleanData(t *testing.T) {
+	if err := os.RemoveAll(dataDir); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func TestExampleURLTop(t *testing.T) {
@@ -37,7 +64,7 @@ func testURLTop(t *testing.T, rounds RoundsArgs) {
 	for k := range dataSize {
 		for i, gen := range gens {
 			// generate data
-			prefix := fmt.Sprintf("/tmp/mr_homework/case-%d-%d", k, i)
+			prefix := dataPrefix(i, dataSize[k], nMapFiles[k])
 			c := gen(prefix, int(dataSize[k]), nMapFiles[k])
 
 			runtime.GC()
@@ -62,11 +89,6 @@ func testURLTop(t *testing.T, rounds RoundsArgs) {
 				t.Fatalf("Case%d FAIL, dataSize=%v, nMapFiles=%v, cost=%v\n%v\n", i, dataSize[k], nMapFiles[k], cost, errMsg)
 			} else {
 				fmt.Printf("Case%d PASS, dataSize=%v, nMapFiles=%v, cost=%v\n", i, dataSize[k], nMapFiles[k], cost)
-			}
-
-			// clean up
-			if err := os.RemoveAll(prefix); err != nil {
-				log.Printf("clean up %s err=%v\n", prefix, err)
 			}
 		}
 	}
