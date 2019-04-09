@@ -7,6 +7,28 @@ import (
 	"strings"
 )
 
+// ExampleURLTop10 generates RoundsArgs for getting the 10 most frequent URLs.
+// There are two rounds in this approach.
+// The first round will do url count.
+// The second will sort results generated in the first round and
+// get the 10 most frequent URLs.
+func ExampleURLTop10(nWorkers int) RoundsArgs {
+	var args RoundsArgs
+	// round 1: do url count
+	args = append(args, RoundArgs{
+		MapFunc:    ExampleURLCountMap,
+		ReduceFunc: ExampleURLCountReduce,
+		NReduce:    nWorkers,
+	})
+	// round 2: sort and get the 10 most frequent URLs
+	args = append(args, RoundArgs{
+		MapFunc:    ExampleURLTop10Map,
+		ReduceFunc: ExampleURLTop10Reduce,
+		NReduce:    1,
+	})
+	return args
+}
+
 // ExampleURLCountMap is the map function in the first round
 func ExampleURLCountMap(filename string, contents string) []KeyValue {
 	lines := strings.Split(string(contents), "\n")
@@ -58,26 +80,4 @@ func ExampleURLTop10Reduce(key string, values []string) string {
 		fmt.Fprintf(buf, "%s: %d\n", us[i], cs[i])
 	}
 	return buf.String()
-}
-
-// ExampleURLTop10 generates RoundsArgs for getting Top10 URLs.
-// There are two rounds in this approach.
-// The first round will do url count.
-// The second will sort results generated in the first round and 
-// get the top10 result.
-func ExampleURLTop10(nWorkers int) RoundsArgs {
-	var args RoundsArgs
-	// round 1: do url count
-	args = append(args, RoundArgs{
-		MapFunc:    ExampleURLCountMap,
-		ReduceFunc: ExampleURLCountReduce,
-		NReduce:    nWorkers,
-	})
-	// round 2: sort and generate result
-	args = append(args, RoundArgs{
-		MapFunc:    ExampleURLTop10Map,
-		ReduceFunc: ExampleURLTop10Reduce,
-		NReduce:    1,
-	})
-	return args
 }
