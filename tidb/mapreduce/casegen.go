@@ -112,7 +112,7 @@ func CaseNoSameURL(dataFileDir string, totalDataSize, nMapFiles int) Case {
 		f, buf := CreateFileAndBuf(fpath)
 		fileSize := 0
 		for fileSize < eachFileSize {
-			str := fmt.Sprintf("%d", urlSig)
+			str := wrapLikeURL(fmt.Sprintf("%d", urlSig))
 			urlSig++
 			fileSize += len(str) + 1
 			urlCount[str]++
@@ -228,5 +228,15 @@ func randomNURL(n int) ([]string, int) {
 }
 
 func randomURL() string {
-	return strconv.Itoa(rand.Int())
+	return wrapLikeURL(strconv.Itoa(rand.Int()))
+}
+
+var urlPrefixes = []string{
+	"github.com/pingcap/tidb/issues",
+	"github.com/pingcap/tidb/pull",
+	"github.com/pingcap/tidb",
+}
+
+func wrapLikeURL(suffix string) string {
+	return path.Join(urlPrefixes[rand.Intn(len(urlPrefixes))], suffix)
 }

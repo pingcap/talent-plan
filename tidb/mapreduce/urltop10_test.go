@@ -10,7 +10,7 @@ import (
 )
 
 func testDataScale() ([]DataSize, []int) {
-	dataSize := []DataSize{5 * MB, 10 * MB, 50 * MB, 100 * MB, 500 * MB, 1 * GB, 10 * GB}
+	dataSize := []DataSize{5 * MB, 10 * MB, 50 * MB, 100 * MB, 200 * MB, 1 * GB, 10 * GB}
 	nMapFiles := []int{5, 10, 20, 40, 60}
 	return dataSize, nMapFiles
 }

@@ -69,6 +69,7 @@ func CheckFile(expected, got string) (string, bool) {
 	return errMsg, false
 }
 
+// CreateFileAndBuf opens or creates a specific file for writing.
 func CreateFileAndBuf(fpath string) (*os.File, *bufio.Writer) {
 	dir := path.Dir(fpath)
 	os.MkdirAll(dir, 0777)
@@ -79,6 +80,7 @@ func CreateFileAndBuf(fpath string) (*os.File, *bufio.Writer) {
 	return f, bufio.NewWriter(f)
 }
 
+// OpenFileAndBuf opens a specific file for reading.
 func OpenFileAndBuf(fpath string) (*os.File, *bufio.Reader) {
 	f, err := os.OpenFile(fpath, os.O_RDONLY, 0666)
 	if err != nil {
@@ -87,6 +89,7 @@ func OpenFileAndBuf(fpath string) (*os.File, *bufio.Reader) {
 	return f, bufio.NewReader(f)
 }
 
+// WriteToBuf write strs to this buffer.
 func WriteToBuf(buf *bufio.Writer, strs ...string) {
 	for _, str := range strs {
 		if _, err := buf.WriteString(str); err != nil {
@@ -95,6 +98,7 @@ func WriteToBuf(buf *bufio.Writer, strs ...string) {
 	}
 }
 
+// SafeClose flushes this buffer and closes this file.
 func SafeClose(f *os.File, buf *bufio.Writer) {
 	if buf != nil {
 		if err := buf.Flush(); err != nil {
