@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"encoding/json"
 	"hash/fnv"
-	"io"
+	"io/ioutil"
 	"log"
+	"os"
+	"path"
 	"runtime"
-	"sort"
 	"strconv"
 	"sync"
 )
@@ -33,17 +34,16 @@ const (
 )
 
 type task struct {
-	jobName      string
-	file         MemFile            // only for map, the input file
-	phase        jobPhase           // are we in mapPhase or reducePhase?
-	taskNumber   int                // this task's index in the current phase
-	nMap         int                // number of map tasks
-	nReduce      int                // number of reduce tasks
-	mapF         MapF               // map function used in this job
-	reduceF      ReduceF            // reduce function used in this job
-	reduceFiles  map[string]MemFile // used to store intermediate results produced by map task
-	reduceResult MemFile            // used to store result produced by reduce task
-	wg           sync.WaitGroup
+	dataDir    string
+	jobName    string
+	mapFile    string   // only for map, the input file
+	phase      jobPhase // are we in mapPhase or reducePhase?
+	taskNumber int      // this task's index in the current phase
+	nMap       int      // number of map tasks
+	nReduce    int      // number of reduce tasks
+	mapF       MapF     // map function used in this job
+	reduceF    ReduceF  // reduce function used in this job
+	wg         sync.WaitGroup
 }
 
 // MRCluster represents a map-reduce cluster.
@@ -86,58 +86,30 @@ func (c *MRCluster) worker() {
 		select {
 		case t := <-c.taskCh:
 			if t.phase == mapPhase {
-				files := make([]MemFile, t.nReduce)
-				for i := range files {
-					files[i] = CreateMemFile(reduceName(t.jobName, t.taskNumber, i))
+				content, err := ioutil.ReadFile(t.mapFile)
+				if err != nil {
+					panic(err)
 				}
-				results := t.mapF(t.file.Name(), t.file.Content())
+
+				fs := make([]*os.File, t.nReduce)
+				bs := make([]*bufio.Writer, t.nReduce)
+				for i := range fs {
+					rpath := reduceName(t.dataDir, t.jobName, t.taskNumber, i)
+					fs[i], bs[i] = CreateFileAndBuf(rpath)
+				}
+				results := t.mapF(t.mapFile, string(content))
 				for _, kv := range results {
-					enc := json.NewEncoder(files[ihash(kv.Key)%t.nReduce])
+					enc := json.NewEncoder(bs[ihash(kv.Key)%t.nReduce])
 					if err := enc.Encode(&kv); err != nil {
 						log.Fatalln(err)
 					}
 				}
-				t.reduceFiles = make(map[string]MemFile, len(files))
-				for _, f := range files {
-					t.reduceFiles[f.Name()] = f
+				for i := range fs {
+					SafeClose(fs[i], bs[i])
 				}
 			} else {
-				data := make(map[string][]string, 64)
-				for i := 0; i < t.nMap; i++ {
-					reduceFile := reduceName(t.jobName, i, t.taskNumber)
-					file, ok := t.reduceFiles[reduceFile]
-					if !ok {
-						log.Fatalln("reduce file not exist", reduceFile)
-					}
-					dec := json.NewDecoder(file)
-					for {
-						var kv KeyValue
-						if err := dec.Decode(&kv); err != nil {
-							if err == io.EOF {
-								break
-							} else {
-								log.Fatalln("Decode reduce file error", err)
-							}
-						}
-						data[kv.Key] = append(data[kv.Key], kv.Value)
-					}
-				}
-				keys := make([]string, 0, len(data))
-				for key := range data {
-					keys = append(keys, key)
-				}
-				sort.Strings(keys)
-				t.reduceResult = CreateMemFile(mergeName(t.jobName, t.taskNumber))
-				buf := bufio.NewWriter(t.reduceResult)
-				for _, k := range keys {
-					v := t.reduceF(k, data[k])
-					if _, err := buf.WriteString(v); err != nil {
-						log.Fatalln(err)
-					}
-				}
-				if err := buf.Flush(); err != nil {
-					log.Fatalln(err)
-				}
+				// YOUR CODE HERE :)
+				panic("not implement")
 			}
 			t.wg.Done()
 		case <-c.exit:
@@ -153,20 +125,21 @@ func (c *MRCluster) Shutdown() {
 }
 
 // Submit submits a job to this cluster.
-func (c *MRCluster) Submit(jobName string, mapF MapF, reduceF ReduceF, files []MemFile, nReduce int) <-chan []MemFile {
-	notify := make(chan []MemFile)
-	go c.run(jobName, mapF, reduceF, files, nReduce, notify)
+func (c *MRCluster) Submit(jobName, dataDir string, mapF MapF, reduceF ReduceF, mapFiles []string, nReduce int) <-chan []string {
+	notify := make(chan []string)
+	go c.run(jobName, dataDir, mapF, reduceF, mapFiles, nReduce, notify)
 	return notify
 }
 
-func (c *MRCluster) run(jobName string, mapF MapF, reduceF ReduceF, files []MemFile, nReduce int, notify chan<- []MemFile) {
+func (c *MRCluster) run(jobName, dataDir string, mapF MapF, reduceF ReduceF, mapFiles []string, nReduce int, notify chan<- []string) {
 	// map phase
-	nMap := len(files)
+	nMap := len(mapFiles)
 	tasks := make([]*task, 0, nMap)
 	for i := 0; i < nMap; i++ {
 		t := &task{
+			dataDir:    dataDir,
 			jobName:    jobName,
-			file:       files[i],
+			mapFile:    mapFiles[i],
 			phase:      mapPhase,
 			taskNumber: i,
 			nReduce:    nReduce,
@@ -177,36 +150,13 @@ func (c *MRCluster) run(jobName string, mapF MapF, reduceF ReduceF, files []MemF
 		tasks = append(tasks, t)
 		go func() { c.taskCh <- t }()
 	}
-	reduceFiles := make(map[string]MemFile, 32)
 	for _, t := range tasks {
 		t.wg.Wait()
-		for _, f := range t.reduceFiles {
-			reduceFiles[f.Name()] = f
-		}
 	}
 
 	// reduce phase
-	tasks = tasks[:0]
-	for i := 0; i < nReduce; i++ {
-		t := &task{
-			jobName:     jobName,
-			phase:       reducePhase,
-			taskNumber:  i,
-			nReduce:     nReduce,
-			nMap:        nMap,
-			reduceFiles: reduceFiles,
-			reduceF:     reduceF,
-		}
-		t.wg.Add(1)
-		tasks = append(tasks, t)
-		go func() { c.taskCh <- t }()
-	}
-	reduceResults := make([]MemFile, 0, nReduce)
-	for _, t := range tasks {
-		t.wg.Wait()
-		reduceResults = append(reduceResults, t.reduceResult)
-	}
-	notify <- reduceResults
+	// YOUR CODE HERE :D
+	panic("not implement")
 }
 
 func ihash(s string) int {
@@ -215,13 +165,10 @@ func ihash(s string) int {
 	return int(h.Sum32() & 0x7fffffff)
 }
 
-// reduceName constructs the name of the intermediate file which map task
-// <mapTask> produces for reduce task <reduceTask>.
-func reduceName(jobName string, mapTask int, reduceTask int) string {
-	return "mrtmp." + jobName + "-" + strconv.Itoa(mapTask) + "-" + strconv.Itoa(reduceTask)
+func reduceName(dataDir, jobName string, mapTask int, reduceTask int) string {
+	return path.Join(dataDir, "mrtmp."+jobName+"-"+strconv.Itoa(mapTask)+"-"+strconv.Itoa(reduceTask))
 }
 
-// mergeName constructs the name of the output file of reduce task <reduceTask>
-func mergeName(jobName string, reduceTask int) string {
-	return "mrtmp." + jobName + "-res-" + strconv.Itoa(reduceTask)
+func mergeName(dataDir, jobName string, reduceTask int) string {
+	return path.Join(dataDir, "mrtmp."+jobName+"-res-"+strconv.Itoa(reduceTask))
 }

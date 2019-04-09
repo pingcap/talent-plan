@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"math/rand"
+	"path"
 	"sort"
 	"strconv"
 )
@@ -21,21 +21,21 @@ func (d DataSize) String() string {
 	if d < KB {
 		return fmt.Sprintf("%dbyte", d)
 	} else if d < MB {
-		return fmt.Sprintf("%dKB", d / KB)
+		return fmt.Sprintf("%dKB", d/KB)
 	} else if d < GB {
-		return fmt.Sprintf("%dMB", d / MB)
+		return fmt.Sprintf("%dMB", d/MB)
 	}
-	return fmt.Sprintf("%dGB", d / GB)
+	return fmt.Sprintf("%dGB", d/GB)
 }
 
 // Case represents a test case.
 type Case struct {
-	MapFiles   []MemFile // input files for map function
-	ResultFile MemFile   // expected result
+	MapFiles   []string // input files for map function
+	ResultFile string   // expected result
 }
 
 // CaseGenF represents test case generate function
-type CaseGenF func(totalDataSize, nMapFiles int) Case
+type CaseGenF func(dataFileDir string, totalDataSize, nMapFiles int) Case
 
 // AllCaseGenFs returns all CaseGenFs used to test.
 func AllCaseGenFs() []CaseGenF {
@@ -50,8 +50,8 @@ func genUniformCases() []CaseGenF {
 	cardinalities := []int{11, 200, 10000, 200000, 1000000, 2, 3, 7, 9}
 	gs := make([]CaseGenF, 0, len(cardinalities))
 	for _, card := range cardinalities {
-		gs = append(gs, func(totalDataSize, nMapFiles int) Case {
-			return uniformGen(totalDataSize, nMapFiles, card)
+		gs = append(gs, func(dataFileDir string, totalDataSize, nMapFiles int) Case {
+			return uniformGen(dataFileDir, totalDataSize, nMapFiles, card)
 		})
 	}
 	return gs
@@ -70,75 +70,60 @@ func genPercentCases() []CaseGenF {
 	}
 	gs := make([]CaseGenF, 0, len(ps))
 	for _, p := range ps {
-		gs = append(gs, func(totalDataSize, nMapFiles int) Case {
+		gs = append(gs, func(dataFileDir string, totalDataSize, nMapFiles int) Case {
 			percents := makePercents(p.l, p.p...)
-			return percentGen(totalDataSize, nMapFiles, percents)
+			return percentGen(dataFileDir, totalDataSize, nMapFiles, percents)
 		})
 	}
 	return gs
 }
 
 // CaseSingleURLPerFile .
-func CaseSingleURLPerFile(totalDataSize, nMapFiles int) Case {
+func CaseSingleURLPerFile(dataFileDir string, totalDataSize, nMapFiles int) Case {
 	urls, avgLen := randomNURL(nMapFiles)
 	eachRecords := (totalDataSize / nMapFiles) / avgLen
-	files := make([]MemFile, 0, nMapFiles)
+	files := make([]string, 0, nMapFiles)
 	urlCount := make(map[string]int, len(urls))
 	for i := 0; i < nMapFiles; i++ {
-		f := CreateMemFile(fmt.Sprintf("%v", i))
-		buf := bufio.NewWriter(f)
+		fpath := path.Join(dataFileDir, fmt.Sprintf("inputMapFile%d", i))
+		f, buf := CreateFileAndBuf(fpath)
 		for j := 0; j < eachRecords; j++ {
 			str := urls[i]
 			urlCount[str]++
-			if _, err := buf.WriteString(str); err != nil {
-				panic(err)
-			}
-			if err := buf.WriteByte('\n'); err != nil {
-				panic(err)
-			}
+			WriteToBuf(buf, str, "\n")
 		}
-		if err := buf.Flush(); err != nil {
-			panic(err)
-		}
-		files = append(files, f)
+		SafeClose(f, buf)
+		files = append(files, fpath)
 	}
 	return Case{
 		MapFiles:   files,
-		ResultFile: genResult(urlCount),
+		ResultFile: genResult(dataFileDir, urlCount),
 	}
 }
 
 // CaseNoSameURL .
-func CaseNoSameURL(totalDataSize, nMapFiles int) Case {
+func CaseNoSameURL(dataFileDir string, totalDataSize, nMapFiles int) Case {
 	eachFileSize := totalDataSize / nMapFiles
-	files := make([]MemFile, 0, nMapFiles)
+	files := make([]string, 0, nMapFiles)
 	urlSig := 0
 	urlCount := make(map[string]int, 4096)
 	for i := 0; i < nMapFiles; i++ {
-		f := CreateMemFile(fmt.Sprintf("%v", i))
-		buf := bufio.NewWriter(f)
+		fpath := path.Join(dataFileDir, fmt.Sprintf("inputMapFile%d", i))
+		f, buf := CreateFileAndBuf(fpath)
 		fileSize := 0
 		for fileSize < eachFileSize {
 			str := fmt.Sprintf("%d", urlSig)
 			urlSig++
 			fileSize += len(str) + 1
 			urlCount[str]++
-			if _, err := buf.WriteString(str); err != nil {
-				panic(err)
-			}
-			if err := buf.WriteByte('\n'); err != nil {
-				panic(err)
-			}
+			WriteToBuf(buf, str, "\n")
 		}
-
-		if err := buf.Flush(); err != nil {
-			panic(err)
-		}
-		files = append(files, f)
+		SafeClose(f, buf)
+		files = append(files, fpath)
 	}
 	return Case{
 		MapFiles:   files,
-		ResultFile: genResult(urlCount),
+		ResultFile: genResult(dataFileDir, urlCount),
 	}
 }
 
@@ -161,10 +146,10 @@ func makePercents(length int, prefix ...float64) []float64 {
 	return percents
 }
 
-func percentGen(totalDataSize, nMapFiles int, percents []float64) Case {
+func percentGen(dataFileDir string, totalDataSize, nMapFiles int, percents []float64) Case {
 	urls, avgLen := randomNURL(len(percents))
 	eachRecords := (totalDataSize / nMapFiles) / avgLen
-	files := make([]MemFile, 0, nMapFiles)
+	files := make([]string, 0, nMapFiles)
 	urlCount := make(map[string]int, len(urls))
 
 	accumulate := make([]float64, len(percents)+1)
@@ -174,9 +159,8 @@ func percentGen(totalDataSize, nMapFiles int, percents []float64) Case {
 	}
 
 	for i := 0; i < nMapFiles; i++ {
-		f := CreateMemFile(fmt.Sprintf("%v", i))
-		buf := bufio.NewWriter(f)
-
+		fpath := path.Join(dataFileDir, fmt.Sprintf("inputMapFile%d", i))
+		f, buf := CreateFileAndBuf(fpath)
 		for i := 0; i < eachRecords; i++ {
 			x := rand.Float64()
 			idx := sort.SearchFloat64s(accumulate, x)
@@ -185,61 +169,48 @@ func percentGen(totalDataSize, nMapFiles int, percents []float64) Case {
 			}
 			str := urls[idx]
 			urlCount[str]++
-			if _, err := buf.WriteString(str); err != nil {
-				panic(err)
-			}
-			if err := buf.WriteByte('\n'); err != nil {
-				panic(err)
-			}
+			WriteToBuf(buf, str, "\n")
 		}
-
-		if err := buf.Flush(); err != nil {
-			panic(err)
-		}
-		files = append(files, f)
+		SafeClose(f, buf)
+		files = append(files, fpath)
 	}
 	return Case{
 		MapFiles:   files,
-		ResultFile: genResult(urlCount),
+		ResultFile: genResult(dataFileDir, urlCount),
 	}
 }
 
-func uniformGen(totalDataSize, nMapFiles, cardinality int) Case {
+func uniformGen(dataFileDir string, totalDataSize, nMapFiles, cardinality int) Case {
 	urls, avgLen := randomNURL(cardinality)
 	eachRecords := (totalDataSize / nMapFiles) / avgLen
-	files := make([]MemFile, 0, nMapFiles)
+	files := make([]string, 0, nMapFiles)
 	urlCount := make(map[string]int, len(urls))
 	for i := 0; i < nMapFiles; i++ {
-		f := CreateMemFile(fmt.Sprintf("%v", i))
-		buf := bufio.NewWriter(f)
+		fpath := path.Join(dataFileDir, fmt.Sprintf("inputMapFile%d", i))
+		f, buf := CreateFileAndBuf(fpath)
 		for i := 0; i < eachRecords; i++ {
 			str := urls[rand.Int()%len(urls)]
 			urlCount[str]++
-			if _, err := buf.WriteString(str); err != nil {
-				panic(err)
-			}
-			if err := buf.WriteByte('\n'); err != nil {
-				panic(err)
-			}
+			WriteToBuf(buf, str, "\n")
 		}
-		if err := buf.Flush(); err != nil {
-			panic(err)
-		}
-		files = append(files, f)
+		SafeClose(f, buf)
+		files = append(files, fpath)
 	}
 	return Case{
 		MapFiles:   files,
-		ResultFile: genResult(urlCount),
+		ResultFile: genResult(dataFileDir, urlCount),
 	}
 }
 
-func genResult(urlCount map[string]int) MemFile {
+func genResult(dataFileDir string, urlCount map[string]int) string {
 	us, cs := TopN(urlCount, 10)
-	result := CreateMemFile("result")
+	rpath := path.Join(dataFileDir, "result")
+	f, buf := CreateFileAndBuf(rpath)
 	for i := range us {
-		fmt.Fprintf(result, "%s: %d\n", us[i], cs[i])
+		fmt.Fprintf(buf, "%s: %d\n", us[i], cs[i])
 	}
-	return result
+	SafeClose(f, buf)
+	return rpath
 }
 
 func randomNURL(n int) ([]string, int) {

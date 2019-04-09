@@ -1,42 +1,14 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
 	"fmt"
-	"io"
+	"io/ioutil"
+	"os"
+	"path"
 	"sort"
 	"strings"
 )
-
-// MemFile represents a file in memory.
-type MemFile interface {
-	io.ReadWriter
-	Name() string
-	Content() string
-}
-
-type memFile struct {
-	*bytes.Buffer
-	name string
-}
-
-// Name returns this file's name.
-func (f *memFile) Name() string {
-	return f.name
-}
-
-// Content returns this file's content.
-func (f *memFile) Content() string {
-	return f.String()
-}
-
-// CreateMemFile creates a MemFile with a specific name.
-func CreateMemFile(name string) MemFile {
-	return &memFile{
-		Buffer: new(bytes.Buffer),
-		name:   name,
-	}
-}
 
 // RoundArgs contains arguments used in a map-reduce round.
 type RoundArgs struct {
@@ -78,14 +50,58 @@ func TopN(urlCntMap map[string]int, n int) ([]string, []int) {
 }
 
 // CheckFile checks if these two files are same.
-func CheckFile(expected, got MemFile) (string, bool) {
-	c1, c2 := expected.Content(), got.Content()
-	c1 = strings.TrimSpace(c1)
-	c2 = strings.TrimSpace(c2)
-	if c1 == c2 {
+func CheckFile(expected, got string) (string, bool) {
+	c1, err := ioutil.ReadFile(expected)
+	if err != nil {
+		panic(err)
+	}
+	c2, err := ioutil.ReadFile(got)
+	if err != nil {
+		panic(err)
+	}
+	s1 := strings.TrimSpace(string(c1))
+	s2 := strings.TrimSpace(string(c2))
+	if s1 == s2 {
 		return "", true
 	}
 
 	errMsg := fmt.Sprintf("expected:\n%s\n, but got:\n%s\n", c1, c2)
 	return errMsg, false
+}
+
+func CreateFileAndBuf(fpath string) (*os.File, *bufio.Writer) {
+	dir := path.Dir(fpath)
+	os.MkdirAll(dir, 0777)
+	f, err := os.OpenFile(fpath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		panic(err)
+	}
+	return f, bufio.NewWriter(f)
+}
+
+func OpenFileAndBuf(fpath string) (*os.File, *bufio.Reader) {
+	f, err := os.OpenFile(fpath, os.O_RDONLY, 0666)
+	if err != nil {
+		panic(err)
+	}
+	return f, bufio.NewReader(f)
+}
+
+func WriteToBuf(buf *bufio.Writer, strs ...string) {
+	for _, str := range strs {
+		if _, err := buf.WriteString(str); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func SafeClose(f *os.File, buf *bufio.Writer) {
+	if buf != nil {
+		if err := buf.Flush(); err != nil {
+			panic(err)
+		}
+	}
+	if err := f.Close(); err != nil {
+		panic(err)
+	}
 }
