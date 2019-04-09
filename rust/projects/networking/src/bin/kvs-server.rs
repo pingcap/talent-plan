@@ -3,7 +3,7 @@ extern crate log;
 #[macro_use]
 extern crate clap;
 
-use kvs::{KvStore, KvStoreEngine, KvsServer, Result};
+use kvs::{KvStore, KvsServer, Result};
 use std::env;
 use std::net::SocketAddr;
 use std::process::exit;
@@ -50,7 +50,7 @@ fn main() {
 fn run(opt: Opt) -> Result<()> {
     match opt.engine {
         Engine::Kvs => {
-            let engine = KvStoreEngine::new(KvStore::open(env::current_dir()?)?);
+            let engine = KvStore::open(env::current_dir()?)?;
             let server = KvsServer::new(engine);
             server.run(opt.addr)?;
         }

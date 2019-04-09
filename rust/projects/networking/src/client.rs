@@ -1,9 +1,9 @@
 use crate::common::{GetResponse, Request, SetResponse};
 use crate::{KvsError, Result};
+use serde::Deserialize;
+use serde_json::de::{Deserializer, IoRead};
 use std::io::{BufReader, BufWriter, Write};
 use std::net::{TcpStream, ToSocketAddrs};
-use serde::Deserialize;
-use serde_json::de::{Deserializer,IoRead};
 
 /// Key value store client
 pub struct KvsClient {
