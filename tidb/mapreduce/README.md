@@ -30,8 +30,8 @@ Each test cases has **different data distribution** and you should take it into 
 
 ## Requirements and rating principles
 
-* (30%) Pass all test cases.
-* (30%) Performs better than `urltop10_example`.
+* (40%) Performs better than `urltop10_example`.
+* (20%) Pass all test cases.
 * (20%) Profile your program with `pprof`, analyze the performance bottleneck (both the framework and your own code).
 * (10%) Have a good code style.
 * (10%) Document your idea and code.
