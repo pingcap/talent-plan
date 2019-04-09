@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 
 use crate::Result;
+use std::ffi::OsStr;
 
 const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
 
@@ -84,13 +85,18 @@ impl KvStore {
     /// Clears stale entries in the log.
     pub fn compact(&mut self) -> Result<()> {
         // The new log file for merged entries
-        let tmp_log_path = self.path.join("data.log.new");
+        let log_path = self.path.join(format!("{}.log", self.log_gen + 1));
+
+        // Create lock file that indicates compaction is in progress.
+        let lock_path = log_path.with_extension("lock");
+        drop(File::create(&lock_path)?);
+
         let mut new_writer = BufWriter::new(
             OpenOptions::new()
                 .create(true)
                 .truncate(true)
                 .write(true)
-                .open(&tmp_log_path)?,
+                .open(&log_path)?,
         );
 
         let mut new_pos = 0; // pos in the new log file
@@ -108,24 +114,24 @@ impl KvStore {
         new_writer.flush()?;
         drop(new_writer);
 
-        // As all entries are written to the log, we can safely rename it to a valid log file name
-        let log_path = self.path.join(format!("{}.log", self.log_gen + 1));
-        fs::rename(tmp_log_path, &log_path)?;
-        self.log_gen += 1;
-
         // Reopen using the new file name
         let mut kv_log = KvLog::open(&log_path)?;
         // Use the index map built on writing instead of reloading the log file
         kv_log.index = new_index;
         kv_log.loaded = true;
+
+        // Compaction is all over. Remove the lock file.
+        fs::remove_file(&lock_path)?;
+
         // Update the KvLog we are using
         mem::swap(&mut self.kv_log, &mut kv_log);
+        self.log_gen += 1;
 
         // Close old log file before removing it. (It's a must on Windows I think)
         let old_path = kv_log.path.clone();
         // The old file is useless. It's safe we just drop it.
         drop(kv_log);
-        fs::remove_file(old_path)?;
+        fs::remove_file(old_path)?; // TODO: Maybe this error can be just ignored?
 
         Ok(())
     }
@@ -294,22 +300,24 @@ impl<W: Write + Seek> Seek for BufWriterWithPos<W> {
 }
 
 const INIT_GEN: u64 = 1;
+
 // Log files are named after a generation number with a "log" extension name.
-// This function finds the latest generation number.
+// Log file with a lock file indicates a compaction failure and is invalid.
+// This function finds the latest valid generation number.
 fn latest_gen(dir: impl AsRef<Path>) -> Result<u64> {
     let latest: Option<u64> = fs::read_dir(&dir)?
-        .flat_map(|res| res)
-        .filter_map(|entry| match entry.file_type() {
-            Ok(file_type) if file_type.is_file() => entry.file_name().into_string().ok(),
-            _ => None,
+        .flat_map(|res| -> Result<_> { Ok(res?.path()) })
+        .filter(|path| {
+            path.is_file()
+                && path.extension() == Some("log".as_ref())
+                && !path.with_extension("lock").exists()
         })
-        .filter_map(|file_name| {
-            if file_name.ends_with(".log") {
-                file_name.trim_end_matches(".log").parse::<u64>().ok()
-            } else {
-                None
-            }
+        .flat_map(|path| {
+            path.file_name()
+                .and_then(OsStr::to_str)
+                .map(str::parse::<u64>)
         })
+        .flatten()
         .max();
     Ok(latest.unwrap_or(INIT_GEN))
 }
