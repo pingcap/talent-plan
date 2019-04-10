@@ -18,4 +18,4 @@ pub trait KvsEngine {
 
 pub mod kvs;
 
-pub use kvs::KvStore;
+pub use self::kvs::KvStore;

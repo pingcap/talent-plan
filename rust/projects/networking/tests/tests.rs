@@ -1,7 +1,10 @@
 use assert_cmd::prelude::*;
-use kvs::{KvStore, Result, KvsEngine};
+use kvs::{KvStore, KvsEngine, Result};
 use predicates::str::contains;
-use std::process::{Command};
+use std::fs::{self, File};
+use std::process::Command;
+use std::thread;
+use std::time::Duration;
 use tempfile::TempDir;
 
 // `kvs-client` with no args should exit with a non-zero code.
@@ -116,6 +119,30 @@ fn server_cli_version() {
         .stdout(contains(env!("CARGO_PKG_VERSION")));
 }
 
+#[test]
+fn cli_log_configuration() {
+    let temp_dir = TempDir::new().unwrap();
+    let stderr_path = temp_dir.path().join("stderr");
+    let mut cmd = Command::cargo_bin("kvs-server").unwrap();
+    let mut child = cmd
+        .args(&["--engine", "kvs", "--addr", "127.0.0.1:4000"])
+        .current_dir(&temp_dir)
+        .stderr(File::create(&stderr_path).unwrap())
+        .spawn()
+        .unwrap();
+    thread::sleep(Duration::from_secs(1));
+    child.kill().expect("server exited before killed");
+    let content = fs::read_to_string(&stderr_path).expect("unable to read from stderr file");
+    assert!(content.contains(env!("CARGO_PKG_VERSION")));
+    assert!(content.contains("kvs"));
+    assert!(content.contains("127.0.0.1:4000"));
+}
+
+#[test]
+fn cli_wrong_engine() {
+    panic!()
+}
+
 // Should get previously stored value
 #[test]
 fn get_stored_value() -> Result<()> {
@@ -178,14 +205,4 @@ fn get_non_existent_value() -> Result<()> {
 #[test]
 fn compaction() -> Result<()> {
     unimplemented!()
-}
-
-#[test]
-fn cli_log_configuration() {
-    panic!()
-}
-
-#[test]
-fn cli_wrong_engine() {
-    panic!()
 }
