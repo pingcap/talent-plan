@@ -1,4 +1,4 @@
-##Introduction
+## Introduction
 
 This is the homework for PingCAP Talent Plan Online of week 4. This homework is a simplified version of [ACM SIGMOD Programming Contest 2018](http://sigmod18contest.db.in.tum.de/index.shtml).
 
@@ -6,7 +6,7 @@ The task is to evaluate batches of join queries on a set of pre-defined relation
 
 NOTE: **go 1.12 is required**
 
-##Details
+## Details
 
 The simple interface `Join(f0, f1 string, offset0, offset1 []int) (sum uint64)` is defined in `join.go`. Our test harness will feed two relations and two columns' offsets array to the interface every time, and check the correctness of the output result. Explaination to the four input arguments and one output argument of the interface are list as follows:
 
@@ -26,7 +26,6 @@ FROM T0, T1
 ON T0.COL0=T1.COL2 AND T0.COL1=T1.COL3
 ```
 
-You can assume that the data of relation0 and relation1 can be fully loaded into the memory.
 We provide a sample as `join_example.go: JoinExample` which performs a simple hash join algorithm. It uses the relation0 to build the hash table, and probe the hash table for every row in relation1.
 
 ## Requirements and rating principles
@@ -38,8 +37,9 @@ We provide a sample as `join_example.go: JoinExample` which performs a simple ha
 - (15%) Document your idea and code.
 
 Note:
-1. More large datasets are provided [here](https://drive.google.com/drive/u/1/folders/10-iJNGKmKXgMmvBYnKt88RTwC0iA1XM-), you can use them to help profile your program.
-2. We'll use the `BenchmarkJoin` and `BenchmarkJoinExample` which can be found in `benchmark_test.go` to evaluate your program. Test data will NOT be outside of what we've provided.
+1. For your check sums, you do not have to worry about numeric overflows as long as you are using 64 bit unsigned integers.
+2. More large datasets are provided [here](https://drive.google.com/drive/u/1/folders/10-iJNGKmKXgMmvBYnKt88RTwC0iA1XM-), you can use them to help profile your program.
+3. We'll use the `BenchmarkJoin` and `BenchmarkJoinExample` which can be found in `benchmark_test.go` to evaluate your program. Test data will **NOT** be outside of what we've provided.
 
 ## How to use
 
