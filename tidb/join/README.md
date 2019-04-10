@@ -10,11 +10,13 @@ NOTE: **go 1.12 is required**
 
 The simple interface `Join(f0, f1 string, offset0, offset1 []int) (sum uint64)` is defined in `join.go`. Our test harness will feed two relations and two columns' offsets array to the interface every time, and check the correctness of the output result. Explaination to the four input arguments and one output argument of the interface are list as follows:
 
-- **f0**: File name of the given relation 0.
-- **f1**: File name of the given relation 1.
-- **offset0**: Offsets of which columns the given relation 0 should be joined.
-- **offset1**: Offsets of which columns the given relation0 should be joined.
+- **f0**: File name of the given relation0.
+- **f1**: File name of the given relation1.
+- **offset0**: Offsets of which columns the given relation0 should be joined.
+- **offset1**: Offsets of which columns the given relation1 should be joined.
 - **sum** (output argument): Sum of the relation0.col0 in the final join result.
+
+The (equality) join predicates are specified by the `offset0/1`. The form of the join predicates is like `relation0.cols[offset[0]] = relation1.cols[offset[0]] and relation0.cols[offset[1]] = relation1.cols[offset[1]]...`.
 
 **Example**: `Join("/path/T0", "/path/T1", []int{0, 1}, []int{2, 3})`
 
