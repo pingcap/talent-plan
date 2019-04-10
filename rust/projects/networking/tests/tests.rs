@@ -132,6 +132,7 @@ fn cli_log_configuration() {
         .unwrap();
     thread::sleep(Duration::from_secs(1));
     child.kill().expect("server exited before killed");
+
     let content = fs::read_to_string(&stderr_path).expect("unable to read from stderr file");
     assert!(content.contains(env!("CARGO_PKG_VERSION")));
     assert!(content.contains("kvs"));
@@ -140,7 +141,18 @@ fn cli_log_configuration() {
 
 #[test]
 fn cli_wrong_engine() {
-    panic!()
+    let temp_dir = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("kvs-server").unwrap();
+    let mut child = cmd
+        .args(&["--engine", "sled"])
+        .current_dir(&temp_dir)
+        .spawn()
+        .unwrap();
+    thread::sleep(Duration::from_secs(1));
+    child.kill().expect("server exited before killed");
+
+    let mut cmd = Command::cargo_bin("kvs-server").unwrap();
+    cmd.args(&["--engine", "kvs"]).current_dir(&temp_dir).assert().failure();
 }
 
 // Should get previously stored value
