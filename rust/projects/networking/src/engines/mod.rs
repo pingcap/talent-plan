@@ -16,6 +16,7 @@ pub trait KvsEngine {
     fn get(&self, key: String) -> Result<Option<String>>;
 }
 
-pub mod kvs;
+mod kvs;
+mod sled;
 
 pub use self::kvs::KvStore;

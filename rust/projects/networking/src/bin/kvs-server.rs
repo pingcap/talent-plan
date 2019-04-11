@@ -3,14 +3,14 @@ extern crate log;
 #[macro_use]
 extern crate clap;
 
-use kvs::{KvStore, KvsServer, Result};
+use kvs::{KvStore, KvsEngine, KvsServer, Result};
 use log::LevelFilter;
 use std::env;
+use std::env::current_dir;
 use std::fs;
 use std::net::SocketAddr;
 use std::process::exit;
 use structopt::StructOpt;
-use std::env::current_dir;
 
 const DEFAULT_LISTENING_ADDRESS: &str = "127.0.0.1:4000";
 const DEFAULT_ENGINE: Engine = Engine::kvs;
@@ -75,14 +75,14 @@ fn run(opt: Opt) -> Result<()> {
     fs::write(current_dir()?.join("engine"), format!("{}", engine))?;
 
     match engine {
-        Engine::kvs => {
-            let engine = KvStore::open(env::current_dir()?)?;
-            let server = KvsServer::new(engine);
-            server.run(opt.addr)?;
-        }
-        Engine::sled => unimplemented!(),
+        Engine::kvs => run_with_engine(KvStore::open(env::current_dir()?)?, opt.addr),
+        Engine::sled => run_with_engine(sled::Db::start_default(env::current_dir()?)?, opt.addr),
     }
-    Ok(())
+}
+
+fn run_with_engine<E: KvsEngine>(engine: E, addr: SocketAddr) -> Result<()> {
+    let server = KvsServer::new(engine);
+    server.run(addr)
 }
 
 fn current_engine() -> Result<Option<Engine>> {

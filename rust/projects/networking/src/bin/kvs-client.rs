@@ -14,14 +14,6 @@ use structopt::StructOpt;
 struct Opt {
     #[structopt(subcommand)]
     command: Command,
-    #[structopt(
-        long,
-        help = "Sets the server address",
-        value_name = "IP:PORT",
-        default_value = "127.0.0.1:4000",
-        parse(try_from_str)
-    )]
-    addr: SocketAddr,
 }
 
 #[derive(StructOpt, Debug)]
@@ -30,6 +22,14 @@ enum Command {
     Get {
         #[structopt(name = "KEY", help = "A string key")]
         key: String,
+        #[structopt(
+        long,
+        help = "Sets the server address",
+        value_name = "IP:PORT",
+        default_value = "127.0.0.1:4000",
+        parse(try_from_str)
+        )]
+        addr: SocketAddr,
     },
     #[structopt(name = "set", about = "Set the value of a string key to a string")]
     Set {
@@ -37,6 +37,14 @@ enum Command {
         key: String,
         #[structopt(name = "VALUE", help = "The string value of the key")]
         value: String,
+        #[structopt(
+        long,
+        help = "Sets the server address",
+        value_name = "IP:PORT",
+        default_value = "127.0.0.1:4000",
+        parse(try_from_str)
+        )]
+        addr: SocketAddr,
     },
 }
 
@@ -49,16 +57,17 @@ fn main() {
 }
 
 fn run(opt: Opt) -> Result<()> {
-    let mut client = KvsClient::connect(opt.addr)?;
     match opt.command {
-        Command::Get { key } => {
+        Command::Get { key,addr } => {
+            let mut client = KvsClient::connect(addr)?;
             if let Some(value) = client.get(key)? {
                 println!("{}", value);
             } else {
                 println!("Key not found");
             }
         }
-        Command::Set { key, value } => {
+        Command::Set { key, value,addr } => {
+            let mut client = KvsClient::connect(addr)?;
             client.set(key, value)?;
         }
     }
