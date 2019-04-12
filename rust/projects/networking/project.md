@@ -141,7 +141,7 @@ command line arguments to handle.
 ## Part 2: Logging
 
 Production server applications tend to have robust and configurable logging. So
-now we're going to add logging to `tikv-server`, and as we continue will look
+now we're going to add logging to `kvs-client`, and as we continue will look
 for useful information to log. During development it is common to use logging
 at the `debug!` and `trace!` levels for "println debugging".
 
@@ -190,8 +190,8 @@ high-performance database.
 
 Thank about your manual testing workflow. Now that there are two executables to
 deal with, you'll need a way to run them both at the same time. If you are like
-many, you will use two terminals, running `cargo run --bin --tikv-server` in
-one, where it runs until you press CTRL-D`, and `cargo run --bin --tikv-client`
+many, you will use two terminals, running `cargo run --bin --kvs-client` in
+one, where it runs until you press CTRL-D`, and `cargo run --bin --kvs-client`
 in the other.
 
 This is a good opportunity to use the logging macros for debugging. Go ahead and
@@ -256,7 +256,7 @@ tests are building. _Now is the time to fill them in._ Break down your
 refactoring into an intentional sequence of changes, and make sure the project
 continues to build and pass previously-passing tests before continuing.
 
-As one final step, you need to consider what happens when `tikv-server` is
+As one final step, you need to consider what happens when `kvs-client` is
 started with one engine, is killed, then restarted with a different engine. This
 case can only result in an error, and you need to figure out how to detect the
 case to report the error. The test `cli_wrong_engine` reflects this scenario.
