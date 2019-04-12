@@ -10,6 +10,13 @@ pub enum KvsError {
     /// Serialization or deserialization error
     #[fail(display = "{}", _0)]
     Serde(#[cause] serde_json::Error),
+    /// Removing non-existent key error
+    #[fail(display = "Key not found")]
+    KeyNotFound,
+    /// Unexpected command type error.
+    /// It indicated a corrupted log or a program bug.
+    #[fail(display = "Unexpected command type")]
+    UnexpectedCommandType,
 }
 
 impl From<io::Error> for KvsError {
