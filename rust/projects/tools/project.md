@@ -38,6 +38,10 @@ The `kvs` executable supports the following command line arguments:
 
   Get the string value of a given string key
 
+- `kvs rm <KEY>`
+
+  Remove a given key
+
 - `kvs -V`
 
   Print the version
@@ -54,10 +58,14 @@ methods:
   Get the string value of the a string key. If the key does not exist,
   return `None`.
 
+- `KvStore::remove(key: String)`
+
+  Remove a given key.
+
 The `KvStore` type stores values in-memory, and thus the command-line client can
-do little more than print the version. The `get`/ `set` commands will return an
-"unimplemented" error when run from the command line. Future projects will store
-values on disk and have a working command line interface.
+do little more than print the version. The `get`/ `set` / `rm` commands will 
+return an "unimplemented" error when run from the command line. Future projects 
+will store values on disk and have a working command line interface.
 
 
 ## How to treat these projects
@@ -253,6 +261,10 @@ Again, the interface for the CLI is:
 - `kvs get <KEY>`
 
   Get the string value of a given string key
+
+- `kvs rm <KEY>`
+
+  Remove a given key
 
 - `kvs -V`
 

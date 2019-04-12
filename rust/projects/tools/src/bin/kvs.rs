@@ -24,14 +24,23 @@ fn main() {
                 .about("Get the string value of a given string key")
                 .arg(Arg::with_name("KEY").help("A string key").required(true)),
         )
+        .subcommand(
+            SubCommand::with_name("rm")
+                .about("Remove a given key")
+                .arg(Arg::with_name("KEY").help("A string key").required(true)),
+        )
         .get_matches();
 
     match matches.subcommand() {
-        ("set", Some(matches)) => {
+        ("set", Some(_matches)) => {
             eprintln!("unimplemented");
             exit(1);
         }
-        ("get", Some(matches)) => {
+        ("get", Some(_matches)) => {
+            eprintln!("unimplemented");
+            exit(1);
+        }
+        ("rm", Some(_matches)) => {
             eprintln!("unimplemented");
             exit(1);
         }

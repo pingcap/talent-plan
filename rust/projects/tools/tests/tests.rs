@@ -38,6 +38,15 @@ fn cli_set() {
     assert!(!output.status.success())
 }
 
+// `kvs rm <KEY>` should print "unimplemented" to stderr and exit with non-zero code
+#[test]
+fn cli_rm() {
+    let output = run_with_args(&["rm", "key1"]);
+    let stderr = String::from_utf8(output.stderr).expect("Invalid UTF-8 output");
+    assert!(stderr.to_lowercase().contains("unimplemented"));
+    assert!(!output.status.success())
+}
+
 #[test]
 fn cli_invalid_get() {
     assert!(!run_with_args(&["get"]).status.success());
@@ -51,6 +60,12 @@ fn cli_invalid_set() {
     assert!(!run_with_args(&["set", "extra", "extra", "field"])
         .status
         .success());
+}
+
+#[test]
+fn cli_invalid_rm() {
+    assert!(!run_with_args(&["rm"]).status.success());
+    assert!(!run_with_args(&["rm", "extra", "field"]).status.success());
 }
 
 #[test]
@@ -89,6 +104,15 @@ fn get_non_existent_value() {
 
     store.set("key1".to_owned(), "value1".to_owned());
     assert_eq!(store.get("key2".to_owned()), None);
+}
+
+#[test]
+fn remove_key() {
+    let mut store = KvStore::new();
+
+    store.set("key1".to_owned(), "value1".to_owned());
+    store.remove("key1".to_owned());
+    assert_eq!(store.get("key1".to_owned()), None);
 }
 
 // Path to kvs binary
