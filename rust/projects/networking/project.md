@@ -51,7 +51,7 @@ The `kvs-server` executable supports the following command line arguments:
   Print an error and return a non-zero exit code on failure to bind a socket, if
   `ENGINE-NAME` is invalid, if `IP-PORT` does not parse as an address.
 
-- `kvs-server -v`
+- `kvs-server -V`
 
   Print the version.
 
@@ -83,13 +83,15 @@ The `kvs-client` executable supports the following command line arguments:
 
   Print the version.
 
-The `kvs` library contains three types: `KvsClient`, `KvsServer`, and
-`KvsStore`. `KvsClient` implements the functionality required for `kvs-client`
-to speak to `kvs-server`; `KvsServer` implements the functionality to serve
-responses to `kvs-client` from `kvs-server`; the `KvsEngine` trait
-defines the storage interface used by `KvsServer`; `KvStore` implements
-by hand the `KvsEngine` trait, and `SledKvStore` implements `KvsEngine`
-for the [`sled`] storage engine.
+The `kvs` library contains four types:
+
+- `KvsClient` - implements the functionality required for `kvs-client` to speak
+  to `kvs-server`
+- `KvsServer` - implements the functionality to serve responses to `kvs-client`
+  from `kvs-server`
+- `KvsEngine` trait - defines the storage interface called by `KvsServer`
+- `KvStore` - implements by hand the `KvsEngine` trait
+- `SledKvStore` - implements `KvsEngine` for the [`sled`] storage engine.
 
 [`sled`]: https://github.com/spacejam/sled
 
@@ -191,7 +193,7 @@ high-performance database.
 Thank about your manual testing workflow. Now that there are two executables to
 deal with, you'll need a way to run them both at the same time. If you are like
 many, you will use two terminals, running `cargo run --bin kvs-client` in
-one, where it runs until you press CTRL-D`, and `cargo run --bin kvs-client`
+one, where it runs until you press CTRL-D, and `cargo run --bin kvs-client`
 in the other.
 
 This is a good opportunity to use the logging macros for debugging. Go ahead and
@@ -207,14 +209,20 @@ will be serializing and streaming commands with the `Read` and `Write` traits.
 
 You are going to design a network protocol.
 
-TODO: Can't think of much to say about this
+All the details of the protocol are up to you. Keep in mind that it must support
+successful results and errors. For insipration see [examples of HTTP/1.1][http].
+
+[http]: https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Example_session
 
 
 ## Part 5: More error handling
 
+TODO write this section
+
 - handle error responses by converting errors to a serializable format
 - add context to errors
 - replace `fn main() -> Result` with custom error reporting
+
 
 ## Part 6: Pluggable storage engines
 
