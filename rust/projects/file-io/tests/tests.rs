@@ -1,4 +1,6 @@
 use kvs::{KvStore, Result};
+use rand::{thread_rng, Rng};
+use std::collections::HashMap;
 use std::env::{current_dir, current_exe};
 use std::ffi::OsStr;
 use std::iter::empty;
@@ -27,7 +29,7 @@ fn cli_get_nothing() {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
     let output = run_with_dir_and_args(temp_dir.path(), &["get", "key1"]);
     let stdout = String::from_utf8(output.stdout).expect("Invalid UTF-8 output");
-    assert!(dbg!(stdout).contains("Key not found"));
+    assert_eq!(stdout.trim(), "Key not found");
     assert!(output.status.success());
 }
 
@@ -43,6 +45,28 @@ fn cli_set() {
     let output = run_with_dir_and_args(temp_dir.path(), &["set", "key1", "value1"]);
     assert!(output.stdout.is_empty());
     assert!(output.status.success());
+}
+
+#[test]
+fn cli_get_stored() -> Result<()> {
+    let temp_dir = TempDir::new().expect("unable to create temporary working directory");
+
+    let mut store = KvStore::open(temp_dir.path())?;
+    store.set("key1".to_owned(), "value1".to_owned())?;
+    store.set("key2".to_owned(), "value2".to_owned())?;
+    drop(store);
+
+    let output = run_with_dir_and_args(temp_dir.path(), &["get", "key1"]);
+    let stdout = String::from_utf8(output.stdout).expect("Invalid UTF-8 output");
+    assert_eq!(stdout.trim(), "value1");
+    assert!(output.status.success());
+
+    let output = run_with_dir_and_args(temp_dir.path(), &["get", "key2"]);
+    let stdout = String::from_utf8(output.stdout).expect("Invalid UTF-8 output");
+    assert_eq!(stdout.trim(), "value2");
+    assert!(output.status.success());
+
+    Ok(())
 }
 
 #[test]
@@ -79,7 +103,7 @@ fn get_stored_value() -> Result<()> {
 
     // Open from disk again and check persistent data
     drop(store);
-    let store = KvStore::open(temp_dir.path())?;
+    let mut store = KvStore::open(temp_dir.path())?;
     assert_eq!(store.get("key1".to_owned())?, Some("value1".to_owned()));
     assert_eq!(store.get("key2".to_owned())?, Some("value2".to_owned()));
 
@@ -99,8 +123,10 @@ fn overwrite_value() -> Result<()> {
 
     // Open from disk again and check persistent data
     drop(store);
-    let store = KvStore::open(temp_dir.path())?;
+    let mut store = KvStore::open(temp_dir.path())?;
     assert_eq!(store.get("key1".to_owned())?, Some("value2".to_owned()));
+    store.set("key1".to_owned(), "value3".to_owned())?;
+    assert_eq!(store.get("key1".to_owned())?, Some("value3".to_owned()));
 
     Ok(())
 }
@@ -116,8 +142,35 @@ fn get_non_existent_value() -> Result<()> {
 
     // Open from disk again and check persistent data
     drop(store);
-    let store = KvStore::open(temp_dir.path())?;
+    let mut store = KvStore::open(temp_dir.path())?;
     assert_eq!(store.get("key2".to_owned())?, None);
+
+    Ok(())
+}
+
+// Insert random data and call compact function. Test if data is correct after compaction.
+#[test]
+fn compaction() -> Result<()> {
+    // map in memory for verifying correctness
+    let mut map = HashMap::new();
+    let mut rng = thread_rng();
+
+    let temp_dir = TempDir::new().expect("unable to create temporary working directory");
+    let mut store = KvStore::open(temp_dir.path())?;
+
+    for _ in 0..100 {
+        for _ in 0..100 {
+            let key = format!("key{}", rng.gen::<u8>());
+            let value = format!("{}", rng.gen::<u64>());
+            map.insert(key.clone(), value.clone());
+            store.set(key, value)?;
+        }
+
+        store.compact()?;
+        for (k, v) in &map {
+            assert_eq!(store.get(k.clone())?.as_ref(), Some(v));
+        }
+    }
 
     Ok(())
 }
