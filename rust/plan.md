@@ -62,27 +62,37 @@ serde
 ## Section 3 (Networking)
 
 
-### [Project: Networking][p-net]
+### [Project: Synchronous client-server networking][p-net]
 
 **Task**: Create a single-threaded, persistent key/value store server and client
-with synchronous networking over the HTTP protocol.
+with synchronous networking over a custom protocol.
 
 **Goals**:
 
-- Use hyper for synchronous networking
+- Create a client-server application
+- Write a custom protocol with `std` networking APIs
+- Introduce logging to the server
+- Chain errors and report them in a human-readable way
+- Implement pluggable backends via traits
+- Benchmark the hand-written backend against `sled`
+
+ **Topics**: `std::net`, logging, error handling, `impl Trait`, benchmarking
+
+**Extensions**: shutdown on signal
 
 ## Section 4 (Parallelism)
 
 
-### [Project: Parallelism][p-par]
+### [Project: Parallelism, profiling, and benchmarking][p-par]
 
 **Task**: Create a multi-threaded, persistent key/value store server and client
-with synchronous networking via HTTP.
+with synchronous networking over a custom protocol.
 
 **Goals**:
 
 - Write a simple thread-pool
 - Use crossbeam channels
+- Perform compaction in a background thread
 - Benchmark single-threaded vs multi-threaded
 
 ## Section 5 (Async)

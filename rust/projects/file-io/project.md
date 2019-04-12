@@ -53,6 +53,7 @@ different terminology.
 - _log compaction_ - todo
 - _in-memory index_ (or _index_) - todo
 - _index file_ - todo
+- _command_ - todo
 
 simplifications:
 - single log and index
@@ -180,7 +181,7 @@ compile (`cargo test --no-run`).
 
 Now we are finally going to begin implementing the beginnings of a real
 database, by storing its contents to disk. You will use [`serde`] to serialize
-the "get" command to a string, and the standard file I/O APIs to write it to
+the "set" command to a string, and the standard file I/O APIs to write it to
 disk.
 
 [`serde`]: https://serde.rs/
@@ -398,5 +399,7 @@ projects will give you opportunities to optimize.
 - add code samples and digarams to illustrate the text and
   be less monotonous
 - maintain the index file!
+- specify where data should be stored
+- caching the index
 
 -->
