@@ -14,6 +14,13 @@ pub trait KvsEngine {
     ///
     /// Returns `None` if the given key does not exist.
     fn get(&self, key: String) -> Result<Option<String>>;
+
+    /// Removes a given key.
+    ///
+    /// # Error
+    ///
+    /// It returns `KvsError::KeyNotFound` if the given key is not found.
+    fn remove(&self, key: String) -> Result<()>;
 }
 
 mod kvs;

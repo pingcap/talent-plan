@@ -79,9 +79,23 @@ The `kvs-client` executable supports the following command line arguments:
   Print an error and return a non-zero exit code on server error,
   or if `IP-PORT` does not parse as an address.
 
+- `kvs-client rm <KEY> [--addr IP-PORT]`
+
+  Remove a given string key.
+
+  `--addr` accepts an IP address, either v4 or v6, and a port number, with the
+  format `IP:PORT`. If `--addr` is not specified then connect on
+  `127.0.0.1:4000`.
+
+  Print an error and return a non-zero exit code on server error,
+  or if `IP-PORT` does not parse as an address. A "key not found" is also
+  treated as an error in the "rm" command.
+
 - `kvs-client -V`
 
   Print the version.
+
+All error messages should be printed to stderr.
 
 The `kvs` library contains four types:
 
@@ -105,14 +119,21 @@ The `KvsEngine` trait supports the following methods:
 
 - `KvsEngine::get(key: String) -> Result<Option<String>>`
 
-  Get the string value of the a string key.
+  Get the string value of a string key.
   If the key does not exist, return `None`.
 
   Return an error if the value is not read successfully.
 
+- `KvsEngine::remove(key: String) -> Result<()>`
+
+  Remove a given string key.
+
+  Return an error if the key does not exit or value is not read successfully.
+
 When setting a key to a value, `KvStore` writes the `set` command to disk in
-a sequential log. On startup, the commands in the log are re-evaluated and the
-log pointer (file offset) of the last command to modify each key recorded in the
+a sequential log. When removing a key, `KvStore` writes the `rm` command to
+the log. On startup, the commands in the log are re-evaluated and the
+log pointer (file offset) of the last command to set each key recorded in the
 in-memory index.
 
 When retrieving a value for a key with the `get` command, it searches the index,
@@ -247,11 +268,11 @@ the work up into the smallest changes that will continue to build and work.
 
 Here is the API you need to end up with:
 
-- `trait KvsEngine` has `get` and `set` methods with the same signatures
+- `trait KvsEngine` has `get`, `set` and `remove` methods with the same signatures
   as `KvStore`.
 
-- `KvStore` implements `KvsEngine`, and no longer has `get` and `set` methods of
-  its own.
+- `KvStore` implements `KvsEngine`, and no longer has `get`, `set` and `remove`
+  methods of its own.
 
 - There is a free function, `pub fn create_engine(name: &str) -> impl
   KvsEngine`, that constructs a concrete implementation of `KvsEngine`.

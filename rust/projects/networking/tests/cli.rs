@@ -1,11 +1,10 @@
 use assert_cmd::prelude::*;
-use kvs::{KvStore, KvsEngine, Result};
 use predicates::str::{contains, is_empty};
 use std::fs::{self, File};
 use std::process::Command;
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
-use std::sync::mpsc;
 use tempfile::TempDir;
 
 // `kvs-client` with no args should exit with a non-zero code.
@@ -82,6 +81,38 @@ fn client_cli_invalid_set() {
     Command::cargo_bin("kvs-client")
         .unwrap()
         .args(&["get", "key", "--unknown-flag"])
+        .current_dir(&temp_dir)
+        .assert()
+        .failure();
+}
+
+#[test]
+fn client_cli_invalid_rm() {
+    let temp_dir = TempDir::new().unwrap();
+    Command::cargo_bin("kvs-client")
+        .unwrap()
+        .args(&["rm"])
+        .current_dir(&temp_dir)
+        .assert()
+        .failure();
+
+    Command::cargo_bin("kvs-client")
+        .unwrap()
+        .args(&["rm", "extra", "field"])
+        .current_dir(&temp_dir)
+        .assert()
+        .failure();
+
+    Command::cargo_bin("kvs-client")
+        .unwrap()
+        .args(&["rm", "key", "--addr", "invalid-addr"])
+        .current_dir(&temp_dir)
+        .assert()
+        .failure();
+
+    Command::cargo_bin("kvs-client")
+        .unwrap()
+        .args(&["rm", "key", "--unknown-flag"])
         .current_dir(&temp_dir)
         .assert()
         .failure();
@@ -201,35 +232,64 @@ fn cli_access_server(engine: &str, addr: &str) {
         .args(&["set", "key1", "value1", "--addr", addr])
         .current_dir(&temp_dir)
         .assert()
-        .success().stdout(is_empty());
+        .success()
+        .stdout(is_empty());
 
     Command::cargo_bin("kvs-client")
         .unwrap()
         .args(&["get", "key1", "--addr", addr])
         .current_dir(&temp_dir)
         .assert()
-        .success().stdout("value1\n");
+        .success()
+        .stdout("value1\n");
 
     Command::cargo_bin("kvs-client")
         .unwrap()
         .args(&["set", "key1", "value2", "--addr", addr])
         .current_dir(&temp_dir)
         .assert()
-        .success().stdout(is_empty());
+        .success()
+        .stdout(is_empty());
 
     Command::cargo_bin("kvs-client")
         .unwrap()
         .args(&["get", "key1", "--addr", addr])
         .current_dir(&temp_dir)
         .assert()
-        .success().stdout("value2\n");
+        .success()
+        .stdout("value2\n");
 
     Command::cargo_bin("kvs-client")
         .unwrap()
         .args(&["get", "key2", "--addr", addr])
         .current_dir(&temp_dir)
         .assert()
-        .success().stdout(contains("Key not found"));
+        .success()
+        .stdout(contains("Key not found"));
+
+    Command::cargo_bin("kvs-client")
+        .unwrap()
+        .args(&["rm", "key2", "--addr", addr])
+        .current_dir(&temp_dir)
+        .assert()
+        .failure()
+        .stderr(contains("Key not found"));
+
+    Command::cargo_bin("kvs-client")
+        .unwrap()
+        .args(&["set", "key2", "value3", "--addr", addr])
+        .current_dir(&temp_dir)
+        .assert()
+        .success()
+        .stdout(is_empty());
+    
+    Command::cargo_bin("kvs-client")
+        .unwrap()
+        .args(&["rm", "key1", "--addr", addr])
+        .current_dir(&temp_dir)
+        .assert()
+        .success()
+        .stdout(is_empty());
 
     sender.send(()).unwrap();
     handle.join().unwrap();
@@ -253,7 +313,15 @@ fn cli_access_server(engine: &str, addr: &str) {
         .args(&["get", "key2", "--addr", addr])
         .current_dir(&temp_dir)
         .assert()
-        .success().stdout(contains("Key not found"));
+        .success()
+        .stdout(contains("value3"));
+    Command::cargo_bin("kvs-client")
+        .unwrap()
+        .args(&["get", "key1", "--addr", addr])
+        .current_dir(&temp_dir)
+        .assert()
+        .success()
+        .stdout(contains("Key not found"));
     sender.send(()).unwrap();
     handle.join().unwrap();
 }
@@ -266,68 +334,4 @@ fn cli_access_server_kvs_engine() {
 #[test]
 fn cli_access_server_sled_engine() {
     cli_access_server("sled", "127.0.0.1:4005");
-}
-
-// Should get previously stored value
-#[test]
-fn get_stored_value() -> Result<()> {
-    let temp_dir = TempDir::new().expect("unable to create temporary working directory");
-    let store = KvStore::open(temp_dir.path())?;
-
-    store.set("key1".to_owned(), "value1".to_owned())?;
-    store.set("key2".to_owned(), "value2".to_owned())?;
-
-    assert_eq!(store.get("key1".to_owned())?, Some("value1".to_owned()));
-    assert_eq!(store.get("key2".to_owned())?, Some("value2".to_owned()));
-
-    // Open from disk again and check persistent data
-    drop(store);
-    let store = KvStore::open(temp_dir.path())?;
-    assert_eq!(store.get("key1".to_owned())?, Some("value1".to_owned()));
-    assert_eq!(store.get("key2".to_owned())?, Some("value2".to_owned()));
-
-    Ok(())
-}
-
-// Should overwrite existent value
-#[test]
-fn overwrite_value() -> Result<()> {
-    let temp_dir = TempDir::new().expect("unable to create temporary working directory");
-    let store = KvStore::open(temp_dir.path())?;
-
-    store.set("key1".to_owned(), "value1".to_owned())?;
-    assert_eq!(store.get("key1".to_owned())?, Some("value1".to_owned()));
-    store.set("key1".to_owned(), "value2".to_owned())?;
-    assert_eq!(store.get("key1".to_owned())?, Some("value2".to_owned()));
-
-    // Open from disk again and check persistent data
-    drop(store);
-    let store = KvStore::open(temp_dir.path())?;
-    assert_eq!(store.get("key1".to_owned())?, Some("value2".to_owned()));
-    store.set("key1".to_owned(), "value3".to_owned())?;
-    assert_eq!(store.get("key1".to_owned())?, Some("value3".to_owned()));
-
-    Ok(())
-}
-
-// Should get `None` when getting a non-existent key
-#[test]
-fn get_non_existent_value() -> Result<()> {
-    let temp_dir = TempDir::new().expect("unable to create temporary working directory");
-    let store = KvStore::open(temp_dir.path())?;
-
-    store.set("key1".to_owned(), "value1".to_owned())?;
-    assert_eq!(store.get("key2".to_owned())?, None);
-
-    // Open from disk again and check persistent data
-    drop(store);
-    let store = KvStore::open(temp_dir.path())?;
-    assert_eq!(store.get("key2".to_owned())?, None);
-
-    Ok(())
-}
-
-#[test]
-fn compaction() -> Result<()> {
-    unimplemented!()
 }
