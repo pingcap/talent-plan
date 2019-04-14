@@ -1,13 +1,14 @@
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
-use std::mem;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 
+use super::KvsEngine;
 use crate::Result;
 use std::ffi::OsStr;
 
@@ -34,8 +35,12 @@ const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
 pub struct KvStore {
     // directory for the log and other data
     path: PathBuf,
-    kv_log: KvLog,
-    log_gen: u64,
+    // In this iteration, KvStore is used in a single thread,
+    // so we just use RefCell to get mutable access to KvLog.
+    // This will be replaced with a channel and a background working thread
+    // in the next iteration.
+    kv_log: RefCell<KvLog>,
+    log_gen: Cell<u64>,
 }
 
 impl KvStore {
@@ -55,11 +60,39 @@ impl KvStore {
 
         Ok(KvStore {
             path,
-            kv_log,
-            log_gen,
+            kv_log: RefCell::new(kv_log),
+            log_gen: Cell::new(log_gen),
         })
     }
 
+    /// Clears stale entries in the log.
+    pub fn compact(&self) -> Result<()> {
+        let log_gen = self.log_gen.get();
+        let new_path = self.path.join(format!("{}.log", log_gen + 1));
+
+        // Create lock file that indicates compaction is in progress.
+        let lock_path = new_path.with_extension("lock");
+        drop(File::create(&lock_path)?);
+
+        let kv_log = self.kv_log.borrow_mut().compact(new_path)?;
+
+        // Compaction is all over. Remove the lock file.
+        fs::remove_file(&lock_path)?;
+
+        let old_kv_log = self.kv_log.replace(kv_log);
+        self.log_gen.set(log_gen + 1);
+
+        // Close old log file before removing it. (It's a must on Windows I think)
+        let old_path = old_kv_log.path.clone();
+        // The old file is useless. It's safe we just drop it.
+        drop(old_kv_log);
+        fs::remove_file(old_path)?; // TODO: Maybe this error can be just ignored?
+
+        Ok(())
+    }
+}
+
+impl KvsEngine for KvStore {
     /// Sets the value of a string key to a string.
     ///
     /// If the key already exists, the previous value will be overwritten.
@@ -67,9 +100,9 @@ impl KvStore {
     /// # Error
     ///
     /// It propagates I/O or serialization errors during writing the log.
-    pub fn set(&mut self, key: String, value: String) -> Result<()> {
-        self.kv_log.set(key, value)?;
-        if self.kv_log.uncompacted > COMPACTION_THRESHOLD {
+    fn set(&self, key: String, value: String) -> Result<()> {
+        self.kv_log.borrow_mut().set(key, value)?;
+        if self.kv_log.borrow().uncompacted > COMPACTION_THRESHOLD {
             self.compact()?;
         }
         Ok(())
@@ -78,62 +111,8 @@ impl KvStore {
     /// Gets the string value of a given string key.
     ///
     /// Returns `None` if the given key does not exist.
-    pub fn get(&mut self, key: String) -> Result<Option<String>> {
-        self.kv_log.get(key)
-    }
-
-    /// Clears stale entries in the log.
-    pub fn compact(&mut self) -> Result<()> {
-        // The new log file for merged entries
-        let log_path = self.path.join(format!("{}.log", self.log_gen + 1));
-
-        // Create lock file that indicates compaction is in progress.
-        let lock_path = log_path.with_extension("lock");
-        drop(File::create(&lock_path)?);
-
-        let mut new_writer = BufWriter::new(
-            OpenOptions::new()
-                .create(true)
-                .truncate(true)
-                .write(true)
-                .open(&log_path)?,
-        );
-
-        let mut new_pos = 0; // pos in the new log file
-        let mut new_index = BTreeMap::new(); // index map for the new log file
-        for (key, cmd_pos) in &self.kv_log.index {
-            if self.kv_log.reader.pos != cmd_pos.pos {
-                self.kv_log.reader.seek(SeekFrom::Start(cmd_pos.pos))?;
-            }
-
-            let mut entry_reader = (&mut self.kv_log.reader).take(cmd_pos.len);
-            let len = io::copy(&mut entry_reader, &mut new_writer)?;
-            new_index.insert(key.clone(), (new_pos..new_pos + len).into());
-            new_pos += len;
-        }
-        new_writer.flush()?;
-        drop(new_writer);
-
-        // Reopen using the new file name
-        let mut kv_log = KvLog::open(&log_path)?;
-        // Use the index map built on writing instead of reloading the log file
-        kv_log.index = new_index;
-        kv_log.loaded = true;
-
-        // Compaction is all over. Remove the lock file.
-        fs::remove_file(&lock_path)?;
-
-        // Update the KvLog we are using
-        mem::swap(&mut self.kv_log, &mut kv_log);
-        self.log_gen += 1;
-
-        // Close old log file before removing it. (It's a must on Windows I think)
-        let old_path = kv_log.path.clone();
-        // The old file is useless. It's safe we just drop it.
-        drop(kv_log);
-        fs::remove_file(old_path)?; // TODO: Maybe this error can be just ignored?
-
-        Ok(())
+    fn get(&self, key: String) -> Result<Option<String>> {
+        self.kv_log.borrow_mut().get(key)
     }
 }
 
@@ -206,6 +185,42 @@ impl KvLog {
         }
         self.loaded = true;
         Ok(())
+    }
+
+    // Merge old entries to `new_path`. Returns the new KvLog.
+    pub fn compact(&mut self, new_path: impl Into<PathBuf>) -> Result<KvLog> {
+        // The new log file for merged entries
+        let log_path = new_path.into();
+        let mut new_writer = BufWriter::new(
+            OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&log_path)?,
+        );
+
+        let mut new_pos = 0; // pos in the new log file
+        let mut new_index = BTreeMap::new(); // index map for the new log file
+        for (key, cmd_pos) in &self.index {
+            if self.reader.pos != cmd_pos.pos {
+                self.reader.seek(SeekFrom::Start(cmd_pos.pos))?;
+            }
+
+            let mut entry_reader = (&mut self.reader).take(cmd_pos.len);
+            let len = io::copy(&mut entry_reader, &mut new_writer)?;
+            new_index.insert(key.clone(), (new_pos..new_pos + len).into());
+            new_pos += len;
+        }
+        new_writer.flush()?;
+        drop(new_writer);
+
+        // Reopen using the new file name
+        let mut kv_log = KvLog::open(&log_path)?;
+        // Use the index map built on writing instead of reloading the log file
+        kv_log.index = new_index;
+        kv_log.loaded = true;
+
+        Ok(kv_log)
     }
 }
 

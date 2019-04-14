@@ -268,6 +268,11 @@ You will use the `clap` crate to handle command-line arguments.
 for the `clap` crate, and implement the command line interface
 such that the `cli_*` test cases pass.</i>
 
+When you are testing, use `cargo run`; do not run the executable directly from
+the `target/` directory. When passing arguments to the program, separate them
+from the `cargo run` command with two dashes, `--`, like `cargo run -- get
+key1`.
+
 
 ## Part 3: Cargo environment variables
 
