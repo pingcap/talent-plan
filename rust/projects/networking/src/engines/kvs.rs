@@ -22,15 +22,13 @@ const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
 /// Example:
 ///
 /// ```rust
-/// # use kvs::{KvStore, Result};
-/// # fn try_main() -> Result<()> {
+/// # use kvs::{KvStore, KvsEngine};
 /// use std::env::current_dir;
-/// let mut store = KvStore::open(current_dir()?)?;
+/// let store = KvStore::open(current_dir()?)?;
 /// store.set("key".to_owned(), "value".to_owned())?;
 /// let val = store.get("key".to_owned())?;
 /// assert_eq!(val, Some("value".to_owned()));
-/// # Ok(())
-/// # }
+/// # Ok::<(), kvs::KvsError>(())
 /// ```
 pub struct KvStore {
     // directory for the log and other data
@@ -330,6 +328,7 @@ fn latest_gen(dir: impl AsRef<Path>) -> Result<u64> {
         .flat_map(|path| {
             path.file_name()
                 .and_then(OsStr::to_str)
+                .map(|s| s.trim_end_matches(".log"))
                 .map(str::parse::<u64>)
         })
         .flatten()
