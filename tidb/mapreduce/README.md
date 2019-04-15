@@ -26,7 +26,7 @@ After filling your code, please use `make test_homework` to test.
 
 All data files will be generated at runtime, and you can use `make cleanup` to clean all test data.
 
-Please ensure that your result has the same format as test data so that you can pass all tests.
+Please output URLs by lexicographical order and ensure that your result has the same format as test data so that you can pass all tests.
 
 Each test cases has **different data distribution** and you should take it into account.
 
