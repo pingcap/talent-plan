@@ -315,6 +315,7 @@ fn latest_gen(dir: impl AsRef<Path>) -> Result<u64> {
         .flat_map(|path| {
             path.file_name()
                 .and_then(OsStr::to_str)
+                .map(|s| s.trim_end_matches(".log"))
                 .map(str::parse::<u64>)
         })
         .flatten()
