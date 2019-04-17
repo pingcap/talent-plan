@@ -66,6 +66,9 @@ in the README.
 - reference-bearing structs
 - sharing vs message passing
 - thread pools
+- workspaces
+- refactoring
+
 
 ## Sources
 
@@ -110,3 +113,4 @@ in the README.
 - use fail-rs for consistency tests
 - mention the test names that should be focused on each part of each project
 - find a way to use specialization via the KvsEngine trait
+- use imperative "part" titles? "creating" vs "create"

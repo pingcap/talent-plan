@@ -1,0 +1,132 @@
+<!-- -*- mode: HTML; indent-tabs-mode: nil; -*- -->
+
+<!DOCTYPE html>
+
+<html lang="en-US" style="display:none;">
+<head>
+  <meta charset="UTF-8">
+  <title></title>
+
+  <script>
+    // Find and set the base URI so links behave the same whether they are
+    // loaded from e.g. rust/index.html or rust/lessons/whirlwind.text.html
+    (function() {
+      function trimURI(uri) {
+        if (uri.endsWith("/")) {
+          uri = uri.slice(0, -1);
+        }
+        return uri.split("/").slice(0,-1).join("/") + "/";
+      }
+
+      function uriDir(docUri) {
+        if (docUri.lastIndexOf("?") > 0) {
+          docUri = docUri.substr(0, docUri.lastIndexOf("?"));
+        }
+
+        if (docUri.lastIndexOf("#") > 0) {
+          docUri = docUri.substr(0, docUri.lastIndexOf("#"));
+        }
+
+        if (docUri.endsWith(".html")) {
+          docUri = trimURI(docUri);
+        }
+
+        return docUri;
+      }
+    
+      function baseURI(docUri) {
+        docUri = uriDir(docUri);
+
+        if (docUri.endsWith("lessons/")) {
+          docUri = trimURI(docUri);
+        } else if (docUri.indexOf("projects/") > 0) {
+          docUri = trimURI(trimURI(docUri));    
+        }
+
+        return docUri;
+      }
+
+      let docUri = document.URL;
+      // reveal rewrites the url to end with "#/", "#/1", etc.
+      if (docUri.indexOf("#/") > 0) {
+        docUri = docUri.substr(0, docUri.lastIndexOf("#/"));
+      }
+
+      // Some global we might need later
+      document.URI_DIR = uriDir(docUri);
+      document.BASE_URI = baseURI(docUri);
+      document.ORIGINAL_URI = docUri;
+
+      console.log(`URI_DIR: ${document.URI_DIR}`);
+      console.log(`BASE_URI: ${document.BASE_URI}`);
+      console.log(`ORIGINAL_URI: ${document.ORIGINAL_URI}`);
+
+      // Set the base URI so that paths can all be relative to the top
+      // level directory, making this page to work regardless ef
+      // where it sits in the directory hierachy.
+      //
+      // I'm not convinced this is the best way to deal with the issue
+      // since so many links are loaded into the page dynamically and rewritten
+      // in the process to be based off the baseUrl.
+      //
+      // It might be easier to make relative links work as expected, and
+      // dynamically modify all the URLs in _this_file to work with the base URI
+      let head = document.head;
+      let base = document.createElement("base");
+      base.setAttribute("href", baseURI(docUri));
+      head.appendChild(base);
+    })();
+
+  </script>
+
+  <link rel="stylesheet" href="css/normalize.css">
+
+  <script>
+    // If this is a slide deck, load more CSS
+    (function() {
+      if (document.ORIGINAL_URI.indexOf(".slides.") !== -1) {
+        load_reveal_css()
+      }
+
+      function load_reveal_css() {
+        let head = document.getElementsByTagName("head")[0];
+        let link1 = document.createElement("link");
+        link1.setAttribute("rel", "stylesheet");
+        link1.setAttribute("href", "js/reveal.js/css/reveal.css");
+        let link2 = document.createElement("link");
+        link2.setAttribute("rel", "stylesheet");
+        link2.setAttribute("href", "js/reveal.js/css/theme/white.css");
+        link2.setAttribute("id", "theme");
+        let link3 = document.createElement("link");
+        link3.setAttribute("rel", "stylesheet");
+        link3.setAttribute("href", "js/reveal.js/lib/css/zenburn.css");
+        head.appendChild(link1);
+        head.appendChild(link2);
+        head.appendChild(link3);
+      }
+    })();
+  </script>
+  
+  <link rel="stylesheet" href="css/style.css">
+
+</head>
+
+<noscript>
+  This page requires JavaScript.
+</noscript>
+
+<!-- todo
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+-->
+
+<nav id="site-nav">
+  <a href="index.html">home</a> | <a href="plan.html">lesson plan</a>
+</nav>
+
+<section id="content"></section>
+
+<!-- TODO: load head dynamically -->
+<script src="js/reveal.js/lib/js/head.min.js"></script>
+<script src="js/require.js"></script>
+<script src="js/init.js" type="module"></script>
