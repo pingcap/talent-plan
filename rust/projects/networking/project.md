@@ -120,7 +120,7 @@ and if found then loads from the log, and evaluates, the command at the
 corresponding log pointer.
 
 When the size of the uncompacted log entries reach a given threshold, `KvStore`
-compacts it into a new log, removing redundent entries to reclaim disk space.
+compacts it into a new log, removing redundant entries to reclaim disk space.
 
 
 
@@ -210,7 +210,7 @@ will be serializing and streaming commands with the `Read` and `Write` traits.
 You are going to design a network protocol.
 
 All the details of the protocol are up to you. Keep in mind that it must support
-successful results and errors. For insipration see [examples of HTTP/1.1][http].
+successful results and errors. For inspiration see [examples of HTTP/1.1][http].
 
 [http]: https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Example_session
 
@@ -253,11 +253,8 @@ Here is the API you need to end up with:
 - `KvStore` implements `KvsEngine`, and no longer has `get` and `set` methods of
   its own.
 
-- There is a free function, `pub fn create_engine(name: &str) -> impl
-  KvsEngine`, that constructs a concrete implementation of `KvsEngine`.
-
-- There is a new implementation of `KvsEngine`, `SledKvsEngine`. It can
-  be constructed with `create_engine`.
+- There is a new implementation of `KvsEngine`, `SledKvsEngine`. You need to fill
+  its `get` and `set` methods using the `sled` library later.
 
 It's likely that you have already stubbed out the definitions for these if your
 tests are building. _Now is the time to fill them in._ Break down your
@@ -279,10 +276,10 @@ your own optimizations.
 
 Performance work requires benchmarking, so now we're going to get started
 on that. There are many ways to benchmark databases, with standard test
-suites like [ycmb] and [sysbench]. In Rust bunchmarking starts with
+suites like [ycsb] and [sysbench]. In Rust benchmarking starts with
 the builtin tooling, so we will start there.
 
-[ycmb]: https://github.com/brianfrankcooper/YCSB
+[ycsb]: https://github.com/brianfrankcooper/YCSB
 [sysbench]: https://github.com/akopytov/sysbench
 
 Cargo supports benchmarking with `cargo bench`. The benchmarks may either be
@@ -302,7 +299,7 @@ That system though is effectively deprecated &mdash; it is not being updated and
 will seemingly never be promoted to the stable release channel.
 
 There are better benchmark harnesses for Rust anyway. The one you will use is
-[criterion]. And you will use it to satisfy your curiousity about the
+[criterion]. And you will use it to satisfy your curiosity about the
 performance of your `kvs` engine compared to the `sled` engine.
 
 These benchmarking tools work by defining a benchmarking function, and within
@@ -316,7 +313,7 @@ See this basic example from the criterion guide:
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("fib 20", |b| {
 	    b.iter(|| {
-		    fibonacci(20))
+		    fibonacci(20)
 		});
 	});
 }
@@ -328,7 +325,7 @@ to `iter` is not timed.
 
 [criterion]: https://docs.rs/criterion
 
-Prepare for writing bechmarks by creating a file called `benches/benches.rs`.
+Prepare for writing benchmarks by creating a file called `benches/benches.rs`.
 Like `tests/tests.rs`, cargo will automatically find this file and compile it as
 a benchmark.
 
@@ -338,7 +335,7 @@ Start by writing the following benchmarks:
   1-100000 bytes and random values of length 1-100000 bytes.
 
 - `sled_write`- With the sled engine, write 100 values with random keys of
-  length 1-100000 bytes and rdandom values of length 1-100000 bytes.
+  length 1-100000 bytes and random values of length 1-100000 bytes.
 
 - `kvs_read` - With the kvs engine, read 1000 values from previously written keys,
   with keys and values of random length.
@@ -346,7 +343,7 @@ Start by writing the following benchmarks:
 - `sled_read` - With the sled engine, read 1000 values from previously written keys,
   with keys and values of random length.
 
-(As an alternative to writing 4 benchmamrks, you may also choose to write 2
+(As an alternative to writing 4 benchmarks, you may also choose to write 2
 benchmarks parameterized over the engine, as [described in the criterion
 manual][pb]).
 
@@ -380,7 +377,7 @@ _Write the above benchmarks, and compare the results between `kvs` and `sled`._
 ## Extension 1: Signal handling
 
 - Shutdown on KILL
-- TODO need to figure out how to interupt the tcp listener
+- TODO need to figure out how to interrupt the tcp listener
 
 <!--
 
