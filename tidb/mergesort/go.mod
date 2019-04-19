@@ -2,4 +2,7 @@ module pingcap/talentplan/tidb/mergesort
 
 go 1.12
 
-require github.com/pingcap/check v0.0.0-20190102082844-67f458068fc8
+require (
+	github.com/panjf2000/ants v4.0.2+incompatible // indirect
+	github.com/pingcap/check v0.0.0-20190102082844-67f458068fc8
+)

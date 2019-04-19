@@ -1,2 +1,4 @@
+github.com/panjf2000/ants v4.0.2+incompatible h1:6K9b4YyUmbTvfxGm2YZgmDgIiCEyP1x+gewN+tBr/8U=
+github.com/panjf2000/ants v4.0.2+incompatible/go.mod h1:AaACblRPzq35m1g3enqYcxspbbiOJJYaxU2wMpm1cXY=
 github.com/pingcap/check v0.0.0-20190102082844-67f458068fc8 h1:USx2/E1bX46VG32FIw034Au6seQ2fY9NEILmNh/UlQg=
 github.com/pingcap/check v0.0.0-20190102082844-67f458068fc8/go.mod h1:B1+S9LNcuMyLH/4HMTViQOJevkGiik3wW2AN9zb2fNQ=
