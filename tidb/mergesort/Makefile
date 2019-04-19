@@ -8,5 +8,5 @@ test:
 	$(GO) test -v
 
 bench:
-	$(GO) test -bench Benchmark -run xx -count 5 -check.b
+	$(GO) test -bench Benchmark -count 2 -v -check.b
 
