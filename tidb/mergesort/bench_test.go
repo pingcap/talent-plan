@@ -3,34 +3,45 @@ package main
 import (
 	"sort"
 	"testing"
+
+	"github.com/pingcap/check"
 )
 
-func BenchmarkMergeSort(b *testing.B) {
-	numElements := 16 << 20
-	src := make([]int64, numElements)
-	original := make([]int64, numElements)
-	prepare(original)
+var _ = check.Suite(&benchTestSuite{})
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		b.StopTimer()
+func TestBench(t *testing.T) {
+	check.TestingT(t)
+}
+
+type benchTestSuite struct{}
+
+const numElements = 16 << 20
+
+var (
+	src      []int64
+	original []int64
+)
+
+func (b *benchTestSuite) SetUpSuite(c *check.C) {
+	src = make([]int64, numElements)
+	original = make([]int64, numElements)
+	prepare(original)
+}
+
+func (b *benchTestSuite) BenchmarkMergeSort(c *check.C) {
+	for i := 0; i < c.N; i++ {
+		c.StopTimer()
 		copy(src, original)
-		b.StartTimer()
+		c.StartTimer()
 		MergeSort(src)
 	}
 }
 
-func BenchmarkNormalSort(b *testing.B) {
-	numElements := 16 << 20
-	src := make([]int64, numElements)
-	original := make([]int64, numElements)
-	prepare(original)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		b.StopTimer()
+func (b *benchTestSuite) BenchmarkNormalSort(c *check.C) {
+	for i := 0; i < c.N; i++ {
+		c.StopTimer()
 		copy(src, original)
-		b.StartTimer()
+		c.StartTimer()
 		sort.Slice(src, func(i, j int) bool { return src[i] < src[j] })
 	}
 }
