@@ -244,10 +244,14 @@ impl Node {
         }
     }
 
-    /// the tester calls kill() when a Raft instance won't
-    /// be needed again. you are not required to do anything
-    /// in kill(), but it might be convenient to (for example)
+    /// the tester calls kill() when a Raft instance won't be
+    /// needed again. you are not required to do anything in
+    /// kill(), but it might be convenient to (for example)
     /// turn off debug output from this instance.
+    /// In Raft paper, a server crash is a PHYSICAL crash,
+    /// A.K.A all resources are reset. But we are simulating
+    /// a VIRTUAL crash in tester, so take care of background
+    /// threads you generated with this Raft Node.
     pub fn kill(&self) {
         // Your code here, if desired.
     }
