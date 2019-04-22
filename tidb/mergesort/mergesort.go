@@ -1,9 +1,9 @@
 package main
 
 import (
-"fmt"
-"sync"
+	"sync"
 )
+
 // MergeSort performs the merge sort algorithm.
 // Please supplement this function to accomplish the home work.
 func minInt(x, y int) int {
@@ -12,46 +12,64 @@ func minInt(x, y int) int {
 	}
 	return x
 }
-func Merge(src []int64, lowLeft, highLeft int, lowRight, highRight int , wait *sync.WaitGroup){
-	defer wait.Done()
-	var result []int64
-	leftPtr, rightPtr := lowLeft,lowRight;
+
+func Merge(src []int64, current, length int, wait *sync.WaitGroup, result []int64) {
+	totalLength := len(src)
+	lowLeft := 2 * current * length
+	highLeft := minInt(lowLeft+length, totalLength)
+	lowRight := highLeft
+	highRight := minInt(lowRight+length, totalLength)
+	leftPtr, rightPtr, resultPtr := lowLeft, lowRight, lowLeft
+
 	for leftPtr < highLeft && rightPtr < highRight {
-		if(src[leftPtr] < src[rightPtr]) {
-			result = append(result, src[leftPtr])
-			leftPtr ++
+		if src[leftPtr] < src[rightPtr] {
+			result[resultPtr] = src[leftPtr]
+			leftPtr++
 		} else {
-			result = append(result, src[rightPtr])
-			rightPtr ++
+			result[resultPtr] = src[rightPtr]
+			rightPtr++
 		}
+		resultPtr++
 	}
-	result = append(result, src[leftPtr:highLeft]...)
-	result = append(result, src[rightPtr:highRight]...)
+	for i := leftPtr; i < highLeft; i++ {
+		result[resultPtr] = src[i]
+		resultPtr++
+	}
+	for i := rightPtr; i < highRight; i++ {
+		result[resultPtr] = src[i]
+		resultPtr++
+	}
+
 	for i := lowLeft; i < highRight; i++ {
-		src[i] = result[i-lowLeft]
+		src[i] = result[i]
+	}
+	wait.Done()
+}
+
+func InsertSort(src []int64, length int) {
+	totalLength := len(src)
+	for current := 0; current < totalLength; current += length {
+		end := minInt(current+length, totalLength)
+		for i := current + 1; i < end; i++ {
+			for j := i; j > current && src[j] < src[j-1]; j-- {
+				src[j], src[j-1] = src[j-1], src[j]
+			}
+		}
 	}
 }
 
-func MergeSort(src []int64){
+func MergeSort(src []int64) {
 	totalLength := len(src)
+	block := 64
+	result := make([]int64, totalLength)
 	var wait sync.WaitGroup
-	for length := 1; length < totalLength; length *= 2 {
-		total := (totalLength + length*2 - 1) / ( length * 2 )
+	InsertSort(src, block)
+	for length := block; length < totalLength; length *= 2 {
+		total := (totalLength + length*2 - 1) / (length * 2)
 		wait.Add(total)
 		for current := 0; current < total; current++ {
-			lowLeft := 2*current*length
-			highLeft := minInt(lowLeft + length,totalLength)
-			lowRight := highLeft
-			highRight := minInt(lowRight + length,totalLength)
-			go Merge(src, lowLeft, highLeft, lowRight, highRight, &wait)
+			go Merge(src, current, length, &wait, result)
 		}
 		wait.Wait()
 	}
-}
-
-func main() {
-	arr := []int64{321,1,2,222,7,8,3,444,555};
-	fmt.Println(arr);
-	MergeSort(arr);
-	fmt.Println(arr);
 }
