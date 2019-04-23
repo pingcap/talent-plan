@@ -123,7 +123,7 @@ impl Raft {
     /// The labrpc package simulates a lossy network, in which servers
     /// may be unreachable, and in which requests and replies may be lost.
     /// This method sends a request and waits for a reply. If a reply arrives
-    /// within a timeout interval, This method returns OK(_); otherwise
+    /// within a timeout interval, This method returns Ok(_); otherwise
     /// this method returns Err(_). Thus this method may not return for a while.
     /// An Err(_) return can be caused by a dead server, a live server that
     /// can't be reached, a lost request, or a lost reply.
@@ -144,7 +144,7 @@ impl Raft {
         //         .map_err(Error::Rpc)
         //         .then(move |res| {
         //             tx.send(res);
-        //             OK(())
+        //             Ok(())
         //         }),
         // );
         // rx.wait() ...
