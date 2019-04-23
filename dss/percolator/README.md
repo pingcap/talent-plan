@@ -1,4 +1,4 @@
-# Percolator in rust
+# Percolator in Rust
 
 ## What is Percolator
 
@@ -11,7 +11,7 @@ ACID snapshot-isolation semantics. You can find more details in the paper:
 
 To start this lab, there are some prerequisites you need to:
 
-1. be familiar with rust (You can also learn something from our rust training
+1. be familiar with Rust (You can also learn something from our Rust training
 course)
 
 2. know about how protobuf works
