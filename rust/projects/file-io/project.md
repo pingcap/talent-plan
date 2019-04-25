@@ -127,7 +127,7 @@ until it is dropped.
 
 ## Project setup
 
-Create a new cargo project and copy `tests/tests.rs` into it. Like project 1,
+Create a new cargo project and copy the `tests` directory into it. Like project 1,
 this project should contain a library and an executable, both named `kvs`.
 
 As with the previous project, use `clap` or `structopt` to handle the command
@@ -272,9 +272,10 @@ simultaniously. It is your choice.
 
 ## Part 3: Reading from the log
 
-Now it's time to implement "get". It's again pretty straightforward in concept:
-just read each command in the log on startup, executing them to modify the
-in-memory cache. Then read from the cache.
+Now it's time to implement "get". In this part, you don't need to store
+log pointers in the index, we will leave the work to the next part. Instead,
+just read each command in the log on startup, executing them to save every key
+and value in the memory. Then read from the memory.
 
 Should you read all records in the log into memory at once and then replay
 them into your map type; or should you read them one at a time while

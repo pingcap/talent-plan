@@ -147,7 +147,7 @@ compacts it into a new log, removing redundent entries to reclaim disk space.
 
 ## Project setup
 
-Create a new cargo project and copy `tests/tests.rs` into it. This project
+Create a new cargo project and copy the `tests` directory into it. This project
 should contain a library named `kvs`, and two executables, `kvs-server` and
 `kvs-client`. As with previous projects, add enough definitions that the
 test suite builds.

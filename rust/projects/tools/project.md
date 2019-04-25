@@ -173,9 +173,9 @@ be yourself. Note though that the contents of `kvs.rs` are affected by the
 package name, which is also the name of the library within the package. (TODO
 clarify)
 
-Finally, the `tests.rs` file is copied from the course materials. In this case,
-copy from the course repository the file `rust/project/tools/tests/tests.rs`
-into your own repository, as `tests/tests.rs`
+Finally, the `tests` directory is copied from the course materials. In this case,
+copy from the course repository the file `rust/project/tools/tests`
+into your own repository, as `tests`.
 
 You may set up this project with `cargo new --lib`, `cargo init --lib`, or
 manually. You'll probably also want to initialize a git repository in the same
