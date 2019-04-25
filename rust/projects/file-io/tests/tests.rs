@@ -1,12 +1,14 @@
 use kvs::{KvStore, Result};
-use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::env::{current_dir, current_exe};
 use std::ffi::OsStr;
+use std::fs::Metadata;
+use std::io;
 use std::iter::empty;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use tempfile::TempDir;
+use walkdir::{DirEntry, WalkDir};
 
 // `kvs` with no args should exit with a non-zero code.
 #[test]
@@ -148,31 +150,50 @@ fn get_non_existent_value() -> Result<()> {
     Ok(())
 }
 
-// Insert random data and call compact function. Test if data is correct after compaction.
+// Insert data until total size of the directory decreases.
+// Test data correctness after compaction.
 #[test]
 fn compaction() -> Result<()> {
-    // map in memory for verifying correctness
-    let mut map = HashMap::new();
-    let mut rng = thread_rng();
-
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
     let mut store = KvStore::open(temp_dir.path())?;
 
-    for _ in 0..100 {
-        for _ in 0..100 {
-            let key = format!("key{}", rng.gen::<u8>());
-            let value = format!("{}", rng.gen::<u64>());
-            map.insert(key.clone(), value.clone());
+    let dir_size = || {
+        let entries = WalkDir::new(temp_dir.path()).into_iter();
+        let len: walkdir::Result<u64> = entries
+            .map(|res| {
+                res.and_then(|entry| entry.metadata())
+                    .map(|metadata| metadata.len())
+            })
+            .sum();
+        len.expect("fail to get directory size")
+    };
+
+    let mut current_size = dir_size();
+    for iter in 0..1000 {
+        for key_id in 0..1000 {
+            let key = format!("key{}", key_id);
+            let value = format!("{}", iter);
             store.set(key, value)?;
         }
 
-        store.compact()?;
-        for (k, v) in &map {
-            assert_eq!(store.get(k.clone())?.as_ref(), Some(v));
+        let new_size = dir_size();
+        if new_size > current_size {
+            current_size = new_size;
+            continue;
         }
+        // Compaction triggered
+
+        drop(store);
+        // reopen and check content
+        let mut store = KvStore::open(temp_dir.path())?;
+        for key_id in 0..1000 {
+            let key = format!("key{}", key_id);
+            assert_eq!(store.get(key)?, Some(format!("{}", iter)));
+        }
+        return Ok(());
     }
 
-    Ok(())
+    panic!("No compaction detected");
 }
 
 // Path to kvs binary

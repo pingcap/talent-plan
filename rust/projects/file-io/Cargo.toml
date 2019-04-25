@@ -13,4 +13,4 @@ serde_json = "1.0.39"
 
 [dev-dependencies]
 tempfile = "3.0.7"
-rand = "0.6.5"
+walkdir = "2.2.7"
