@@ -111,7 +111,7 @@ fn test_get_timestamp_under_unreliable_network() {
     rn.enable("tso2", true);
 
     for child in children {
-        let _ = child.join();
+        let _ = child.join().unwrap();
     }
 }
 

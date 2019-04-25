@@ -6,6 +6,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use tempfile::TempDir;
+use walkdir::WalkDir;
 
 // `kvs-client` with no args should exit with a non-zero code.
 #[test]

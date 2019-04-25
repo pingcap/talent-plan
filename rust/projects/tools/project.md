@@ -299,7 +299,7 @@ variables._
 
 
 
-## Part 3: Store values in memory
+## Part 4: Store values in memory
 
 Now that your command line scaffolding is done, let's turn to the implementation
 of `KvStore`, and make the remaining test cases pass.
@@ -311,7 +311,7 @@ code for this project.
 _Make the remaining test cases pass by implementing methods on `KvStore`._
 
 
-## Part 4: Documentation
+## Part 5: Documentation
 
 You have implemented the project's functionality, but there are still a few more
 things to do before it is a polished piece of Rust software, ready for
@@ -348,7 +348,7 @@ _Add doc comments to the types and methods in your library. Follow the
 [gdc]: https://rust-lang-nursery.github.io/api-guidelines/documentation.html
 
 
-## Part 5: Ensure good style with `clippy` and `rustfmt`
+## Part 6: Ensure good style with `clippy` and `rustfmt`
 
 `clippy` and `rustfmt` are tools for enforcing common Rust style. `clippy` helps
 ensure that code uses modern idioms, and prevents patterns that commonly lead to
