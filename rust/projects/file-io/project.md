@@ -259,7 +259,7 @@ Some of the APIs you will call may fail, and return a `Result` of some error typ
 Make sure that your calling functions return a `Result` of _your own_ error type,
 and that you convert between the two with `?`.
 
-It is similar to implement the "rm" command. The only point is that you should
+It is similar to implement the "rm" command, but you should additionally
 check if the key exists before writing the command to the log. As we have two
 different commands that must be distinguished, you may use variants of a single
 enum type to represent each command. `serde` just works perfectly with enums.
