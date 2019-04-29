@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 
-use crate::Result;
+use crate::{KvsError, Result};
 use std::ffi::OsStr;
 
 const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
@@ -82,6 +82,17 @@ impl KvStore {
         self.kv_log.get(key)
     }
 
+    /// Removes a given key.
+    ///
+    /// # Error
+    ///
+    /// It returns `KvsError::KeyNotFound` if the given key is not found.
+    ///
+    /// It propagates I/O or serialization errors during writing the log.
+    pub fn remove(&mut self, key: String) -> Result<()> {
+        self.kv_log.remove(key)
+    }
+
     /// Clears stale entries in the log.
     pub fn compact(&mut self) -> Result<()> {
         // The new log file for merged entries
@@ -143,6 +154,8 @@ struct KvLog {
     writer: BufWriterWithPos<File>,
     // stores keys and the pos of the last command to modify each
     index: BTreeMap<String, CommandPos>,
+    // the number of bytes representing "stale" commands that could be
+    // deleted during a compaction
     uncompacted: u64,
     loaded: bool,
 }
@@ -171,13 +184,16 @@ impl KvLog {
     fn set(&mut self, key: String, value: String) -> Result<()> {
         assert!(self.loaded);
 
-        let cmd = SetCommand::new(key, value);
+        let cmd = Command::set(key, value);
         let pos = self.writer.pos;
         serde_json::to_writer(&mut self.writer, &cmd)?;
         self.writer.flush()?;
-        if let Some(old_cmd) = self.index.insert(cmd.key, (pos..self.writer.pos).into()) {
-            self.uncompacted += old_cmd.len;
+        if let Command::Set { key, .. } = cmd {
+            if let Some(old_cmd) = self.index.insert(key, (pos..self.writer.pos).into()) {
+                self.uncompacted += old_cmd.len;
+            }
         }
+
         Ok(())
     }
 
@@ -187,20 +203,52 @@ impl KvLog {
         if let Some(cmd_pos) = self.index.get(&key) {
             self.reader.seek(SeekFrom::Start(cmd_pos.pos))?;
             let cmd_reader = (&mut self.reader).take(cmd_pos.len);
-            let set_cmd: SetCommand = serde_json::from_reader(cmd_reader)?;
-            Ok(Some(set_cmd.value))
+            if let Command::Set { value, .. } = serde_json::from_reader(cmd_reader)? {
+                Ok(Some(value))
+            } else {
+                Err(KvsError::UnexpectedCommandType)
+            }
         } else {
             Ok(None)
         }
     }
 
+    fn remove(&mut self, key: String) -> Result<()> {
+        assert!(self.loaded);
+
+        if self.index.contains_key(&key) {
+            let cmd = Command::remove(key);
+            serde_json::to_writer(&mut self.writer, &cmd)?;
+            self.writer.flush()?;
+            if let Command::Remove { key } = cmd {
+                let old_cmd = self.index.remove(&key).expect("key not found");
+                self.uncompacted += old_cmd.len;
+            }
+            Ok(())
+        } else {
+            Err(KvsError::KeyNotFound)
+        }
+    }
+
     fn load(&mut self) -> Result<()> {
         let mut pos = self.reader.seek(SeekFrom::Start(0))?;
-        let mut stream = Deserializer::from_reader(&mut self.reader).into_iter::<SetCommand>();
-        while let Some(set_cmd) = stream.next() {
+        let mut stream = Deserializer::from_reader(&mut self.reader).into_iter::<Command>();
+        while let Some(cmd) = stream.next() {
             let new_pos = stream.byte_offset() as u64;
-            if let Some(old_cmd) = self.index.insert(set_cmd?.key, (pos..new_pos).into()) {
-                self.uncompacted += old_cmd.len;
+            match cmd? {
+                Command::Set { key, .. } => {
+                    if let Some(old_cmd) = self.index.insert(key, (pos..new_pos).into()) {
+                        self.uncompacted += old_cmd.len;
+                    }
+                }
+                Command::Remove { key } => {
+                    if let Some(old_cmd) = self.index.remove(&key) {
+                        self.uncompacted += old_cmd.len;
+                    }
+                    // the "remove" command itself can be deleted in the next compaction
+                    // so we add its length to `uncompacted`
+                    self.uncompacted += new_pos - pos;
+                }
             }
             pos = new_pos;
         }
@@ -209,16 +257,20 @@ impl KvLog {
     }
 }
 
-/// A struct representing the set command
+/// Struct representing a command
 #[derive(Serialize, Deserialize, Debug)]
-struct SetCommand {
-    key: String,
-    value: String,
+enum Command {
+    Set { key: String, value: String },
+    Remove { key: String },
 }
 
-impl SetCommand {
-    fn new(key: String, value: String) -> SetCommand {
-        SetCommand { key, value }
+impl Command {
+    fn set(key: String, value: String) -> Command {
+        Command::Set { key, value }
+    }
+
+    fn remove(key: String) -> Command {
+        Command::Remove { key }
     }
 }
 

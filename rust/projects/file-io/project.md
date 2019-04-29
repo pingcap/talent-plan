@@ -76,6 +76,11 @@ The `kvs` executable supports the following command line arguments:
   Get the string value of a given string key.
   Print an error and return a non-zero exit code on failure.
 
+- `kvs rm <KEY>`
+
+  Remove a given key.
+  Print an error and return a non-zero exit code on failure.
+
 - `kvs -V`
 
   Print the version
@@ -94,12 +99,18 @@ methods:
   If the key does not exist, return `None`.
   Return an error if the value is not read successfully.
 
+- `KvStore::remove(key: String) -> Result<()>`
+
+  Remove a given key.
+  Return an error if the key does not exist or is not removed successfully.
+
 When setting a key to a value, `kvs` writes the `set` command to disk in a
 sequential log, then stores the log pointer (file offset) of that command in the
-in-memory index from key to pointer. When retrieving a value for a key with the
-`get` command, it searches the index, and if found then loads from the log the
-command at the corresponding log pointer, evaluates the command and returns the
-result.
+in-memory index from key to pointer. When removing a key, similarly, `kvs`
+writes the `rm` command in the log, then removes the key from the in-memory
+index.  When retrieving a value for a key with the `get` command, it searches
+the index, and if found then loads from the log the command at the corresponding
+log pointer, evaluates the command and returns the result.
 
 On startup, the commands in the log are traversed from oldest to newest, and the
 in-memory index rebuilt.
@@ -116,7 +127,7 @@ until it is dropped.
 
 ## Project setup
 
-Create a new cargo project and copy `tests/tests.rs` into it. Like project 1,
+Create a new cargo project and copy the `tests` directory into it. Like project 1,
 this project should contain a library and an executable, both named `kvs`.
 
 As with the previous project, use `clap` or `structopt` to handle the command
@@ -181,8 +192,8 @@ compile (`cargo test --no-run`).
 
 Now we are finally going to begin implementing the beginnings of a real
 database, by storing its contents to disk. You will use [`serde`] to serialize
-the "set" command to a string, and the standard file I/O APIs to write it to
-disk.
+the "set" and "rm" commands to a string, and the standard file I/O APIs to write
+it to disk.
 
 [`serde`]: https://serde.rs/
 
@@ -206,6 +217,17 @@ This is the basic behavior of `kvs` with a log:
   - If it succeeds
     - It deserializes the command to get the last recorded value of the key
     - It prints the value to stdout and exits with exit code 0
+- "rm"
+  - The user invokes `kvs rm mykey`
+  - Same as the "get" command, `kvs` reads the entire log to build the in-memory
+    index
+  - It then checks the map if the given key exists
+  - If the key does not exist, it prints "Key not found", and exits with a
+    non-zero error code
+  - If it succeeds
+    - It creates a value representing the "rm" command, containing its key
+    - It then appends the serialized command to the log
+    - If that succeeds, it exits silently with error code 0
 
 The log is a record of the transactions committed to the database. By
 "replaying" the records in the log on startup we reconstruct the previous state
@@ -237,30 +259,36 @@ Some of the APIs you will call may fail, and return a `Result` of some error typ
 Make sure that your calling functions return a `Result` of _your own_ error type,
 and that you convert between the two with `?`.
 
-You may implement the "set" command now, focusing on the `set` test cases, or
-you can proceed to the next section to read about the "get" command. It may help
-to keep both in mind, or to implement them both simultaniously. It is your
-choice.
+It is similar to implement the "rm" command, but you should additionally
+check if the key exists before writing the command to the log. As we have two
+different commands that must be distinguished, you may use variants of a single
+enum type to represent each command. `serde` just works perfectly with enums.
+
+You may implement the "set" and "rm" commands now, focusing on the `set` / `rm`
+test cases, or you can proceed to the next section to read about the "get"
+command. It may help to keep both in mind, or to implement them both
+simultaniously. It is your choice.
 
 
 ## Part 3: Reading from the log
 
-Now it's time to implement "get". It's again pretty straightforward in concept:
-just read each command in the log on startup, executing them to modify the
-in-memory index. Then read from the cache.
+Now it's time to implement "get". In this part, you don't need to store
+log pointers in the index, we will leave the work to the next part. Instead,
+just read each command in the log on startup, executing them to save every key
+and value in the memory. Then read from the memory.
 
 Should you read all records in the log into memory at once and then replay
 them into your map type; or should you read them one at a time while
 replaying the into your map? Should you read into a buffer before deserializing
 or deserialize from a file stream? Think about the memory usage of your approach.
-Think about the way reading from I/O streams interacts with thet kernel.
+Think about the way reading from I/O streams interacts with the kernel.
 
 Remember that "get" may not find a value and that case has to be handled
 specially. Here, our API returns `None` and our command line client prints
 a particular message and exits with a zero exit code.
 
 There's one complication to reading the log, and you may have already considered
-it while writing thet "set" code: how do you distinguish between each record in
+it while writing the "set" code: how do you distinguish between each record in
 the log? That is, how do you know when to stop reading one record, and start
 reading the next? Do you even need to? Maybe serde will deserialize a record
 directly from an I/O stream and stop reading when it's done, leaving the

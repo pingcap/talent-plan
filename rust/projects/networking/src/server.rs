@@ -58,6 +58,10 @@ impl<E: KvsEngine> KvsServer<E> {
                     Ok(_) => SetResponse::Ok(()),
                     Err(e) => SetResponse::Err(format!("{}", e)),
                 }),
+                Request::Remove { key } => send_resp!(match self.engine.remove(key) {
+                    Ok(_) => SetResponse::Ok(()),
+                    Err(e) => SetResponse::Err(format!("{}", e)),
+                }),
             };
         }
         Ok(())

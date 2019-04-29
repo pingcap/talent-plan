@@ -38,6 +38,10 @@ The `kvs` executable supports the following command line arguments:
 
   Get the string value of a given string key
 
+- `kvs rm <KEY>`
+
+  Remove a given key
+
 - `kvs -V`
 
   Print the version
@@ -54,10 +58,14 @@ methods:
   Get the string value of the a string key. If the key does not exist,
   return `None`.
 
+- `KvStore::remove(key: String)`
+
+  Remove a given key.
+
 The `KvStore` type stores values in-memory, and thus the command-line client can
-do little more than print the version. The `get`/ `set` commands will return an
-"unimplemented" error when run from the command line. Future projects will store
-values on disk and have a working command line interface.
+do little more than print the version. The `get`/ `set` / `rm` commands will 
+return an "unimplemented" error when run from the command line. Future projects 
+will store values on disk and have a working command line interface.
 
 
 ## How to treat these projects
@@ -165,9 +173,9 @@ be yourself. Note though that the contents of `kvs.rs` are affected by the
 package name, which is also the name of the library within the package. (TODO
 clarify)
 
-Finally, the `tests.rs` file is copied from the course materials. In this case,
-copy from the course repository the file `rust/project/tools/tests/tests.rs`
-into your own repository, as `tests/tests.rs`
+Finally, the `tests` directory is copied from the course materials. In this case,
+copy from the course repository the file `rust/project/tools/tests`
+into your own repository, as `tests`.
 
 You may set up this project with `cargo new --lib`, `cargo init --lib`, or
 manually. You'll probably also want to initialize a git repository in the same
@@ -253,6 +261,10 @@ Again, the interface for the CLI is:
 - `kvs get <KEY>`
 
   Get the string value of a given string key
+
+- `kvs rm <KEY>`
+
+  Remove a given key
 
 - `kvs -V`
 

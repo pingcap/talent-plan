@@ -25,14 +25,24 @@ fn cli_version() {
     assert!(stdout.contains(env!("CARGO_PKG_VERSION")));
 }
 
-// `kvs get <KEY>` should print "Key not found" for an empty database and exit with zero.
+// `kvs get <KEY>` should print "Key not found" for a non-existent key and exit with zero.
 #[test]
-fn cli_get_nothing() {
+fn cli_get_non_existent_key() {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
     let output = run_with_dir_and_args(temp_dir.path(), &["get", "key1"]);
     let stdout = String::from_utf8(output.stdout).expect("Invalid UTF-8 output");
     assert_eq!(stdout.trim(), "Key not found");
     assert!(output.status.success());
+}
+
+// `kvs rm <KEY>` should print "Key not found" for an empty database and exit with zero.
+#[test]
+fn cli_rm_non_existent_key() {
+    let temp_dir = TempDir::new().expect("unable to create temporary working directory");
+    let output = run_with_dir_and_args(temp_dir.path(), &["rm", "key1"]);
+    let stdout = String::from_utf8(output.stdout).expect("Invalid UTF-8 output");
+    assert_eq!(stdout.trim(), "Key not found");
+    assert!(!output.status.success());
 }
 
 // `kvs set <KEY> <VALUE>` should print nothing and exit with zero.
@@ -71,6 +81,28 @@ fn cli_get_stored() -> Result<()> {
     Ok(())
 }
 
+// `kvs rm <KEY>` should print nothing and exit with zero.
+#[test]
+fn cli_rm_stored() -> Result<()> {
+    let temp_dir = TempDir::new().expect("unable to create temporary working directory");
+
+    let mut store = KvStore::open(temp_dir.path())?;
+    store.set("key1".to_owned(), "value1".to_owned())?;
+    drop(store);
+
+    let output = run_with_dir_and_args(temp_dir.path(), &["rm", "key1"]);
+    let stdout = String::from_utf8(output.stdout).expect("Invalid UTF-8 output");
+    assert!(stdout.is_empty());
+    assert!(output.status.success());
+
+    let output = run_with_dir_and_args(temp_dir.path(), &["get", "key1"]);
+    let stdout = String::from_utf8(output.stdout).expect("Invalid UTF-8 output");
+    assert_eq!(stdout.trim(), "Key not found");
+    assert!(output.status.success());
+
+    Ok(())
+}
+
 #[test]
 fn cli_invalid_get() {
     assert!(!run_with_args(&["get"]).status.success());
@@ -84,6 +116,12 @@ fn cli_invalid_set() {
     assert!(!run_with_args(&["set", "extra", "extra", "field"])
         .status
         .success());
+}
+
+#[test]
+fn cli_invalid_rm() {
+    assert!(!run_with_args(&["rm"]).status.success());
+    assert!(!run_with_args(&["rm", "extra", "field"]).status.success());
 }
 
 #[test]
@@ -147,6 +185,24 @@ fn get_non_existent_value() -> Result<()> {
     let mut store = KvStore::open(temp_dir.path())?;
     assert_eq!(store.get("key2".to_owned())?, None);
 
+    Ok(())
+}
+
+#[test]
+fn remove_non_existent_key() -> Result<()> {
+    let temp_dir = TempDir::new().expect("unable to create temporary working directory");
+    let mut store = KvStore::open(temp_dir.path())?;
+    assert!(store.remove("key1".to_owned()).is_err());
+    Ok(())
+}
+
+#[test]
+fn remove_key() -> Result<()> {
+    let temp_dir = TempDir::new().expect("unable to create temporary working directory");
+    let mut store = KvStore::open(temp_dir.path())?;
+    store.set("key1".to_owned(), "value1".to_owned())?;
+    assert!(store.remove("key1".to_owned()).is_ok());
+    assert_eq!(store.get("key1".to_owned())?, None);
     Ok(())
 }
 
