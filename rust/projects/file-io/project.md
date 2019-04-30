@@ -409,6 +409,9 @@ projects will give you opportunities to optimize.
 
 <!--
 
+- Potential readings
+  - error handling https://github.com/rust-lang-nursery/rust-cookbook/issues/502#issue-387418261
+
 ## TODOs
 
 - should flushing the log be part of the main project or an extension?

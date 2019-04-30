@@ -78,9 +78,12 @@ in the README.
   - previous brainstorming
 - RustBridge
 
-## Readings
+## Reading sources
 
+- previous reading ideas https://github.com/pingcap/talent-plan/blob/32311e6999a2a5b7db25cd2b4dd96491d5181165/rust/plan.md
 - http://highscalability.com/blog/2011/1/10/riaks-bitcask-a-log-structured-hash-table-for-fast-keyvalue.html
+- https://github.com/brson/rust-anthology/blob/master/master-list.md
+- https://github.com/ctjhoa/rust-learning
 
 ## Subjects to potentially cut
 
