@@ -74,8 +74,6 @@ in the README.
     is inspired by and intended to precede
 - https://github.com/ferrous-sytems/rust-three-days-course
 - https://github.com/nrc/talks
-- https://docs.google.com/document/d/11P5f5VRKhS7ZOB5_sbnCKJLo_zor9BiwEAZ9GvVyHWE/edit#
-  - previous brainstorming
 - RustBridge
 
 ## Readings
