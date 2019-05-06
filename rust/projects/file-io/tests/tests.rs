@@ -1,14 +1,11 @@
 use kvs::{KvStore, Result};
-use std::collections::HashMap;
 use std::env::{current_dir, current_exe};
 use std::ffi::OsStr;
-use std::fs::Metadata;
-use std::io;
 use std::iter::empty;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use tempfile::TempDir;
-use walkdir::{DirEntry, WalkDir};
+use walkdir::WalkDir;
 
 // `kvs` with no args should exit with a non-zero code.
 #[test]
