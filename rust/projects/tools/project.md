@@ -239,6 +239,13 @@ That's probably how you will be running the tests yourself as you work
 through the project, otherwise you will be distracted by the many failing tests
 that you have not yet fixed.
 
+Be sure there will be no compile error before you finish Part1:
+
+```
+$ cargo test --no-run
+    Finished dev [unoptimized + debuginfo] target(s) in 0.12s
+```
+
 
 ## Part 2: Accept command line arguments
 
@@ -285,6 +292,26 @@ the `target/` directory. When passing arguments to the program, separate them
 from the `cargo run` command with two dashes, `--`, like `cargo run -- get
 key1`.
 
+Be sure you pass the tests before submitting Part 2, so that you see something like this:
+
+```
+$ cargo test --test tests -- cli --skip cli_version 
+    Finished dev [unoptimized + debuginfo] target(s) in 0.05s
+     Running target/debug/deps/tests-799cb6e0fc20f8bd
+
+running 8 tests
+test cli_invalid_subcommand ... ok
+test cli_get ... ok
+test cli_no_args ... ok
+test cli_rm ... ok
+test cli_set ... ok
+test cli_invalid_get ... ok
+test cli_invalid_rm ... ok
+test cli_invalid_set ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out
+```
+
 
 ## Part 3: Cargo environment variables
 
@@ -296,7 +323,24 @@ that can be accessed through Rust source code, at build time.
 _Modify your clap setup to set these values from standard cargo environment
 variables._
 
+Be sure you pass the tests before submitting Part 3, so that you see something like this:
 
+```
+cargo test --test tests -- cli    
+
+running 9 tests
+test cli_get ... ok
+test cli_invalid_subcommand ... ok
+test cli_no_args ... ok
+test cli_rm ... ok
+test cli_set ... ok
+test cli_invalid_get ... ok
+test cli_version ... ok
+test cli_invalid_rm ... ok
+test cli_invalid_set ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out
+```
 
 
 ## Part 4: Store values in memory
@@ -309,6 +353,31 @@ themselves &mdash; you don't need any further description to complete the
 code for this project.
 
 _Make the remaining test cases pass by implementing methods on `KvStore`._
+
+In this part, please be sure you pass all our tests:
+
+```
+$ cargo test --test tests                                
+    Finished dev [unoptimized + debuginfo] target(s) in 0.05s
+     Running target/debug/deps/tests-799cb6e0fc20f8bd
+
+running 13 tests
+test cli_get ... ok
+test cli_invalid_subcommand ... ok
+test get_non_existent_value ... ok
+test get_stored_value ... ok
+test overwrite_value ... ok
+test remove_key ... ok
+test cli_rm ... ok
+test cli_no_args ... ok
+test cli_set ... ok
+test cli_invalid_rm ... ok
+test cli_invalid_get ... ok
+test cli_version ... ok
+test cli_invalid_set ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
 
 
 ## Part 5: Documentation
