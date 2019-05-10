@@ -17,7 +17,7 @@ pub trait KvsEngine {
 
     /// Removes a given key.
     ///
-    /// # Error
+    /// # Errors
     ///
     /// It returns `KvsError::KeyNotFound` if the given key is not found.
     fn remove(&self, key: String) -> Result<()>;

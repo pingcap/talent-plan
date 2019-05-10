@@ -46,7 +46,7 @@ impl KvStore {
     ///
     /// This will create a new directory if the given one does not exist.
     ///
-    /// # Error
+    /// # Errors
     ///
     /// It propagates I/O or deserialization errors during the log replay.
     pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
@@ -95,7 +95,7 @@ impl KvsEngine for KvStore {
     ///
     /// If the key already exists, the previous value will be overwritten.
     ///
-    /// # Error
+    /// # Errors
     ///
     /// It propagates I/O or serialization errors during writing the log.
     fn set(&self, key: String, value: String) -> Result<()> {
@@ -115,7 +115,7 @@ impl KvsEngine for KvStore {
 
     /// Removes a given key.
     ///
-    /// # Error
+    /// # Errors
     ///
     /// It returns `KvsError::KeyNotFound` if the given key is not found.
     ///
