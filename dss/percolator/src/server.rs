@@ -108,6 +108,10 @@ impl transaction::Service for MemoryStorage {
         // Your code here.
         unimplemented!()
     }
+    //example rollback RPC handler
+    fn rollback(&self, req:RollbackReqest) -> RpcFuture<RollbackResponse>{
+        
+    }
 }
 
 impl MemoryStorage {

@@ -16,6 +16,7 @@ service! {
         rpc get(GetRequest) returns (GetResponse);
         rpc prewrite(PrewriteRequest) returns (PrewriteResponse);
         rpc commit(CommitRequest) returns (CommitResponse);
+        rpc rollback(RollbackReqest) returns(RollbackResponse);
     }
 }
 
