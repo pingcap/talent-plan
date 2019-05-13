@@ -88,18 +88,18 @@ The `kvs` executable supports the following command line arguments:
 The `kvs` library contains a type, `KvStore`, that supports the following
 methods:
 
-- `KvStore::set(key: String, value: String) -> Result<()>`
+- `KvStore::set(&mut self, key: String, value: String) -> Result<()>`
 
   Set the value of a string key to a string.
   Return an error if the value is not written successfully.
 
-- `KvStore::get(key: String) -> Result<Option<String>>`
+- `KvStore::get(&mut self, key: String) -> Result<Option<String>>`
 
   Get the string value of the a string key.
   If the key does not exist, return `None`.
   Return an error if the value is not read successfully.
 
-- `KvStore::remove(key: String) -> Result<()>`
+- `KvStore::remove(&mut self, key: String) -> Result<()>`
 
   Remove a given key.
   Return an error if the key does not exist or is not removed successfully.
