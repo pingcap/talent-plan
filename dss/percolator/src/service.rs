@@ -1,6 +1,6 @@
 use crate::msg::{
     CommitRequest, CommitResponse, GetRequest, GetResponse, PrewriteRequest, PrewriteResponse,
-    TimestampRequest, TimestampResponse,
+    TimestampRequest, TimestampResponse,RollbackRequest,RollbackResponse,
 };
 
 service! {
@@ -16,7 +16,7 @@ service! {
         rpc get(GetRequest) returns (GetResponse);
         rpc prewrite(PrewriteRequest) returns (PrewriteResponse);
         rpc commit(CommitRequest) returns (CommitResponse);
-        rpc rollback(RollbackReqest) returns(RollbackResponse);
+        rpc rollback(RollbackRequest) returns(RollbackResponse);
     }
 }
 

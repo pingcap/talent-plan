@@ -29,6 +29,6 @@ message CommitRequest {
 
 message CommitResponse {}
 
-message RollbackReqest{}
+message RollbackRequest{}
 
 message RollbackResponse{}
