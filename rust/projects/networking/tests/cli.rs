@@ -6,7 +6,6 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use tempfile::TempDir;
-use walkdir::WalkDir;
 
 // `kvs-client` with no args should exit with a non-zero code.
 #[test]
@@ -283,7 +282,7 @@ fn cli_access_server(engine: &str, addr: &str) {
         .assert()
         .success()
         .stdout(is_empty());
-    
+
     Command::cargo_bin("kvs-client")
         .unwrap()
         .args(&["rm", "key1", "--addr", addr])
