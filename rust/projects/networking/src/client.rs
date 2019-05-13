@@ -1,4 +1,4 @@
-use crate::common::{GetResponse, Request, SetResponse, RemoveResponse};
+use crate::common::{GetResponse, RemoveResponse, Request, SetResponse};
 use crate::{KvsError, Result};
 use serde::Deserialize;
 use serde_json::de::{Deserializer, IoRead};

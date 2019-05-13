@@ -16,7 +16,7 @@ impl<E: KvsEngine> KvsServer<E> {
     }
 
     /// Run the server listening on the given address
-    pub fn run<A: ToSocketAddrs>(self, addr: A) -> Result<()> {
+    pub fn run<A: ToSocketAddrs>(mut self, addr: A) -> Result<()> {
         let listener = TcpListener::bind(addr)?;
         for stream in listener.incoming() {
             match stream {
@@ -31,7 +31,7 @@ impl<E: KvsEngine> KvsServer<E> {
         Ok(())
     }
 
-    fn serve(&self, tcp: TcpStream) -> Result<()> {
+    fn serve(&mut self, tcp: TcpStream) -> Result<()> {
         let peer_addr = tcp.peer_addr()?;
         let reader = BufReader::new(&tcp);
         let mut writer = BufWriter::new(&tcp);
