@@ -202,7 +202,7 @@ This is the basic behavior of `kvs` with a log:
 - "set"
   - The user invokes `kvs set mykey myvalue`
    - `kvs` creates a value representing the "set" command, containing its key and
-    value
+      value
   - It then serializes that command to a `String`
   - It then appends the serialized command to a file containing the log
   - If that succeeds, it exits silently with error code 0
@@ -269,6 +269,13 @@ test cases, or you can proceed to the next section to read about the "get"
 command. It may help to keep both in mind, or to implement them both
 simultaniously. It is your choice.
 
+In this part, below tests about `set`  should be passed: `cargo test --test tests -- cli_rm_non_existent_key` and `cargo test --test tests -- set`.
+
+And after finishing part-3 and implementing `get` in this project, there are also some tests about `set`/`rm` you need to pass. After implementing `get`, you need to pass the tests below:
+
+```
+cargo test --test tests -- --skip get --skip compaction
+```
 
 ## Part 3: Reading from the log
 
@@ -299,6 +306,53 @@ additional information to distinguish the length of each record. Maybe not.
 [`serde`]: https://serde.rs/
 
 _Implement "get" now_.
+
+Be sure you pass the tests before submitting Part 3, you need to pass all the tests about `get`:
+
+```
+cargo test --test tests -- get
+...
+
+running 5 tests
+test get_non_existent_value ... ok
+test get_stored_value ... ok
+test cli_get_non_existent_key ... ok
+test cli_invalid_get ... ok
+test cli_get_stored ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out
+```
+
+After passing all the tests for get, you can go back to `set` and `rm`, you also need to pass all the tests for them.
+
+So that you see something like this:
+
+```
+cargo test --test tests -- --skip compaction
+...
+
+running 16 tests
+test cli_no_args ... ok
+test cli_invalid_subcommand ... ok
+test cli_rm_non_existent_key ... ok
+test cli_get_non_existent_key ... ok
+test get_non_existent_value ... ok
+test get_stored_value ... ok
+test overwrite_value ... ok
+test remove_key ... ok
+test remove_non_existent_key ... ok
+test cli_invalid_get ... ok
+test cli_invalid_rm ... ok
+test cli_version ... ok
+test cli_get_stored ... ok
+test cli_invalid_set ... ok
+test cli_set ... ok
+test cli_rm_stored ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out
+```
+
+
 
 
 ## Part 4: Storing log pointers in the index
@@ -400,6 +454,36 @@ projects will give you opportunities to optimize.
 [sled]: https://github.com/spacejam/sled
 [badger]: https://github.com/dgraph-io/badger
 [RocksDB]: https://rocksdb.org/
+
+Be sure you pass the tests before submitting Part 6, so that you see something like this:
+
+```
+cargo test --test tests              
+...
+
+running 17 tests
+test cli_invalid_subcommand ... ok
+test cli_no_args ... ok
+test cli_get_non_existent_key ... ok
+test cli_rm_non_existent_key ... ok
+test cli_invalid_rm ... ok
+test cli_invalid_get ... ok
+test get_non_existent_value ... ok
+test get_stored_value ... ok
+test overwrite_value ... ok
+test remove_key ... ok
+test cli_version ... ok
+test remove_non_existent_key ... ok
+test cli_get_stored ... ok
+test cli_invalid_set ... ok
+test cli_rm_stored ... ok
+test cli_set ... ok
+test compaction ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
+
+
 
 
 # Extension 1: Range queries
