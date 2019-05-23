@@ -235,6 +235,33 @@ successful results and errors. For inspiration see [examples of HTTP/1.1][http].
 
 [http]: https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Example_session
 
+In this part, lots of test cases should be passed. First make sure you can pass all the tests for 
+`KvStore`: that means you should see something like this:
+
+```
+cargo test --test kv_store       
+...
+
+running 6 tests
+test remove_non_existent_key ... ok
+test remove_key ... ok
+test get_non_existent_value ... ok
+test get_stored_value ... ok
+test overwrite_value ... ok
+test compaction ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
+
+And then, you should pass our tests for `KvsClient` and `KvsServer`:
+
+```
+cargo test --test cli -- --skip sled
+...
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out
+```
+
 
 ## Part 5: More error handling
 
@@ -286,6 +313,9 @@ As one final step, you need to consider what happens when `kvs-client` is
 started with one engine, is killed, then restarted with a different engine. This
 case can only result in an error, and you need to figure out how to detect the
 case to report the error. The test `cli_wrong_engine` reflects this scenario.
+
+Be sure you pass the tests before submitting Part 6, you should run `cargo test` 
+and pass all the tests in our project.
 
 
 ## Part 7: Benchmarking
