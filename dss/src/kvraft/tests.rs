@@ -486,7 +486,7 @@ fn generic_test_linearizability(
 
         if partitions {
             debug!("wait for partitioner");
-            partitioner_rx.try_recv().unwrap();
+            partitioner_rx.recv().unwrap();
             // reconnect network and submit a request. A client may
             // have submitted a request in a minority.  That request
             // won't return until that server discovers a new term
