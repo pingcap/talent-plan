@@ -111,20 +111,20 @@ The `kvs` library contains four types:
 
 The `KvsEngine` trait supports the following methods:
 
-- `KvsEngine::set(key: String, value: String) -> Result<()>`
+- `KvsEngine::set(&mut self, key: String, value: String) -> Result<()>`
 
   Set the value of a string key to a string.
 
   Return an error if the value is not written successfully.
 
-- `KvsEngine::get(key: String) -> Result<Option<String>>`
+- `KvsEngine::get(&mut self, key: String) -> Result<Option<String>>`
 
   Get the string value of a string key.
   If the key does not exist, return `None`.
 
   Return an error if the value is not read successfully.
 
-- `KvsEngine::remove(key: String) -> Result<()>`
+- `KvsEngine::remove(&mut self, key: String) -> Result<()>`
 
   Remove a given string key.
 
