@@ -394,6 +394,8 @@ Random numbers can be generated with the `rand` crate.
 
 _Write the above benchmarks, and compare the results between `kvs` and `sled`._
 
+TODO: criterion output example
+
 
 ## Extension 1: Signal handling
 

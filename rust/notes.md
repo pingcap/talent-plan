@@ -68,7 +68,8 @@ in the README.
 - thread pools
 - workspaces
 - refactoring
-
+- https://github.com/altsysrq/proptest
+- fuzzing
 
 ## Sources
 
