@@ -6,13 +6,13 @@ with synchronous networking over a custom protocol.
 **Goals**:
 
 - Write a simple thread-pool
-- Use crossbeam channels
+- Use channels for cross-thread communication
 - Share data structures with locks
 - Perform compaction in a background thread
 - Share data structures without locks
 - Benchmark single-threaded vs multi-threaded
 
-**Topics**: threads, thread-pools, channels, locks, basic tokio
+**Topics**: threads, thread-pools, channels, locks
 
 
 ## Introduction
@@ -243,14 +243,15 @@ the thread terminates all that work needs to be undone again.
 With a thread pool, all that setup overhead is only done for a few threads, and
 subsequent jobs are simply context switches into existing threads in the pool.
 
+
 ### So how do you build a thread pool?
 
 There are many strategies and tradeoffs, but for this exercise you are going to
 use a single shared queue to distribute work to idle threads. That mans that
-your "producer", the thread that recieves network connections, sends jobs to a
-single queue (or channel), and every idle thread in the pool reads from that
-channel waiting for a job to execute. This is the very simplest work scheduling
-strategy, but it can be effective. What are the downsides?
+your "producer", the thread that accepts network connections, sends jobs to a
+single queue (or channel), and the "consumers", every idle thread in the pool,
+read from that channel waiting for a job to execute. This is the very simplest
+work scheduling strategy, but it can be effective. What are the downsides?
 
 You have three important considerations here:
 
@@ -292,14 +293,14 @@ the full set of messages you need to manage your thread pool, depending on the
 design. In particular, shutting down can often be done implicitly if your queue
 returns a result indicating that the sender has been destroyed.
 
-There are many types of multi-threaded queues. In Rust the most common is
-certainly the [`mpsc`] channel, because it lives in Rust's standard library.
-This is a multi-producer, single consumer queue, so using it for your
-single-queue thread pool will require a lock of some kind. What's the downside
-of using a lock here? There are many other concurrent queue types in Rust, and
-each has pros and cons. If you are willing to take a lock, then you could even
-use a `Mutex<VecDeque>`, but there's probably no reason to do that in production
-when better solutions exist.
+There are many types of multi-threaded queues. In Rust the most common is the
+[`mpsc`] channel, because it lives in Rust's standard library. This is a
+multi-producer, single consumer queue, so using it for your single-queue thread
+pool will require a lock of some kind. What's the downside of using a lock here?
+There are many other concurrent queue types in Rust, and each has pros and cons.
+If you are willing to take a lock on both producer and consumer sides, then you
+could even use a `Mutex<VecDeque>`, but there's probably no reason to do that in
+production when better solutions exist.
 
 _Historical note: the existance of channels in Rust's standard library is a bit
 of a curiosity, and is widely considered a mistake, as it betrays Rust's general
@@ -307,16 +308,17 @@ philosophy of keeping the standard library minimal, focused on abstracting the
 operating system, and letting the crate ecosystem experiment with advanced data
 structures. Their presence is an artifact of Rust's development history and
 origins as a [CSP]-style language like go. Other libraries like [`crossbeam`]
-provide more sophisticated alternatives that provide alternative, and (😉)
-sometimes more suitable options_.
+provide more sophisticated alternatives, and sometimes more suitable options_
+😉.
 
 Your thread pool will need to deal with the case where the spawned function
 panics &mdash; simply letting panics destroy the threads in your pool would
-quickly deplete its pool of threads. So if a thread in your pool panics you need
-to make sure that the total number of threads doesn't decrease. So what should
-you do? You have two options: let the thread die and spawn another, or catch the
-panic and keep the existing thread running. What are the tradeoffs? You've got
-to pick one, but leave a comment in your code explaining your choice.
+quickly deplete its available threads. So if a thread in your pool panics you
+need to make sure that the total number of threads doesn't decrease. So what
+should you do? You have at least two options: let the thread die and spawn
+another, or catch the panic and keep the existing thread running. What are the
+tradeoffs? You've got to pick one, but leave a comment in your code explaining
+your choice.
 
 Some of the tools at your disposal are `[thread::spawn]`, [`catch_unwind`],
 [`mpsc`] channels, [`Mutex`], crossbeam's [`mpmc`] channels, and `thread`s
@@ -333,7 +335,7 @@ Again your `kvs-server` should still work the same as previously, now with a
 slightly more clever multi-threading model. This time you'll want to call
 the thread pool constructor with an appropriate number of threads. For
 now you can create a thread per CPU, using the [`num_cpus`] crate. We'll
-revisit that 
+revisit the number of threads later.
 
 
 ## Part 5: Abstract thread pools
@@ -349,8 +351,12 @@ as its second argument, and use that threadpool to distribute the work.
 Finally create one more `ThreadPool` implementation, `RayonThreadPool`,
 using the `ThreadPool` type from the [`rayon`] crate.
 
+Rayon's thread pool uses a more sophisticated scheduling strategy called ["work
+stealing"] (TODO: verify this), and we'll expect it to perform better than ours,
+but who knows until we try!
 
-## Part 4: Evaluating our thread pool
+
+## Part 6: Evaluating our thread pool
 
 TODO: There is going to be a massive amount of context switching with
 the way these benchmarks are described. It may be pretty bogus.
@@ -361,6 +367,9 @@ read-heavy workload comparing the performance of `SharedQueueThreadPool` with
 varying number of threads; two more that use `RayonThreadPool` instead of of
 `SharedQueueThreadPool`, and finally, yet two more that use `RayonThreadPool` in
 conjunction with `SledKvsEngine`.
+
+It's not as much as work as it sounds &mdash; four of them are essentially
+duplicates of the first two.
 
 So as part of this you will need to make sure the `SledKvsEngine` implementation
 you wrote as part of the previous project works again in this multi-threaded
@@ -373,7 +382,10 @@ Again you will use [criterion].
 
 What you are attempting to test is the throughput of your server under various
 conditions. You will be sending many requests in parallel, waiting for the
-responses, then ending.
+responses, then ending. What you should be curious about here is how the number
+of threads affects your throughput compared to the number of CPUs on your
+machine; how your threadpool compares to rayon's; and how your `KvStore`
+compares to `SledKvsEngine` in a multi-threaded context.
 
 This will be somewhat complicated by the fact that our `KvsClient` is blocking,
 that is, it sends a request then waits for a response. If it was non-blocking,
@@ -383,7 +395,7 @@ request in its own thread in order to saturate the server's capacity.
 
 These are going to be _parameterized_ benchmarks, that is, single benchmarks
 that are run multiple times with different parameters. Criterion calls
-these [benchmarks with inputs][bi].
+these [benchmarking with inputs][bi].
 
 [bi]: https://bheisler.github.io/criterion.rs/book/user_guide/benchmarking_with_inputs.html
 
@@ -405,10 +417,10 @@ c.bench_function_over_inputs("example", |b, &&num| {
 }, inputs);
 ```
 
-That `iter` calls your closure many times. But since you are going to need to
-set up a lot of threads beforehand, that is work that you don't want to measure.
-If you can do the setup only once for multiple iterations then the setup can
-go outside the closure, like
+That `iter` calls your closure many times, measuring each iteration. But since
+you are going to need to set up a lot of threads beforehand, that is work that
+you don't want to measure. If you can do the setup only once for multiple
+iterations then the setup can go outside the closure, like
 
 ```rust
 let c = Criterion::default();
@@ -428,10 +440,11 @@ opportunities to create those threads once, prior to the many iterations of your
 loop, you'll need to set up a bunch of reusable threads before you iterate over
 the benchmark. Fortunately you have the perfect tool for that in your
 `SharedQueueThreadPool`. Set that up with a thread per request, and pair it with
-some channels to send the request and report that the response is received, and
-you will have a suitable benchmark harness.
+some channels to report back that the response is received, and you will have a
+suitable benchmark harness.
 
-**Ok, now to the first two benchmarks**.
+
+### Ok, now to the first two benchmarks
 
 We have said that this is a parameterized benchmark, and the parameter to the
 benchmark is the number of CPUs to use in the server's thread pool. We want to
@@ -452,7 +465,7 @@ the benchmarking thread to indicate they are done. When the benchmarking thread
 has recieved acknowledgement from all threads, it continues and finishes that
 iteration.
 
-Call this benchmark `write_rr_kvstore` (or whatever).
+Call this benchmark `write_queued_kvstore` (or whatever).
 
 For the read-heavy workload, during setup, create the `KvServer<KvStore,
 SharedQueueThreadPool>`, with the thread pool containing the parameterized number
@@ -464,17 +477,65 @@ issue the same 0-999 `get` requests, and then `assert!` that the result is
 correct. Finally, as before, send a message back to the benchmarking thread
 indicating that read is complete.
 
+Call this benchmark `read_queued_kvstore` (or whatever).
+
 **Whew. That was a lot of work**.
 
-- read-centric workload, measuring network throughput
-- is just writing more criterion benchmarks useful?
-- can we come up with other tools to measure with,
-  or other reasons to measure?
-- use parameterized criterion to measure up to 2x
-  the number of cores
-- use a naive round-robin crate and a work-stealing threadpool (threadpool and rayon::ThreadPool?)
+So you can run this set of criterion benchmarks as usual with `cargo bench`,
+and you'll see an output like:
 
-## Part 5: Evaluating other thread pools and engines
+```
+TODO: @Yilin
+```
+
+But this time you are going to do more. Since you are running the same
+benchmark over multiple parameters, representing the number of threads
+in your threadpool, what would be really nice is if we could see the
+effect of different thread counts in a nice graph.
+
+Oh, hey &mdash; criterion does that!
+
+Go back and read about [benchmarking with inputs][bi]. It explains how to see
+the graph of your benchmark against its inputs. What do you notice? What happens
+as your number of threads approaches the number of CPUs on your machine? What
+happens as the number of threads exceeds the number of threads on your machine?
+What do you think accounts for the trend you see? These types of results are
+highly unpredictable, and depend on many factors, so your results might be
+different from anybody elses.
+
+This is why we always benchmark. We can make educated guesses about performance,
+but we don't know until we test. And if we were doing this for production, we
+would want to test under even more conditions, on many types of machines,
+under a variety of conditions.
+
+
+## Part 7: Evaluating other thread pools and engines
+
+Ok. You've gotten the most difficult part of this benchmarking exercise out of
+the way. Now you've just got to do almost the same thing in a few more
+configurations.
+
+Take those two benchmarks you wrote previously, and just copy-and-past them
+three times. In all of them, change `SharedQueueThreadPool` to
+`RayonThreadPool`.
+
+The third and fourth, name `read/write_rayon_kvstore` (or whatever). These you
+will compare to the first two `SharedQueueThreadPool` implementations, to
+see the difference between yours and `RayonThreadPool`.
+
+The fourth and fifth, name `read/write_rayon_sledkvengine`, and change the
+engine to `SledKvEngine`. These you will compare to the previous two to
+see how your `KvEngine` compares to sled's in a multi-threaded environment.
+
+As before, run and chart all these benchmarks. Compare them to each other as
+described above. How does your scheduler compare to rayon under various thread
+counts? How does your storage engine compare to sled under various thread
+counts? Can you imagine why the differences exist?
+
+Now would be a _great_ time to read the [source of rayon] and the [source of
+sled]. Get used to reading other people's source code. That is where you will
+learn the most.
+
 
 ## Part : Lock-free shared data structures
 

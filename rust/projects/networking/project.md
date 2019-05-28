@@ -394,6 +394,13 @@ Random numbers can be generated with the `rand` crate.
 
 _Write the above benchmarks, and compare the results between `kvs` and `sled`._
 
+_Note: **please** run the benchmarks on an otherwise unloaded machine. Benchmark
+results are very sensitive to the environment they are run in, and while the
+criterion library does its best to compensate for "noise", benchmarks are best
+done on a clean machine without other active processes. If you have a spare
+machine just for development, use that. If not, an AWS or other cloud instance
+may produce more consistent results than your local desktop._
+
 TODO: criterion output example
 
 
