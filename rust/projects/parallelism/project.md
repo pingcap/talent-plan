@@ -42,7 +42,7 @@ as we work through it..
 The library interface is nearly the same except for two things. First this time
 all the `KvsEngine`, `KvStore`, etc. methods take `&self` instead of `&mut
 self`, and now it implements `Clone`. This is common with parallel
-datastructions. Why is that? It's not that we're not going to be writing
+data structures. Why is that? It's not that we're not going to be writing
 immutable code. It _is_ though going to be shared across threads. Why might that
 preclude using `&mut self` in the method signatures? If you don't know now,
 it'll become obvious by the end of this project.
@@ -74,7 +74,7 @@ This project should not require any changes at all to the client code.
 
 ## Project setup
 
-Create a new cargo project and copy `tests/tests.rs` into it. This project
+Create a new cargo project and copy the `tests` directory into it. This project
 should contain a library named `kvs`, and two executables, `kvs-server` and
 `kvs-client`. As with previous projects, add enough definitions that the
 test suite builds.
@@ -130,11 +130,11 @@ pub trait KvsEngine: Clone {
 
 This gives us a lot of clues about the implementation strategy we're pursuing.
 First, think about why the engine needs to implement `Clone` when we have a
-multi-threaded implementation. Instead of being coy, this once I'll just tell
-you that each thread is going to need access to the engine. Now think about why
-that makes us use `&self` instead of `&mut self`. What do you know about shared
-mutable state? By the end of this project be sure you understand the
-implications here &mdash; _this is what Rust is all about_.
+multi-threaded implementation. This once I'll just tell you that each thread is
+going to need access to the engine. Now think about why that makes us use
+`&self` instead of `&mut self`. What do you know about shared mutable state? By
+the end of this project be sure you understand the implications here &mdash;
+_this is what Rust is all about_.
 
 In this model, `KvsEngine` behaves like a _handle_ to another object, and
 because that object is shared between threads, it probably needs to live on the
@@ -143,34 +143,34 @@ some synchronization primitive.
 
 [heap]: https://stackoverflow.com/questions/79923/what-and-where-are-the-stack-and-heap
 
-So, _hoist the date inside your implementation of `KvEngine`, `KvsStore` onto
-the heap usinga thread-safe shared pointer type and protect it behind a lock of
+So, _hoist the data inside your implementation of `KvEngine`, `KvsStore` onto
+the heap using a thread-safe shared pointer type and protect it behind a lock of
 your choosing_.
 
 Remember that because `KvsEngine` requires `Clone` you also need to implement
 `Clone` for `KvsStore`.
 
 At this point, if you've carried over your code from previous projects, your
-single-threaded `KvsServer` should work once again, but now with a `KvsEngine`
-that can later be shared across thrteads.
+single-threaded `KvServer` should work once again, but now with a `KvsEngine`
+that can later be shared across threads.
 
 **Test cases to complete**:
 
   - TODO @Yilin
 
 
-## Part 3: Adding multithreading to `KvsServer`
+## Part 3: Adding multithreading to `KvServer`
 
-Let's quickly review our architecture here: `KvsServer` sets up a TCP socket and
+Let's quickly review our architecture here: `KvServer` sets up a TCP socket and
 begins listening on it; when it receives a request it deserializes it and calls
 some implementation of the `KvsEngine` trait to store or retrieve data; then it
 sends back the response. The details of how `KvsEngine` works don't matter to
-`KvsServer`.
+`KvServer`.
 
 So in the last project you probably created a loop vaguelly like:
 
 ```rust
-let listener = TcpListener::bind("127.0.0.1:80")?;
+let listener = TcpListener::bind(addr)?;
 
 for stream in listener.incoming() {
 	let cmd = self.read_cmd(&stream);
@@ -181,7 +181,9 @@ for stream in listener.incoming() {
 
 _Well, now you just need to do the same thing, but spawn all the work inside the
 loop into your `NaiveThreadPool`_. The database query and the response are both
-handled on a different thread than the TCP listener.
+handled on a different thread than the TCP listener. This offloads most of
+the hard work to other threads, allowing the recieving thread to process more
+requests. It should increase throughput, at least on multi-core machines.
 
 **Test cases to complete**:
 
@@ -208,20 +210,21 @@ and reuses those threads instead of creating a new one.
 
 But why?
 
-It's entirely about performance. It saves a small amount of performance, but
-when writing high-performance applications, every bit counts. Imagine what it
-takes to make a new thread:
+It's entirely about performance. Reusing threads saves a small amount of
+performance, but when writing high-performance applications, every bit counts.
+Imagine what it takes to make a new thread:
 
-You've got to have a call stack for that thread to run on. That's an allocation.
-Allocations are pretty cheap, but not as cheap as not allocation. How that call
-stack is allocated depends on details of the operating system and runtime, but
-can involve locks and syscalls. Syscalls again are not _that_ expensive, but
-they are expensive when we're dealing with Rust levels of performance. Reducing
-syscalls is a common source of easy optimization. That stack then has to be
-carefully initialized so that first [stack _frame_] contains the appropriate
-values for the return pointer and other things. In Rust the stack needs to be
-configured with a [guard page]. That's two more syscalls, [to `mmap` and to
-`mprotect`][mp].
+You've got to have a call stack for that thread to run on. That call stack must
+be allocated. Allocations are pretty cheap, but not as cheap as no allocation.
+How that call stack is allocated depends on details of the operating system and
+runtime, but can involve locks and syscalls. Syscalls again are not _that_
+expensive, but they are expensive when we're dealing with Rust levels of
+performance &mdash; reducing syscalls is a common source of easy optimizations.
+That stack then has to be carefully initialized so that first [stack _frame_]
+contains the appropriate values for the return pointer and other things. In Rust
+the stack needs to be configured with a [guard page] to prevent stack overflows,
+preserving memory safety. That takes two more syscalls, [to `mmap` and to
+`mprotect`][mp] (though on Linux in particular, those two syscalls are avoided).
 
 [2mb]: https://github.com/rust-lang/rust/blob/6635fbed4ca8c65822f99e994735bd1877fb063e/src/libstd/sys/unix/thread.rs#L12
 [mp]: https://github.com/rust-lang/rust/blob/6635fbed4ca8c65822f99e994735bd1877fb063e/src/libstd/sys/unix/thread.rs#L315
@@ -229,51 +232,111 @@ configured with a [guard page]. That's two more syscalls, [to `mmap` and to
 TODO: illustration?
 
 That's just setting up the callstack. It's at least another syscall to create
-the new thread, at which point the kernel must do its own accounting for the new
-thread.
+the new thread, at which point the kernel must do its own internal accounting
+for the new thread.
 
-In Rust libpthread handles most of this complexity.
+In Rust, the C [libpthread] library handles most of this complexity.
 
-Then at some point the OS performs a [context switch] onto the new thread. With
-a thread pool, all that setup overhead is only done for a few threads, and
-subsequent jobs are simply context switches into that pool of threads.
+Then at some point the OS performs a [context switch] onto the new thread. When
+the thread terminates all that work needs to be undone again.
 
-So how do you build a thread pool?
+With a thread pool, all that setup overhead is only done for a few threads, and
+subsequent jobs are simply context switches into existing threads in the pool.
+
+### So how do you build a thread pool?
 
 There are many strategies and tradeoffs, but for this exercise you are going to
-write a "round-robin" thread pool. "Round-robin" just means that you have a
-circular list of threads and distribute work to them in order. This is the very
-simplest work scheduling strategy, but it can be effective. What are the
-downsides?
+use a single shared queue to distribute work to idle threads. That mans that
+your "producer", the thread that recieves network connections, sends jobs to a
+single queue (or channel), and every idle thread in the pool reads from that
+channel waiting for a job to execute. This is the very simplest work scheduling
+strategy, but it can be effective. What are the downsides?
 
-There is one wrinkle in this easy strategy: your thread pool will need to deal
-with the case where the spawned function panics &mdash; simply letting panics
-destroy the threads in your pool would quickly deplete its pool of threads. So
-if a thread in your pool panics you need to make sure that the total number of
-threads doesn't decrease. So what should you do? You have two options: let the
-thread die and spawn another, or catch the panic and keep the existing thread
-running. What are the tradeoffs? You've got to pick one, but leave a comment in
-your code explaining your choice.
+You have three important considerations here:
 
-_Create the `RoundRobinThreadPool` type, implementing `ThreadPool`_.
+1) _which data structure to use to distribute the work_ &mdash; it's going to be a
+  queue, and there is going to be one sender ("producer"), the thread listening
+  for TCP connections, and many recievers ("consumers"), the threads in the pool.
 
-The tools at your disposal are `[thread::spawn]`, [`catch_unwind`], [`mpsc`]
-channels, and `thread`s [`JoinHandle`]. Depending on your approach you may
-use some or all of these.
+2) _how to deal with panicking jobs_ &mdash; your pool runs arbitrary work items.
+  If a thread panics, the thread pool needs to recover in some way.
+
+3) _how to deal with shutdown_ &mdash; when the `ThreadPool` object goes out of
+  scope it needs to shut down every thread. It must not leave them idle.
+
+These concerns are all intertwined since dealing with each of them may involve
+communication and synchronization between threads. Some solutions will be
+simple, the solutions to each of these working together gracefully; some
+solutions will be complex, the solutions being independent and convoluted.
+Choose your data structures carefully and use their capabilities wisely.
+
+You will distribute work by sending messages over some concurrent queue type (a
+concurrent queue in Rust typically being a data structure with two connected
+types: sender types, and reciever types; and that can send between the two types
+any type that implements `Send` + `'static`).
+
+Messages is Rust are typically represented as enums, with variants for each
+possible message that can be sent, like:
+
+```
+enum ThreadPoolMessage {
+    RunJob(Box<FnOnce + Send + 'static>),
+	Shutdown,
+}
+```
+
+This tends to be a simpler and more efficient solution than trying to "juggle"
+multiple channels for different purposes. Of course, if there is only one type
+of message, an enum is not necessary. Now, the above example may or may not be
+the full set of messages you need to manage your thread pool, depending on the
+design. In particular, shutting down can often be done implicitly if your queue
+returns a result indicating that the sender has been destroyed.
+
+There are many types of multi-threaded queues. In Rust the most common is
+certainly the [`mpsc`] channel, because it lives in Rust's standard library.
+This is a multi-producer, single consumer queue, so using it for your
+single-queue thread pool will require a lock of some kind. What's the downside
+of using a lock here? There are many other concurrent queue types in Rust, and
+each has pros and cons. If you are willing to take a lock, then you could even
+use a `Mutex<VecDeque>`, but there's probably no reason to do that in production
+when better solutions exist.
+
+_Historical note: the existance of channels in Rust's standard library is a bit
+of a curiosity, and is widely considered a mistake, as it betrays Rust's general
+philosophy of keeping the standard library minimal, focused on abstracting the
+operating system, and letting the crate ecosystem experiment with advanced data
+structures. Their presence is an artifact of Rust's development history and
+origins as a [CSP]-style language like go. Other libraries like [`crossbeam`]
+provide more sophisticated alternatives that provide alternative, and (😉)
+sometimes more suitable options_.
+
+Your thread pool will need to deal with the case where the spawned function
+panics &mdash; simply letting panics destroy the threads in your pool would
+quickly deplete its pool of threads. So if a thread in your pool panics you need
+to make sure that the total number of threads doesn't decrease. So what should
+you do? You have two options: let the thread die and spawn another, or catch the
+panic and keep the existing thread running. What are the tradeoffs? You've got
+to pick one, but leave a comment in your code explaining your choice.
+
+Some of the tools at your disposal are `[thread::spawn]`, [`catch_unwind`],
+[`mpsc`] channels, [`Mutex`], crossbeam's [`mpmc`] channels, and `thread`s
+[`JoinHandle`]. Depending on your approach you may use some or all of these.
+
+_Create the `SharedQueueThreadPool` type, implementing `ThreadPool`_.
 
 **Test cases to complete**:
 
-  - `round_robin_thread_pool_*`
+  - `shared_queue_thread_pool_*`
 
-Replace the `NaiveThreadPool` used by `KvsServer` with `RoundRobinThreadPool`.
+Replace the `NaiveThreadPool` used by `KvServer` with `SharedQueueThreadPool`.
 Again your `kvs-server` should still work the same as previously, now with a
 slightly more clever multi-threading model. This time you'll want to call
 the thread pool constructor with an appropriate number of threads. For
-now you can create a thread per CPU, using the [`num_threads`] crate. We'll
+now you can create a thread per CPU, using the [`num_cpus`] crate. We'll
 revisit that 
 
 
-## Part 3: Abstract thread pools
+## Part 5: Abstract thread pools
 
 As in the previous project where you created a `KvsEngine` abstraction to compare
 different implementations, now you are going to use the `ThreadPool` abstraction
@@ -293,10 +356,10 @@ TODO: There is going to be a massive amount of context switching with
 the way these benchmarks are described. It may be pretty bogus.
 
 Now you are going to write _six_ benchmarks, one write-heavy workload comparing
-performance of `RoundRobinThreadPool` with varying numbers of threads, one
-read-heavy workload comparing the performance of `RoundRobinThreadPool` with
+performance of `SharedQueueThreadPool` with varying numbers of threads, one
+read-heavy workload comparing the performance of `SharedQueueThreadPool` with
 varying number of threads; two more that use `RayonThreadPool` instead of of
-`RoundRobinThreadPool`, and finally, yet two more that use `RayonThreadPool` in
+`SharedQueueThreadPool`, and finally, yet two more that use `RayonThreadPool` in
 conjunction with `SledKvsEngine`.
 
 So as part of this you will need to make sure the `SledKvsEngine` implementation
@@ -364,7 +427,7 @@ Since you are going to need many threads for your clients, and you only have the
 opportunities to create those threads once, prior to the many iterations of your
 loop, you'll need to set up a bunch of reusable threads before you iterate over
 the benchmark. Fortunately you have the perfect tool for that in your
-`RoundRobinThreadPool`. Set that up with a thread per request, and pair it with
+`SharedQueueThreadPool`. Set that up with a thread per request, and pair it with
 some channels to send the request and report that the response is received, and
 you will have a suitable benchmark harness.
 
@@ -378,7 +441,7 @@ there may be benefits to having more threads than cores, and you are going to
 find out experimentally.
 
 For the write-heavy workload, during setup (the part that runs before the call
-to `b.iter(...)`), create the `KvsServer<KvStore, RoundRobinThreadPool>`, with
+to `b.iter(...)`), create the `KvServer<KvStore, SharedQueueThreadPool>`, with
 the thread pool containing the parameterized number of threads, and create your
 client thread pool containing 1000 threads. Inside the loop, spawn 1000 jobs
 that each create a `KvsClient`, and call `set`. The first thread should call
@@ -391,8 +454,8 @@ iteration.
 
 Call this benchmark `write_rr_kvstore` (or whatever).
 
-For the read-heavy workload, during setup, create the `KvsServer<KvStore,
-RoundRobinThreadPool>`, with the thread pool containing the parameterized number
+For the read-heavy workload, during setup, create the `KvServer<KvStore,
+SharedQueueThreadPool>`, with the thread pool containing the parameterized number
 of threads, and create your client thread pool containing 1000 threads. Still in
 the setup phase, create yet another client and initialize 1000 key / value
 pairs, with key and value equal to "0"/"0" for the first, "00"/"00" the second,
@@ -428,6 +491,7 @@ indicating that read is complete.
 
 ## Background reading ideas
 
+- scheduling strategies
 - shared mutable state, especially in multithreaded context
 - threadpools
 - something about parallelism and concurrency
@@ -436,7 +500,6 @@ indicating that read is complete.
   exterior mutability, bonus if it includes parallelism
 
 ## TODOs
-
 
 - a concurrent map or skiplist would be better than a mutexed hashmap but there
   doesn't seem to be a prod-quality crate for it
