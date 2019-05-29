@@ -358,9 +358,6 @@ but who knows until we try!
 
 ## Part 6: Evaluating our thread pool
 
-TODO: There is going to be a massive amount of context switching with
-the way these benchmarks are described. It may be pretty bogus.
-
 Now you are going to write _six_ benchmarks, one write-heavy workload comparing
 performance of `SharedQueueThreadPool` with varying numbers of threads, one
 read-heavy workload comparing the performance of `SharedQueueThreadPool` with
@@ -509,6 +506,58 @@ would want to test under even more conditions, on many types of machines,
 under a variety of conditions.
 
 
+
+## Option: Alternatives to the thousand thread approach
+
+As described above, to write your benchmarks, you will need to spawn 1000
+threads, one for each client that is generating load against your server. This
+is a necessity as `KvsClient`'s `get` and `set` methods _block_ waiting for the
+result of the operation. This is going to cause a lot of overhead, and it is
+very likely to impact the quality of your benchmarks. The overhead here comes
+not from spawning and destroying the threads, since you've placed that work
+outside of the benchmarking loop via your `ThreadPool` setup. _But_, because
+each requested is generated on a different thread, that means that every request
+is going to require a context switch into and out of the kernel as those threads
+are scheduled.
+
+It would be better if a single thread could issue many requests at once,
+then later wait for their results.
+
+This is simple _asynchronous_ style of programming, which is _not_ the topic of
+this project, but _is_ the topic of the next.
+
+For this project though, if you want to create a more efficient benchmark, there
+is a simple way to do it, by having the "set" method return handle that can
+later be waited on.
+
+So recall that your `KvsClient` API today looks like:
+
+``rust
+pub fn get(&mut self, key: String) -> Result<Option<String>>;
+pub fn set(&mut self, key: String, value: String) -> Result<()>;
+pub fn remove(&mut self, key: String) -> Result<()>;
+```
+
+If you instead added a new set of methods:
+
+``rust
+pub fn get_async(&mut self, key: String) -> Result<QueryHandle>;
+pub fn set_async(&mut self, key: String, value: String) -> Result<QueryHandle>;
+pub fn remove_async(&mut self, key: String) -> Result<QueryHandle>;
+pub fn wait_for_result(&mut self, q: QueryHandle) -> Result<QueryResult>;
+```
+
+then you could, e.g. issue many queries at once, store the handles in a vector,
+then later wait on each result in turn. That would let your benchmarking client
+thread pool contain far fewer threads (probably one per CPU would be persisent).
+
+We won't explore this solution at length here, but you might want to experiment
+in this direction, particularly if you find the comparisions between your
+benchmarks are not interesting.
+
+TODO: Can we explain to how use perf to measure context switch time?
+
+
 ## Part 7: Evaluating other thread pools and engines
 
 Ok. You've gotten the most difficult part of this benchmarking exercise out of
@@ -530,16 +579,25 @@ see how your `KvEngine` compares to sled's in a multi-threaded environment.
 As before, run and chart all these benchmarks. Compare them to each other as
 described above. How does your scheduler compare to rayon under various thread
 counts? How does your storage engine compare to sled under various thread
-counts? Can you imagine why the differences exist?
+counts? Are the results surprising? Can you imagine why the differences exist?
 
 Now would be a _great_ time to read the [source of rayon] and the [source of
 sled]. Get used to reading other people's source code. That is where you will
 learn the most.
 
 
-## Part : Lock-free shared data structures
+## Part 8: Lock-free shared data structures
 
-## Extension 2: Background compaction
+
+
+
+## Part 9: Benchmarking lock-free data structures
+
+Yes, we're going to do this one more time. Sorry, not sorry &mdash; benchmarking
+is a big part of Rust life.
+
+
+## Extension 1: Background compaction
 
 - discuss issues with files and concurrency
 - move compaction to a background thread
