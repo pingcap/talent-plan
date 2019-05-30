@@ -506,7 +506,6 @@ would want to test under even more conditions, on many types of machines,
 under a variety of conditions.
 
 
-
 ## Option: Alternatives to the thousand thread approach
 
 As described above, to write your benchmarks, you will need to spawn 1000
@@ -548,14 +547,15 @@ pub fn wait_for_result(&mut self, q: QueryHandle) -> Result<QueryResult>;
 ```
 
 then you could, e.g. issue many queries at once, store the handles in a vector,
-then later wait on each result in turn. That would let your benchmarking client
-thread pool contain far fewer threads (probably one per CPU would be persisent).
+each containing an open TCP stream, then later wait on each result in turn. That
+would let your benchmarking client thread pool contain far fewer threads
+(probably one per CPU would be persisent).
 
 We won't explore this solution at length here, but you might want to experiment
 in this direction, particularly if you find the comparisions between your
 benchmarks are not interesting.
 
-TODO: Can we explain to how use perf to measure context switch time?
+TODO: Can we explain how to use perf to measure context switch time?
 
 
 ## Part 7: Evaluating other thread pools and engines
@@ -586,15 +586,198 @@ sled]. Get used to reading other people's source code. That is where you will
 learn the most.
 
 
-## Part 8: Lock-free shared data structures
+## Part 8: Reduced-contention shared data structures
+
+Earlier in this project, we suggested making your `KvsEngine` thread-safe by
+putting its internals behind a lock, on the heap. And in the previous section
+you benchmarked the multithreaded throughput of your engine vs. the
+`SledKvEngine`. _Hopefully_, what you discovered is that your multi-threaded
+implementation performed significantly worse than the sled multi-threaded
+implementation (if not, well, either you are super-awesome or sled kinda sucks).
+One of reasons for this is that sled uses more sophisticated concurrency
+strategies than simply protecting its shared state behind a lock.
+
+So for this part of the project, you are going to get a bit more sophisticated
+too. This is going to be hard :) Protected the entire state behind a lock is
+easy &mdash; the entire state is always read and written atomically because only
+one client at a time has access to the entire state. But that also means that
+two threads that want to access the shared state must wait on each other.
+
+The highest-performing parallel software avoids locks and lock contention as
+much as possible. Rust makes sophisticated and high-performance concurrency
+patterns eaiser than most languages (because you don't need to worry about data
+races and crashes), but it _does not_ protect you from making logical mistakes
+that would result in incorrect results.
+
+Let's look at some progressively more sophisticated examples. We'll take an
+example single-threaded `KvStore` and review concerns to consider as it becomes
+thread-safe. (So there are some strong hints here about solutions to previous
+projects 😊).
+
+Here's an example single-threaded `KvStore` like you might have created in
+earlier projects (this is the same data structure in the course example
+project):
+
+```rust
+pub struct KvStore {
+    // directory for the log and other data
+    path: PathBuf,
+    // map generation number to the file reader
+    readers: HashMap<u64, BufReaderWithPos<File>>,
+    // writer of the current log
+    writer: BufWriterWithPos<File>,
+    current_gen: u64,
+    index: BTreeMap<String, CommandPos>,
+    // the number of bytes representing "stale" commands that could be
+    // deleted during a compaction
+    uncompacted: u64,
+}
+```
+
+And here's the simple multi-threaded version, protecting everything with a lock.
+Hopefully what you've already written for this project looks something like this:
+
+```rust
+pub struct KvStore(Arc<Mutex<SharedKvStore>>);
+
+struct SharedKvStore {
+    // directory for the log and other data
+    path: PathBuf,
+    // map generation number to the file reader
+    readers: HashMap<u64, BufReaderWithPos<File>>,
+    // writer of the current log
+    writer: BufWriterWithPos<File>,
+    current_gen: u64,
+    index: BTreeMap<String, CommandPos>,
+    // the number of bytes representing "stale" commands that could be
+    // deleted during a compaction
+    uncompacted: u64,
+}
+
+impl Clone for KvStore { ... }
+```
+
+This `Arc<Mutex<T>>` solution is trivial, correct, and common: The `KvStore` can
+be cloned to create multple handles to the shared `Arc`, which protects the
+`SharedKvStore` from obvious bugs with a `Mutex`. But that mutex will be a
+source of _contention_ under heavy load. In other words, any thread that wants
+to work with `KvStore` needs to wait for the `Mutex` to be unlocked be another
+thread.
+
+What we _really_ want is to not have to take locks, or &mdash; if locks are
+necessary &mdash; for them to be taken infrequently, _and to not have contention
+with other threads_. That means that we need to consider how each one of the
+fields of `SharedKvStore` is used, and pick the right synchronization scheme to
+allow all threads to make as much progress, while still maintaining logical
+consistency of the data.
+
+This is where the difficult reasoning with multi-threading really begins. If you
+remove that big lock, Rust is still going to protect you from [_data races_],
+but it is not going to help you maintain the logical consistency between the
+fields necessary to maintain the invariants of your data store.
+
+So before thinking about the solution, let's think about our use-cases. We need
+to:
+
+- Read from the index and from the disk, on multiple threads
+- Write to disk, while maintaining the index and other values, on multiple threads
+- Periodically compact our on-disk data, again while maintaining the index and
+  other values, on one thread at a time, but potentially any thread
+
+And we want as much of these to run in parallel as passible without blocking the
+others.
 
 
+### Explaining our example data structure
+
+In order to talk about this concretely, we're going to need an example of the
+data we're trying to protect and the invariants we're trying to maintain. So
+again, here's an example of a `KvStore` implementatino and its fields.
+
+```rust
+pub struct KvStore {
+    // directory for the log and other data
+    path: PathBuf,
+    // map generation number to the file reader
+    readers: HashMap<u64, BufReaderWithPos<File>>,
+    // writer of the current log
+    writer: BufWriterWithPos<File>,
+    current_gen: u64,
+    index: BTreeMap<String, CommandPos>,
+    // the number of bytes representing "stale" commands that could be
+    // deleted during a compaction
+    uncompacted: u64,
+}
+```
+
+The most important thing to understand about the algorithm this data structure
+supports is that it keeps a _generational_ set of logs. That is, it maintains
+many log files, each one a new "generation". A generation is just a
+monotonically increasing index, so we know that the "total" log is the first
+entry in the earliest-generation log, all the way through the last entry in the
+latest-generation log. Log file names contain their generation numbers as an
+easy scheme for identification. During compaction, old generations logs are
+coalesced into a new generation, and yet a further new generation created to
+continue writing.
+
+With that understanding, the purpose of the fields should be fairly clear:
+
+`path: PathBuf` is just the path to the directory where logs are stored. It
+never changes &mdash; it is immutable, and immutable types are `Sync` in Rust,
+so it doesn't even need any protection at all. Every thread can read it at once
+through a shared reference.
+
+`readers: HashMap<u64, BufReaderWithPos<File>>` maintains the mapping of
+generation numbers to open file handles. These handles are for reading only, but
+of course file handles in Rust require mutable access to modify. This map only
+ever changes when generations are added or removed from it.
+
+`writer: BufWriterWithPos<File>` is the handle to the current-gen file, the
+current gen being stored in `current_gen: u64`. So any write needs mutable
+access to `writer`, and the compaction process needs to change the `writer` and
+the `current_gen`.
+
+`index: BTreeMap<String, CommandPos>` is the in-memory index of every key
+in the database to it's location in one of the index files. It is read
+from every reading thread, and written from every writing thread. It is
+_not_ though written by the compaction process, at least in the example
+
+`uncompacted: u64` simply counts the number of "stale" commands in the logs that
+have been superceded by subsequent commands, to know when to trigger compaction.
+
+In previous projects we didn't have to worry much about the interaction between
+writing, reading, and compaction producing inconsistent results, since they all
+happened on the same thread. Now if you are not careful with your data structure
+selection and their usage, it will be easy to corrupt the state of your database.
+
+
+### Some ideas for sharing data without big locks
+
+
+- TODO: https://gitlab.redox-os.org/redox-os/chashmap
+- TODO: https://github.com/jonhoo/rust-evmap
+- crossbeam-skiplist
+- atomics
+- invariants
+
+Some of the data types here have equivalent parallel types:
+for example, a `u64` can be replaced with a 
+
+
+
+_OK, I hope you are prepared. Go remove as much locks and contention from this
+type as you can_.
+
+There are no new test cases to complete here, but some of the earlier ones will
+stress this new data structure in challenging ways, your previously-written
+benchmamrks will stress this implementation hard.
 
 
 ## Part 9: Benchmarking lock-free data structures
 
-Yes, we're going to do this one more time. Sorry, not sorry &mdash; benchmarking
-is a big part of Rust life.
+TODO: just do a read-write benchmark in the earlier section,
+      verify sum of keys
+TODO: make sure benchmark section always mentions to assert the results
 
 
 ## Extension 1: Background compaction

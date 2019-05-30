@@ -121,4 +121,5 @@ in the README.
 - 5 - use futures + http, use standard http bench tools
 - 6 - use async/await
 - 7 - use grpc
-- 8 - try to match performance of the production components
+- 8 - focus on data integrity
+- 9 - try to match performance of the production components
