@@ -38,4 +38,9 @@ impl KvStore {
     pub fn get(&self, key: String) -> Option<String> {
         self.map.get(&key).cloned()
     }
+
+    /// Remove a given key.
+    pub fn remove(&mut self, key: String) {
+        self.map.remove(&key);
+    }
 }

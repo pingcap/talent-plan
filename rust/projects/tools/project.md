@@ -38,6 +38,10 @@ The `kvs` executable supports the following command line arguments:
 
   Get the string value of a given string key
 
+- `kvs rm <KEY>`
+
+  Remove a given key
+
 - `kvs -V`
 
   Print the version
@@ -45,19 +49,23 @@ The `kvs` executable supports the following command line arguments:
 The `kvs` library contains a type, `KvStore`, that supports the following
 methods:
 
-- `KvStore::set(key: String, value: String)`
+- `KvStore::set(&mut self, key: String, value: String)`
 
   Set the value of a string key to a string
 
-- `KvStore::get(key: String) -> Option<String>`
+- `KvStore::get(&mut self, key: String) -> Option<String>`
 
   Get the string value of the a string key. If the key does not exist,
   return `None`.
 
+- `KvStore::remove(&mut self, key: String)`
+
+  Remove a given key.
+
 The `KvStore` type stores values in-memory, and thus the command-line client can
-do little more than print the version. The `get`/ `set` commands will return an
-"unimplemented" error when run from the command line. Future projects will store
-values on disk and have a working command line interface.
+do little more than print the version. The `get`/ `set` / `rm` commands will 
+return an "unimplemented" error when run from the command line. Future projects 
+will store values on disk and have a working command line interface.
 
 
 ## How to treat these projects
@@ -165,9 +173,9 @@ be yourself. Note though that the contents of `kvs.rs` are affected by the
 package name, which is also the name of the library within the package. (TODO
 clarify)
 
-Finally, the `tests.rs` file is copied from the course materials. In this case,
-copy from the course repository the file `rust/project/tools/tests/tests.rs`
-into your own repository, as `tests/tests.rs`
+Finally, the `tests` directory is copied from the course materials. In this case,
+copy from the course repository the file `rust/project/tools/tests`
+into your own repository, as `tests`.
 
 You may set up this project with `cargo new --lib`, `cargo init --lib`, or
 manually. You'll probably also want to initialize a git repository in the same
@@ -254,6 +262,10 @@ Again, the interface for the CLI is:
 
   Get the string value of a given string key
 
+- `kvs rm <KEY>`
+
+  Remove a given key
+
 - `kvs -V`
 
   Print the version
@@ -287,7 +299,7 @@ variables._
 
 
 
-## Part 3: Store values in memory
+## Part 4: Store values in memory
 
 Now that your command line scaffolding is done, let's turn to the implementation
 of `KvStore`, and make the remaining test cases pass.
@@ -299,7 +311,7 @@ code for this project.
 _Make the remaining test cases pass by implementing methods on `KvStore`._
 
 
-## Part 4: Documentation
+## Part 5: Documentation
 
 You have implemented the project's functionality, but there are still a few more
 things to do before it is a polished piece of Rust software, ready for
@@ -336,7 +348,7 @@ _Add doc comments to the types and methods in your library. Follow the
 [gdc]: https://rust-lang-nursery.github.io/api-guidelines/documentation.html
 
 
-## Part 5: Ensure good style with `clippy` and `rustfmt`
+## Part 6: Ensure good style with `clippy` and `rustfmt`
 
 `clippy` and `rustfmt` are tools for enforcing common Rust style. `clippy` helps
 ensure that code uses modern idioms, and prevents patterns that commonly lead to

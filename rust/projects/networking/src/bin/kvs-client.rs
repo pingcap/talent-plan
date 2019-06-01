@@ -23,11 +23,11 @@ enum Command {
         #[structopt(name = "KEY", help = "A string key")]
         key: String,
         #[structopt(
-        long,
-        help = "Sets the server address",
-        value_name = "IP:PORT",
-        default_value = "127.0.0.1:4000",
-        parse(try_from_str)
+            long,
+            help = "Sets the server address",
+            value_name = "IP:PORT",
+            default_value = "127.0.0.1:4000",
+            parse(try_from_str)
         )]
         addr: SocketAddr,
     },
@@ -38,11 +38,24 @@ enum Command {
         #[structopt(name = "VALUE", help = "The string value of the key")]
         value: String,
         #[structopt(
-        long,
-        help = "Sets the server address",
-        value_name = "IP:PORT",
-        default_value = "127.0.0.1:4000",
-        parse(try_from_str)
+            long,
+            help = "Sets the server address",
+            value_name = "IP:PORT",
+            default_value = "127.0.0.1:4000",
+            parse(try_from_str)
+        )]
+        addr: SocketAddr,
+    },
+    #[structopt(name = "rm", about = "Remove a given string key")]
+    Remove {
+        #[structopt(name = "KEY", help = "A string key")]
+        key: String,
+        #[structopt(
+            long,
+            help = "Sets the server address",
+            value_name = "IP:PORT",
+            default_value = "127.0.0.1:4000",
+            parse(try_from_str)
         )]
         addr: SocketAddr,
     },
@@ -58,7 +71,7 @@ fn main() {
 
 fn run(opt: Opt) -> Result<()> {
     match opt.command {
-        Command::Get { key,addr } => {
+        Command::Get { key, addr } => {
             let mut client = KvsClient::connect(addr)?;
             if let Some(value) = client.get(key)? {
                 println!("{}", value);
@@ -66,9 +79,13 @@ fn run(opt: Opt) -> Result<()> {
                 println!("Key not found");
             }
         }
-        Command::Set { key, value,addr } => {
+        Command::Set { key, value, addr } => {
             let mut client = KvsClient::connect(addr)?;
             client.set(key, value)?;
+        }
+        Command::Remove { key, addr } => {
+            let mut client = KvsClient::connect(addr)?;
+            client.remove(key)?;
         }
     }
     Ok(())
