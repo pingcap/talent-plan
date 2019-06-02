@@ -199,17 +199,16 @@ impl Node {
 
     /// the service using Raft (e.g. a k/v server) wants to start
     /// agreement on the next command to be appended to Raft's log. if this
-    /// server isn't the leader, returns false. otherwise start the
-    /// agreement and return immediately. there is no guarantee that this
+    /// server isn't the leader, returns [`Error::NotLeader`]. otherwise start
+    /// the agreement and return immediately. there is no guarantee that this
     /// command will ever be committed to the Raft log, since the leader
     /// may fail or lose an election. even if the Raft instance has been killed,
     /// this function should return gracefully.
     ///
-    /// the first return value is the index that the command will appear at
-    /// if it's ever committed. the second return value is the current
-    /// term. the third return value is true if this server believes it is
-    /// the leader.
-    /// This method must return quickly.
+    /// the first value of the tuple is the index that the command will appear
+    /// at if it's ever committed. the second is the current term. 
+    /// 
+    /// This method must return without blocking on the raft.
     pub fn start<M>(&self, command: &M) -> Result<(u64, u64)>
     where
         M: labcodec::Message,
