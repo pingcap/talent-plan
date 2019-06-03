@@ -1,4 +1,8 @@
 use crate::Result;
+pub use self::kvs::KvStore;
+
+mod kvs;
+mod sled;
 
 /// Trait for a key value storage engine.
 pub trait KvsEngine : Clone {
@@ -19,8 +23,3 @@ pub trait KvsEngine : Clone {
     /// It returns `KvsError::KeyNotFound` if the given key is not found.
     fn remove(&self, key: String) -> Result<()>;
 }
-
-mod kvs;
-mod sled;
-
-pub use self::kvs::KvStore;
