@@ -15,6 +15,8 @@ log = "0.4.6"
 env_logger = "0.6.1"
 sled = "0.22.1"
 crossbeam = "0.7.1"
+rayon = "1.0.3"
+num_cpus = "1.10.0"
 
 [dev-dependencies]
 tempfile = "3.0.7"

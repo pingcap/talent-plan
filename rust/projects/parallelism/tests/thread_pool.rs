@@ -54,6 +54,11 @@ fn shared_queue_thread_pool_spawn_counter() -> Result<()> {
 }
 
 #[test]
+fn rayon_thread_pool_spawn_counter() -> Result<()> {
+    spawn_counter::<RayonThreadPool>()
+}
+
+#[test]
 fn shared_queue_thread_pool_panic_task() -> Result<()> {
     panic_task::<SharedQueueThreadPool>()
 }
