@@ -4,8 +4,10 @@
 use crate::Result;
 
 mod naive;
+mod shared_queue;
 
 pub use naive::NaiveThreadPool;
+pub use shared_queue::SharedQueueThreadPool;
 
 /// The trait that all thread pools should implement.
 pub trait ThreadPool {
@@ -18,7 +20,7 @@ pub trait ThreadPool {
     where
         Self: Sized;
 
-    /// Spawns a function into the threadpool.
+    /// Spawns a function into the thread pool.
     ///
     /// Spawning always succeeds, but if the function panics the threadpool continues
     /// to operate with the same number of threads &mdash; the thread count is not
