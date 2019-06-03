@@ -1,11 +1,11 @@
-use crate::Result;
 pub use self::kvs::KvStore;
+use crate::Result;
 
 mod kvs;
 mod sled;
 
 /// Trait for a key value storage engine.
-pub trait KvsEngine : Clone {
+pub trait KvsEngine: Clone + Send + 'static {
     /// Sets the value of a string key to a string.
     ///
     /// If the key already exists, the previous value will be overwritten.

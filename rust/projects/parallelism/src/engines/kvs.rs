@@ -32,6 +32,7 @@ const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Clone)]
 pub struct KvStore {
     imp: Arc<Mutex<KvStoreImpl>>,
 }
@@ -89,12 +90,6 @@ impl KvStore {
         Ok(KvStore {
             imp: Arc::new(Mutex::new(imp)),
         })
-    }
-}
-
-impl Clone for KvStore {
-    fn clone(&self) -> Self {
-        unimplemented!()
     }
 }
 
