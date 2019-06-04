@@ -124,3 +124,4 @@ in the README.
 - 7 - use grpc
 - 8 - focus on data integrity
 - 9 - try to match performance of the production components
+- ? - streaming scan operation with lifetimes and streaming network api
