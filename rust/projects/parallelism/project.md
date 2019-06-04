@@ -115,11 +115,13 @@ the `SledKvsEngine` from the previous project, but you can optionally
 re-implement it as an extension to this project).
 
 Recall from the project spec that, this time, our `KvsEngine` takes `self` as
-`&self` instead of `&mut self` as previously, and it also implements `Clone`.
-More concretely, it looks like
+`&self` instead of `&mut self` as previously, It also implements `Clone`, which
+must be done explicitly for each implementation, as well as `Send + 'static`,
+implicit properties of the definition of each implementation. More concretely,
+it looks like
 
 ```rust
-pub trait KvsEngine: Clone {
+pub trait KvsEngine: Clone + Send + 'static {
     fn set(&self, key: String, value: String) -> Result<()>;
 
     fn get(&self, key: String) -> Result<Option<String>>;
@@ -143,7 +145,7 @@ some synchronization primitive.
 
 [heap]: https://stackoverflow.com/questions/79923/what-and-where-are-the-stack-and-heap
 
-So, _hoist the data inside your implementation of `KvEngine`, `KvsStore` onto
+So, _move the data inside your implementation of `KvsEngine`, `KvsStore` onto
 the heap using a thread-safe shared pointer type and protect it behind a lock of
 your choosing_.
 
@@ -247,7 +249,7 @@ subsequent jobs are simply context switches into existing threads in the pool.
 ### So how do you build a thread pool?
 
 There are many strategies and tradeoffs, but for this exercise you are going to
-use a single shared queue to distribute work to idle threads. That mans that
+use a single shared queue to distribute work to idle threads. That means that
 your "producer", the thread that accepts network connections, sends jobs to a
 single queue (or channel), and the "consumers", every idle thread in the pool,
 read from that channel waiting for a job to execute. This is the very simplest
@@ -276,7 +278,7 @@ concurrent queue in Rust typically being a data structure with two connected
 types: sender types, and reciever types; and that can send between the two types
 any type that implements `Send` + `'static`).
 
-Messages is Rust are typically represented as enums, with variants for each
+Messages in Rust are typically represented as enums, with variants for each
 possible message that can be sent, like:
 
 ```
@@ -302,7 +304,7 @@ If you are willing to take a lock on both producer and consumer sides, then you
 could even use a `Mutex<VecDeque>`, but there's probably no reason to do that in
 production when better solutions exist.
 
-_Historical note: the existance of channels in Rust's standard library is a bit
+_Historical note: the existence of channels in Rust's standard library is a bit
 of a curiosity, and is widely considered a mistake, as it betrays Rust's general
 philosophy of keeping the standard library minimal, focused on abstracting the
 operating system, and letting the crate ecosystem experiment with advanced data
@@ -526,7 +528,7 @@ This is simple _asynchronous_ style of programming, which is _not_ the topic of
 this project, but _is_ the topic of the next.
 
 For this project though, if you want to create a more efficient benchmark, there
-is a simple way to do it, by having the "set" method return handle that can
+is a simple way to do it, by having the "set" method return a handle that can
 later be waited on.
 
 So recall that your `KvsClient` API today looks like:
