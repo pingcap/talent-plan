@@ -1,6 +1,5 @@
 use std::cell::RefCell;
-use std::collections::HashSet;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::ops::Range;
@@ -22,7 +21,7 @@ const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
 ///
 /// Key/value pairs are persisted to disk in log files. Log files are named after
 /// monotonically increasing generation numbers with a `log` extension name.
-/// A `BTreeMap` in memory stores the keys and the value locations for fast query.
+/// A skip list in memory stores the keys and the value locations for fast query.
 ///
 /// ```rust
 /// # use kvs::{KvStore, Result};
@@ -36,7 +35,9 @@ const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Clone)]
 pub struct KvStore {
+    // directory for the log and other data
     path: Arc<PathBuf>,
     // map generation number to the file reader
     reader: KvStoreReader,
@@ -44,35 +45,38 @@ pub struct KvStore {
     writer: Arc<Mutex<KvStoreWriter>>,
 }
 
-impl Clone for KvStore {
-    fn clone(&self) -> Self {
-        KvStore {
-            path: Arc::clone(&self.path),
-            reader: KvStoreReader::new(Arc::clone(&self.path)),
-            index: Arc::clone(&self.index),
-            writer: Arc::clone(&self.writer),
-        }
-    }
-}
-
+/// A single thread reader.
+///
+/// Each `KvStore` instance has its own `KvStoreReader` and
+/// `KvStoreReader`s open the same files separately. So the user
+/// can read concurrently through multiple `KvStore`s in different
+/// threads.
 struct KvStoreReader {
     path: Arc<PathBuf>,
-    readers: RefCell<HashMap<u64, BufReaderWithPos<File>>>,
+    // generation of the latest compaction file
+    // readers with a generation before safe_point can be closed
+    safe_point: Arc<AtomicU64>,
+    readers: RefCell<BTreeMap<u64, BufReaderWithPos<File>>>,
 }
 
 impl KvStoreReader {
-    fn new(path: Arc<PathBuf>) -> KvStoreReader {
-        KvStoreReader {
-            path,
-            readers: RefCell::new(HashMap::new()),
-        }
-    }
-
+    /// Read the log file at the given `CommandPos`.
     fn read_and<F, R>(&self, cmd_pos: CommandPos, f: F) -> Result<R>
     where
         F: FnOnce(io::Take<&mut BufReaderWithPos<File>>) -> Result<R>,
     {
         let mut readers = self.readers.borrow_mut();
+
+        // Close readers of stale files
+        while !readers.is_empty() {
+            let first_gen = *readers.keys().next().unwrap();
+            if self.safe_point.load(Ordering::SeqCst) <= first_gen {
+                break;
+            }
+            readers.remove(&first_gen);
+        }
+
+        // Open the file if we haven't opened it in this `KvStoreReader`.
         // We don't use entry API here because we want the errors to be propogated.
         if !readers.contains_key(&cmd_pos.gen) {
             let reader = BufReaderWithPos::new(File::open(log_path(&self.path, cmd_pos.gen))?)?;
@@ -84,6 +88,7 @@ impl KvStoreReader {
         f(cmd_reader)
     }
 
+    // Read the log file at the given `CommandPos` and deserialize it to `Command`.
     fn read_command(&self, cmd_pos: CommandPos) -> Result<Command> {
         self.read_and(cmd_pos, |cmd_reader| {
             Ok(serde_json::from_reader(cmd_reader)?)
@@ -91,9 +96,23 @@ impl KvStoreReader {
     }
 }
 
+impl Clone for KvStoreReader {
+    fn clone(&self) -> KvStoreReader {
+        KvStoreReader {
+            path: Arc::clone(&self.path),
+            safe_point: Arc::clone(&self.safe_point),
+            // don't use other KvStoreReader's readers
+            readers: RefCell::new(BTreeMap::new()),
+        }
+    }
+}
+
 struct KvStoreWriter {
+    reader: KvStoreReader,
     writer: BufWriterWithPos<File>,
     current_gen: u64,
+    // the number of bytes representing "stale" commands that could be
+    // deleted during a compaction
     uncompacted: u64,
     path: Arc<PathBuf>,
     index: Arc<SkipMap<String, CommandPos>>,
@@ -111,7 +130,7 @@ impl KvStore {
         let path = Arc::new(path.into());
         fs::create_dir_all(&*path)?;
 
-        let mut readers = HashMap::new();
+        let mut readers = BTreeMap::new();
         let index = Arc::new(SkipMap::new());
 
         let gen_list = sorted_gen_list(&path)?;
@@ -125,16 +144,22 @@ impl KvStore {
 
         let current_gen = gen_list.last().unwrap_or(&0) + 1;
         let writer = new_log_file(&path, current_gen)?;
+        let safe_point = Arc::new(AtomicU64::new(0));
+
+        let reader = KvStoreReader {
+            path: Arc::clone(&path),
+            safe_point,
+            readers: RefCell::new(BTreeMap::new()),
+        };
 
         let writer = KvStoreWriter {
+            reader: reader.clone(),
             writer,
             current_gen,
             uncompacted,
             path: Arc::clone(&path),
             index: Arc::clone(&index),
         };
-
-        let reader = KvStoreReader::new(Arc::clone(&path));
 
         Ok(KvStore {
             path,
@@ -237,13 +262,10 @@ impl KvStoreWriter {
         let mut compaction_writer = new_log_file(&self.path, compaction_gen)?;
 
         let mut new_pos = 0; // pos in the new log file
-        let reader = KvStoreReader::new(Arc::clone(&self.path));
-        let mut stale_gens = HashSet::new();
         for entry in self.index.iter() {
-            let len = reader.read_and(*entry.value(), |mut entry_reader| {
+            let len = self.reader.read_and(*entry.value(), |mut entry_reader| {
                 Ok(io::copy(&mut entry_reader, &mut compaction_writer)?)
             })?;
-            stale_gens.insert(entry.value().gen);
             self.index.insert(
                 entry.key().clone(),
                 (compaction_gen, new_pos..new_pos + len).into(),
@@ -253,10 +275,19 @@ impl KvStoreWriter {
         compaction_writer.flush()?;
 
         // remove stale log files
+        let stale_gens = sorted_gen_list(&self.path)?
+            .into_iter()
+            .filter(|&gen| gen < compaction_gen);
         for stale_gen in stale_gens {
-            fs::remove_file(log_path(&self.path, stale_gen))?;
+            let file_path = log_path(&self.path, stale_gen);
+            if let Err(e) = fs::remove_file(&file_path) {
+                error!("{:?} cannot be deleted: {}", file_path, e);
+            }
         }
         self.uncompacted = 0;
+        self.reader
+            .safe_point
+            .store(compaction_gen, Ordering::SeqCst);
 
         Ok(())
     }
