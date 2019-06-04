@@ -107,10 +107,10 @@ integrate it into the new `KvStore`.
   - `naive_thread_pool_*`
 
 
-## Part 2: Creating a shared `KvEngine`
+## Part 2: Creating a shared `KvsEngine`
 
 Before we can integrate the `NaiveThreadPool` into `KvServer` we have to make
-the `KvEngine` trait and the `KvStore` implementation (for now you can ignore
+the `KvsEngine` trait and the `KvStore` implementation (for now you can ignore
 the `SledKvsEngine` from the previous project, but you can optionally
 re-implement it as an extension to this project).
 
@@ -575,8 +575,8 @@ will compare to the first two `SharedQueueThreadPool` implementations, to
 see the difference between yours and `RayonThreadPool`.
 
 The fourth and fifth, name `read/write_rayon_sledkvengine`, and change the
-engine to `SledKvEngine`. These you will compare to the previous two to
-see how your `KvEngine` compares to sled's in a multi-threaded environment.
+engine to `SledKvsEngine`. These you will compare to the previous two to
+see how your `KvsEngine` compares to sled's in a multi-threaded environment.
 
 As before, run and chart all these benchmarks. Compare them to each other as
 described above. How does your scheduler compare to rayon under various thread
@@ -593,7 +593,7 @@ learn the most.
 Earlier in this project, we suggested making your `KvsEngine` thread-safe by
 putting its internals behind a lock, on the heap. And in the previous section
 you benchmarked the multithreaded throughput of your engine vs. the
-`SledKvEngine`. _Hopefully_, what you discovered is that your multi-threaded
+`SledKvsEngine`. _Hopefully_, what you discovered is that your multi-threaded
 implementation performed significantly worse than the sled multi-threaded
 implementation (if not, well, either you are super-awesome or sled kinda sucks).
 One of reasons for this is that sled uses more sophisticated concurrency

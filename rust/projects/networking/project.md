@@ -105,7 +105,7 @@ The `kvs` library contains four types:
   from `kvs-server`
 - `KvsEngine` trait - defines the storage interface called by `KvsServer`
 - `KvStore` - implements by hand the `KvsEngine` trait
-- `SledKvStore` - implements `KvsEngine` for the [`sled`] storage engine.
+- `SledKvsEngine` - implements `KvsEngine` for the [`sled`] storage engine.
 
 [`sled`]: https://github.com/spacejam/sled
 
