@@ -17,6 +17,7 @@ sled = "0.22.1"
 crossbeam = "0.7.1"
 rayon = "1.0.3"
 num_cpus = "1.10.0"
+crossbeam-skiplist = { version = "0.0.0", git = "https://github.com/crossbeam-rs/crossbeam.git", rev = "8cc906b" }
 
 [dev-dependencies]
 tempfile = "3.0.7"
@@ -26,7 +27,3 @@ predicates = "1.0.0"
 criterion = "0.2.11"
 rand = "0.6.5"
 crossbeam-utils = "0.6.5"
-
-[[bench]]
-name = "engine_bench"
-harness = false
