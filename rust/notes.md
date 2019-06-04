@@ -66,6 +66,10 @@ in the README.
 - reference-bearing structs
 - sharing vs message passing
 - thread pools
+- workspaces
+- refactoring
+- https://github.com/altsysrq/proptest
+- fuzzing
 
 ## Sources
 
@@ -110,3 +114,12 @@ in the README.
 - use fail-rs for consistency tests
 - mention the test names that should be focused on each part of each project
 - find a way to use specialization via the KvsEngine trait
+- use imperative "part" titles? "creating" vs "create"
+
+# Future projects
+
+- 5 - use futures + http, use standard http bench tools
+- 6 - use async/await
+- 7 - use grpc
+- 8 - focus on data integrity
+- 9 - try to match performance of the production components

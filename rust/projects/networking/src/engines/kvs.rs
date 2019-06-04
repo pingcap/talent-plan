@@ -120,6 +120,8 @@ impl KvStore {
             fs::remove_file(log_path(&self.path, stale_gen))?;
         }
 
+        self.uncompacted = 0;
+
         Ok(())
     }
 
