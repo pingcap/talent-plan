@@ -95,7 +95,7 @@ fn check_clnt_appends(clnt: usize, v: String, count: usize) {
             assert_eq!(off1, off, "duplicate element {:?} in Append result", wanted);
 
             if let Some(lastoff) = lastoff {
-                assert!( off > lastoff "wrong order for element {:?} in Append result", wanted);
+                assert!( off > lastoff, "wrong order for element {:?} in Append result", wanted);
             }
             lastoff = Some(off);
         } else {
@@ -120,7 +120,7 @@ fn check_concurrent_appends(v: String, counts: &[usize]) {
                 assert_eq!(off1, off, "duplicate element {:?} in Append result", wanted);
 
                 if let Some(lastoff) = lastoff {
-                    assert!( off > lastoff "wrong order for element {:?} in Append result", wanted);
+                    assert!( off > lastoff, "wrong order for element {:?} in Append result", wanted);
                 }
                 lastoff = Some(off);
             } else {

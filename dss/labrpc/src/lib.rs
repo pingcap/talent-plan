@@ -46,7 +46,7 @@ static ID_ALLOC: AtomicUsize = AtomicUsize::new(0);
 
 pub type RpcFuture<T> = Box<dyn Future<Item = T, Error = Error> + Send + 'static>;
 
-pub type Handler = Fn(&[u8]) -> RpcFuture<Vec<u8>>;
+pub type Handler = dyn Fn(&[u8]) -> RpcFuture<Vec<u8>>;
 
 pub trait HandlerFactory: Sync + Send + 'static {
     fn handler(&self, name: &'static str) -> Box<Handler>;
@@ -55,7 +55,7 @@ pub trait HandlerFactory: Sync + Send + 'static {
 pub struct ServerBuilder {
     name: String,
     // Service name -> service methods
-    services: HashMap<&'static str, Box<HandlerFactory>>,
+    services: HashMap<&'static str, Box<dyn HandlerFactory>>,
 }
 
 impl ServerBuilder {
@@ -69,7 +69,7 @@ impl ServerBuilder {
     pub fn add_service(
         &mut self,
         service_name: &'static str,
-        fact: Box<HandlerFactory>,
+        fact: Box<dyn HandlerFactory>,
     ) -> Result<()> {
         match self.services.entry(service_name) {
             hashbrown::hash_map::Entry::Occupied(_) => Err(Error::Other(format!(
@@ -99,7 +99,7 @@ struct ServerCore {
     name: String,
     id: usize,
 
-    services: HashMap<&'static str, Box<HandlerFactory>>,
+    services: HashMap<&'static str, Box<dyn HandlerFactory>>,
     count: AtomicUsize,
 }
 
