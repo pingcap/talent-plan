@@ -1,4 +1,4 @@
-use std::{panic, thread};
+use std::thread;
 
 use super::ThreadPool;
 use crate::Result;
@@ -22,7 +22,7 @@ impl ThreadPool for SharedQueueThreadPool {
     fn new(threads: u32) -> Result<Self> {
         let (tx, rx) = channel::unbounded::<Box<dyn FnOnce() + Send + 'static>>();
         for _ in 0..threads {
-            let rx = rx.clone();
+            let rx = TaskReceiver(rx.clone());
             thread::Builder::new().spawn(move || run_tasks(rx))?;
         }
         Ok(SharedQueueThreadPool { tx })
@@ -43,22 +43,27 @@ impl ThreadPool for SharedQueueThreadPool {
     }
 }
 
-fn run_tasks(rx: Receiver<Box<dyn FnOnce() + Send + 'static>>) {
-    let rx2 = rx.clone();
-    panic::set_hook(Box::new(move |panic_info| {
-        error!("Thread panicked: {}", panic_info);
-        let rx = rx2.clone();
-        if let Err(e) = thread::Builder::new().spawn(move || run_tasks(rx)) {
-            error!("Failed to spawn a thread: {}", e);
-        }
-    }));
+#[derive(Clone)]
+struct TaskReceiver(Receiver<Box<dyn FnOnce() + Send + 'static>>);
 
+impl Drop for TaskReceiver {
+    fn drop(&mut self) {
+        if thread::panicking() {
+            let rx = self.clone();
+            if let Err(e) = thread::Builder::new().spawn(move || run_tasks(rx)) {
+                error!("Failed to spawn a thread: {}", e);
+            }
+        }
+    }
+}
+
+fn run_tasks(rx: TaskReceiver) {
     loop {
-        match rx.recv() {
+        match rx.0.recv() {
             Ok(task) => {
                 task();
             }
-            Err(_) => info!("Thread exits because the thread pool is destroyed."),
+            Err(_) => debug!("Thread exits because the thread pool is destroyed."),
         }
     }
 }

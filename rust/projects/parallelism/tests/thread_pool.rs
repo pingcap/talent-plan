@@ -6,11 +6,10 @@ use kvs::Result;
 
 use crossbeam_utils::sync::WaitGroup;
 
-fn spawn_counter<P: ThreadPool>() -> Result<()> {
+fn spawn_counter<P: ThreadPool>(pool: P) -> Result<()> {
     const TASK_NUM: usize = 20;
     const ADD_COUNT: usize = 1000;
 
-    let pool = P::new(4)?;
     let wg = WaitGroup::new();
     let counter = Arc::new(AtomicUsize::new(0));
 
@@ -19,7 +18,7 @@ fn spawn_counter<P: ThreadPool>() -> Result<()> {
         let wg = wg.clone();
         pool.spawn(move || {
             for _ in 0..ADD_COUNT {
-                counter.fetch_add(1, Ordering::Relaxed);
+                counter.fetch_add(1, Ordering::SeqCst);
             }
             drop(wg);
         })
@@ -30,7 +29,7 @@ fn spawn_counter<P: ThreadPool>() -> Result<()> {
     Ok(())
 }
 
-fn panic_task<P: ThreadPool>() -> Result<()> {
+fn spawn_panic_task<P: ThreadPool>() -> Result<()> {
     const TASK_NUM: usize = 1000;
 
     let pool = P::new(4)?;
@@ -40,25 +39,28 @@ fn panic_task<P: ThreadPool>() -> Result<()> {
         })
     }
 
-    spawn_counter::<P>()
+    spawn_counter(pool)
 }
 
 #[test]
 fn naive_thread_pool_spawn_counter() -> Result<()> {
-    spawn_counter::<NaiveThreadPool>()
+    let pool = NaiveThreadPool::new(4)?;
+    spawn_counter(pool)
 }
 
 #[test]
 fn shared_queue_thread_pool_spawn_counter() -> Result<()> {
-    spawn_counter::<SharedQueueThreadPool>()
+    let pool = SharedQueueThreadPool::new(4)?;
+    spawn_counter(pool)
 }
 
 #[test]
 fn rayon_thread_pool_spawn_counter() -> Result<()> {
-    spawn_counter::<RayonThreadPool>()
+    let pool = RayonThreadPool::new(4)?;
+    spawn_counter(pool)
 }
 
 #[test]
 fn shared_queue_thread_pool_panic_task() -> Result<()> {
-    panic_task::<SharedQueueThreadPool>()
+    spawn_panic_task::<SharedQueueThreadPool>()
 }
