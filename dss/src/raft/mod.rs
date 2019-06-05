@@ -206,8 +206,8 @@ impl Node {
     /// this function should return gracefully.
     ///
     /// the first value of the tuple is the index that the command will appear
-    /// at if it's ever committed. the second is the current term. 
-    /// 
+    /// at if it's ever committed. the second is the current term.
+    ///
     /// This method must return without blocking on the raft.
     pub fn start<M>(&self, command: &M) -> Result<(u64, u64)>
     where
