@@ -131,7 +131,7 @@ with asynchronous networking via HTTP.
 
 <!-- section 1 -->
 
-[p-tools]: projects/tools/project.md
+[p-tools]: projects/project-1/project.md
 [t-whirlwind]: lessons/whirlwind.md
 [s-whirlwind]: lessons/whirlwind.slides.html
 [t-data]: lessons/data-structures.md
@@ -145,7 +145,7 @@ with asynchronous networking via HTTP.
 
 <!-- section 2 -->
 
-[p-fs]: projects/file-io/project.md
+[p-fs]: projects/project-2/project.md
 [t-errors]: lessons/error-handling.md
 [s-errors]: lessons/error-handling.slides.html
 [t-coll]: lessons/collections-and-iterators.md
@@ -153,7 +153,7 @@ with asynchronous networking via HTTP.
 
 <!-- section 3 -->
 
-[p-net]: projects/networking/project.md
+[p-net]: projects/project-3/project.md
 [t-net]: lessons/networking.md
 [s-net]: lessons/networking.slides.html
 [t-build]: lessons/build-time.md
@@ -163,7 +163,7 @@ with asynchronous networking via HTTP.
 
 <!-- section 4 -->
 
-[p-par]: projects/parallelism/project.md
+[p-par]: projects/project-4/project.md
 [t-alias]: lessons/aliasing-and-mutability.md
 [s-alias]: lessons/aliasing-and-mutability.slides.html
 [t-own]: lessons/ownership-and-borrowing.md
@@ -175,7 +175,7 @@ with asynchronous networking via HTTP.
 
 <!-- section 5 -->
 
-[p-async]: projects/async-io/project.md
+[p-async]: projects/project-5/project.md
 [t-fut]: lessons/futures.md
 [s-fut]: lessons/futures.slides.html
 [t-async-await]: lessons/async-await.md
