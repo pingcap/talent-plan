@@ -17,7 +17,7 @@ fn set_bench(c: &mut Criterion) {
                     let temp_dir = TempDir::new().unwrap();
                     KvStore::open(temp_dir.path()).unwrap()
                 },
-                |store| {
+                |mut store| {
                     for i in 1..(1 << 12) {
                         store.set(format!("key{}", i), "value".to_string()).unwrap();
                     }
@@ -33,7 +33,7 @@ fn set_bench(c: &mut Criterion) {
                 let temp_dir = TempDir::new().unwrap();
                 Db::start_default(&temp_dir).unwrap()
             },
-            |db| {
+            |mut db| {
                 for i in 1..(1 << 12) {
                     db.set(format!("key{}", i), "value".to_string()).unwrap();
                 }
@@ -49,7 +49,7 @@ fn get_bench(c: &mut Criterion) {
         "kvs",
         |b, i| {
             let temp_dir = TempDir::new().unwrap();
-            let store = KvStore::open(temp_dir.path()).unwrap();
+            let mut store = KvStore::open(temp_dir.path()).unwrap();
             for key_i in 1..(1 << i) {
                 store
                     .set(format!("key{}", key_i), "value".to_string())
@@ -66,7 +66,7 @@ fn get_bench(c: &mut Criterion) {
     )
     .with_function("sled", |b, i| {
         let temp_dir = TempDir::new().unwrap();
-        let db = Db::start_default(&temp_dir).unwrap();
+        let mut db = Db::start_default(&temp_dir).unwrap();
         for key_i in 1..(1 << i) {
             db.set(format!("key{}", key_i), "value".to_string())
                 .unwrap();
