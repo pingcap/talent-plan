@@ -85,6 +85,17 @@ following:
 
 ## Project setup
 
+Create a new cargo project and copy the `tests` directory into it. This project
+should contain a library named `kvs`, and two executables, `kvs-server` and
+`kvs-client`.
+
+Copy the code from your previous project into this project. You will refactor it
+to use futures in small steps.
+
+Unlike with previous projects, don't bother to fill in enough type definitions
+to make the test suite compile. Doing so would require jumping a number of steps
+ahead at once. The text will indicate when to working with the test suite.
+
 
 ## Background: Thinking in futures, in Rust
 
@@ -101,6 +112,13 @@ following:
 
 
 ## Part 1: Introducing tokio to the client
+
+Ultimately we're going to convert both the client and server to futures, but
+since the client is so simple, that's where we'll start. And we're going to
+introduce the tokio runtime first, while using your existing synchronous
+`KvsClient`.
+
+The 
 
 for the client we're going to introduce the async runtime while keeping
 the sync `KvsClient`, then convert the `KvsClient`. The `connect` method
@@ -156,5 +174,8 @@ not sure if this should be required or an extension
 
 TODO:
 - can we find an excuse to write a future by hand?
+
+- background readings
+  - something on associated types
 
 -->
