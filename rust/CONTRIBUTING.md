@@ -1,12 +1,5 @@
 TODO organize this
 
-Every md file has a html relative symlink to index.html:
-
-`ln -s index.html CONTRIBUTING.html`
-
-The static website loads the page content from markdown dynamically,
-based on the URL of its HTML page.
-
 Project text doesn't link directly to documentation resources containing
 solutions - students should learn where to get the answers from the
 pre-requisites and lessons.
@@ -81,11 +74,6 @@ end of a project.
 
 ## Contributor notes
 
-- each md file needs an html relative symlink to index.html
-- lessons need a .slides.html symlink
-- links are generally to markdown files, not html files
-  - exception: links to slides from plan go to the hosted website
-  - all links rewritten when browsed locally
 - in markdown, write links as relative to current directory
 - keep "task", "goals", etc in project intros in sync between "plan.md" and
   project pages
