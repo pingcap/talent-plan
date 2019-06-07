@@ -4,7 +4,7 @@ extern crate log;
 extern crate clap;
 
 use kvs::thread_pool::*;
-use kvs::{KvStore, KvsEngine, KvsServer, Result};
+use kvs::*;
 use log::LevelFilter;
 use std::env;
 use std::env::current_dir;
@@ -80,7 +80,7 @@ fn run(opt: Opt) -> Result<()> {
     match engine {
         Engine::kvs => run_with(KvStore::open(env::current_dir()?)?, pool, opt.addr),
         Engine::sled => run_with(
-            sled::Db::start_default(env::current_dir()?)?,
+            SledKvsEngine::new(sled::Db::start_default(env::current_dir()?)?),
             pool,
             opt.addr,
         ),

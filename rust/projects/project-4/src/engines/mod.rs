@@ -1,4 +1,5 @@
 pub use self::kvs::KvStore;
+pub use self::sled::SledKvsEngine;
 use crate::Result;
 
 mod kvs;

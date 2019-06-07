@@ -1,3 +1,5 @@
+//! This module provides various key value storage engines.
+
 use crate::Result;
 
 /// Trait for a key value storage engine.
@@ -24,3 +26,4 @@ mod kvs;
 mod sled;
 
 pub use self::kvs::KvStore;
+pub use self::sled::SledKvsEngine;

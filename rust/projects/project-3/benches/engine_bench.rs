@@ -2,7 +2,7 @@
 extern crate criterion;
 
 use criterion::{BatchSize, Criterion, ParameterizedBenchmark};
-use kvs::{KvStore, KvsEngine};
+use kvs::{KvStore, KvsEngine, SledKvsEngine};
 use rand::prelude::*;
 use sled::Db;
 use std::iter;
@@ -31,7 +31,7 @@ fn set_bench(c: &mut Criterion) {
         b.iter_batched(
             || {
                 let temp_dir = TempDir::new().unwrap();
-                Db::start_default(&temp_dir).unwrap()
+                SledKvsEngine::new(Db::start_default(&temp_dir).unwrap())
             },
             |mut db| {
                 for i in 1..(1 << 12) {
@@ -66,7 +66,7 @@ fn get_bench(c: &mut Criterion) {
     )
     .with_function("sled", |b, i| {
         let temp_dir = TempDir::new().unwrap();
-        let mut db = Db::start_default(&temp_dir).unwrap();
+        let mut db = SledKvsEngine::new(Db::start_default(&temp_dir).unwrap());
         for key_i in 1..(1 << i) {
             db.set(format!("key{}", key_i), "value".to_string())
                 .unwrap();
