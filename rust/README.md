@@ -121,7 +121,9 @@ See [CONTRIBUTING.md].
 
 ## License
 
-[CC-BY 4.0](https://opendefinition.org/licenses/cc-by/)
+All text and code for this course is dual licensed [CC-BY 4.0] and [MIT]. You
+may freely reuse any material here under the terms of either or both, at your
+discretion.
 
 
 <!-- links -->
@@ -148,3 +150,5 @@ See [CONTRIBUTING.md].
 [plan]: plan.md
 [serde]: todo
 [CONTRIBUTING.md]: CONTRIBUTING.md
+[CC-BY 4.0]: https://opendefinition.org/licenses/cc-by/
+[MIT]: https://opensource.org/licenses/MIT
