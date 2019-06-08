@@ -1,9 +1,8 @@
 use kvs::thread_pool::RayonThreadPool;
-use kvs::{KvStore, KvsEngine, Result};
-use std::sync::{Arc, Barrier};
-use std::thread;
+use kvs::{KvStore, KvsEngine, KvsError, Result};
 use tempfile::TempDir;
-use tokio::prelude::Future;
+use tokio::prelude::*;
+use tokio::runtime::Runtime;
 use walkdir::WalkDir;
 
 // Should get previously stored value
@@ -156,32 +155,25 @@ fn compaction() -> Result<()> {
 #[test]
 fn concurrent_set() -> Result<()> {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
-    let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 1)?;
-    let barrier = Arc::new(Barrier::new(1001));
-    for i in 0..1000 {
-        let store = store.clone();
-        let barrier = barrier.clone();
-        thread::spawn(move || {
-            store
-                .set(format!("key{}", i), format!("value{}", i))
-                .wait()
-                .unwrap();
-            barrier.wait();
-        });
-    }
-    barrier.wait();
 
-    for i in 0..1000 {
-        assert_eq!(
-            store.get(format!("key{}", i)).wait()?,
-            Some(format!("value{}", i))
-        );
-    }
+    // concurrent set in 8 threads
+    let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 8)?;
+    let runtime = Runtime::new()?;
+    let executor = runtime.executor();
+    runtime.block_on_all(future::lazy(move || {
+        for i in 0..10000 {
+            executor.spawn(
+                store
+                    .set(format!("key{}", i), format!("value{}", i))
+                    .map_err(|_| ()),
+            );
+        }
+        future::ok::<(), KvsError>(())
+    }))?;
 
-    // Open from disk again and check persistent data
-    drop(store);
+    // We only check concurrent set in this test, so we check sequentially here
     let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 1)?;
-    for i in 0..1000 {
+    for i in 0..10000 {
         assert_eq!(
             store.get(format!("key{}", i)).wait()?,
             Some(format!("value{}", i))
@@ -194,7 +186,8 @@ fn concurrent_set() -> Result<()> {
 #[test]
 fn concurrent_get() -> Result<()> {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
-    let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 1)?;
+    let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 8)?;
+    // We only check concurrent get in this test, so we set sequentially here
     for i in 0..100 {
         store
             .set(format!("key{}", i), format!("value{}", i))
@@ -202,44 +195,45 @@ fn concurrent_get() -> Result<()> {
             .unwrap();
     }
 
-    let mut handles = Vec::new();
-    for thread_id in 0..100 {
-        let store = store.clone();
-        let handle = thread::spawn(move || {
+    let runtime = Runtime::new()?;
+    let executor = runtime.executor();
+    runtime.block_on_all(future::lazy(move || {
+        for thread_id in 0..100 {
             for i in 0..100 {
                 let key_id = (i + thread_id) % 100;
-                assert_eq!(
-                    store.get(format!("key{}", key_id)).wait().unwrap(),
-                    Some(format!("value{}", key_id))
+                executor.spawn(
+                    store
+                        .get(format!("key{}", key_id))
+                        .map(move |res| {
+                            assert_eq!(res, Some(format!("value{}", key_id)));
+                        })
+                        .map_err(|_| ()),
                 );
             }
-        });
-        handles.push(handle);
-    }
-    for handle in handles {
-        handle.join().unwrap();
-    }
+        }
+        future::ok::<(), KvsError>(())
+    }))?;
 
-    // Open from disk again and check persistent data
-    drop(store);
-    let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 1)?;
-    let mut handles = Vec::new();
-    for thread_id in 0..100 {
-        let store = store.clone();
-        let handle = thread::spawn(move || {
+    // reload from disk and test again
+    let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 8)?;
+    let runtime = Runtime::new()?;
+    let executor = runtime.executor();
+    runtime.block_on_all(future::lazy(move || {
+        for thread_id in 0..100 {
             for i in 0..100 {
                 let key_id = (i + thread_id) % 100;
-                assert_eq!(
-                    store.get(format!("key{}", key_id)).wait().unwrap(),
-                    Some(format!("value{}", key_id))
+                executor.spawn(
+                    store
+                        .get(format!("key{}", key_id))
+                        .map(move |res| {
+                            assert_eq!(res, Some(format!("value{}", key_id)));
+                        })
+                        .map_err(|_| ()),
                 );
             }
-        });
-        handles.push(handle);
-    }
-    for handle in handles {
-        handle.join().unwrap();
-    }
+        }
+        future::ok::<(), KvsError>(())
+    }))?;
 
     Ok(())
 }
