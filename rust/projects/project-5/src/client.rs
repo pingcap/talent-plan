@@ -1,8 +1,5 @@
 use crate::common::{Request, Response};
-use crate::{KvsError, Result};
-use serde::Deserialize;
-use serde_json::de::{Deserializer, IoRead};
-use std::io::{BufReader, BufWriter, Write};
+use crate::KvsError;
 use std::net::SocketAddr;
 use tokio::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 use tokio::io::{ReadHalf, WriteHalf};

@@ -4,7 +4,7 @@ extern crate log;
 extern crate clap;
 
 use kvs::thread_pool::*;
-use kvs::{KvStore, KvsEngine, KvsServer, Result};
+use kvs::{KvStore, KvsEngine, KvsServer, Result, SledKvsEngine};
 use log::LevelFilter;
 use std::env;
 use std::env::current_dir;
@@ -75,11 +75,19 @@ fn run(opt: Opt) -> Result<()> {
     // write engine to engine file
     fs::write(current_dir()?.join("engine"), format!("{}", engine))?;
 
-    //    let pool = RayonThreadPool::new(num_cpus::get() as u32)?;
-    //
+    let concurrency = num_cpus::get() as u32;
     match engine {
-        Engine::kvs => run_with(KvStore::open(env::current_dir()?)?, opt.addr),
-        Engine::sled => run_with(sled::Db::start_default(env::current_dir()?)?, opt.addr),
+        Engine::kvs => run_with(
+            KvStore::<RayonThreadPool>::open(env::current_dir()?, concurrency)?,
+            opt.addr,
+        ),
+        Engine::sled => run_with(
+            SledKvsEngine::<RayonThreadPool>::new(
+                sled::Db::start_default(env::current_dir()?)?,
+                concurrency,
+            )?,
+            opt.addr,
+        ),
     }
 }
 

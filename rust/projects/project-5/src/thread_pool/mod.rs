@@ -12,7 +12,7 @@ pub use self::rayon::RayonThreadPool;
 pub use self::shared_queue::SharedQueueThreadPool;
 
 /// The trait that all thread pools should implement.
-pub trait ThreadPool {
+pub trait ThreadPool: Clone + Send + 'static {
     /// Creates a new thread pool, immediately spawning the specified number of
     /// threads.
     ///

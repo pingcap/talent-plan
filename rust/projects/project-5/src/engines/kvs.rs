@@ -8,11 +8,15 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use crossbeam::queue::ArrayQueue;
 use crossbeam_skiplist::SkipMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
+use tokio::prelude::*;
+use tokio::sync::oneshot;
 
 use super::KvsEngine;
+use crate::thread_pool::ThreadPool;
 use crate::{KvsError, Result};
 
 const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
@@ -25,10 +29,11 @@ const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
 ///
 /// ```rust
 /// # use kvs::{KvStore, Result};
+/// # use kvs::thread_pool::{ThreadPool, RayonThreadPool};
 /// # fn try_main() -> Result<()> {
 /// use std::env::current_dir;
 /// use kvs::KvsEngine;
-/// let mut store = KvStore::open(current_dir()?)?;
+/// let mut store = KvStore::open(current_dir()?, 2)?;
 /// store.set("key".to_owned(), "value".to_owned())?;
 /// let val = store.get("key".to_owned())?;
 /// assert_eq!(val, Some("value".to_owned()));
@@ -36,24 +41,27 @@ const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
 /// # }
 /// ```
 #[derive(Clone)]
-pub struct KvStore {
+pub struct KvStore<P: ThreadPool> {
     // directory for the log and other data
     path: Arc<PathBuf>,
     // map generation number to the file reader
     index: Arc<SkipMap<String, CommandPos>>,
-    reader: KvStoreReader,
     writer: Arc<Mutex<KvStoreWriter>>,
+    thread_pool: P,
+    reader_pool: Arc<ArrayQueue<KvStoreReader>>,
 }
 
-impl KvStore {
+impl<P: ThreadPool> KvStore<P> {
     /// Opens a `KvStore` with the given path.
     ///
     /// This will create a new directory if the given one does not exist.
     ///
+    /// `concurrency` specifies how many threads at most can read the database at the same time.
+    ///
     /// # Errors
     ///
     /// It propagates I/O or deserialization errors during the log replay.
-    pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
+    pub fn open(path: impl Into<PathBuf>, concurrency: u32) -> Result<Self> {
         let path = Arc::new(path.into());
         fs::create_dir_all(&*path)?;
 
@@ -88,16 +96,24 @@ impl KvStore {
             index: Arc::clone(&index),
         };
 
+        let thread_pool = P::new(concurrency)?;
+        let reader_pool = Arc::new(ArrayQueue::new(concurrency as usize));
+        for _ in 1..concurrency {
+            reader_pool.push(reader.clone()).unwrap();
+        }
+        reader_pool.push(reader).unwrap();
+
         Ok(KvStore {
             path,
-            reader,
             index,
             writer: Arc::new(Mutex::new(writer)),
+            thread_pool,
+            reader_pool,
         })
     }
 }
 
-impl KvsEngine for KvStore {
+impl<P: ThreadPool> KvsEngine for KvStore<P> {
     /// Sets the value of a string key to a string.
     ///
     /// If the key already exists, the previous value will be overwritten.
@@ -105,23 +121,53 @@ impl KvsEngine for KvStore {
     /// # Errors
     ///
     /// It propagates I/O or serialization errors during writing the log.
-    fn set(&self, key: String, value: String) -> Result<()> {
-        self.writer.lock().unwrap().set(key, value)
+    fn set(&self, key: String, value: String) -> Box<Future<Item = (), Error = KvsError> + Send> {
+        let writer = self.writer.clone();
+        let (tx, rx) = oneshot::channel();
+        self.thread_pool.spawn(move || {
+            let res = writer.lock().unwrap().set(key, value);
+            if tx.send(res).is_err() {
+                error!("Receiving end is dropped");
+            }
+        });
+        Box::new(
+            rx.map_err(|e| KvsError::StringError(format!("{}", e)))
+                .flatten(),
+        )
     }
 
     /// Gets the string value of a given string key.
     ///
     /// Returns `None` if the given key does not exist.
-    fn get(&self, key: String) -> Result<Option<String>> {
-        if let Some(cmd_pos) = self.index.get(&key) {
-            if let Command::Set { value, .. } = self.reader.read_command(*cmd_pos.value())? {
-                Ok(Some(value))
-            } else {
-                Err(KvsError::UnexpectedCommandType)
+    fn get(&self, key: String) -> Box<Future<Item = Option<String>, Error = KvsError> + Send> {
+        let reader_pool = self.reader_pool.clone();
+        let index = self.index.clone();
+        let (tx, rx) = oneshot::channel();
+        self.thread_pool.spawn(move || {
+            let res = (|| {
+                if let Some(cmd_pos) = index.get(&key) {
+                    let reader = reader_pool.pop().unwrap();
+                    let res = if let Command::Set { value, .. } =
+                        reader.read_command(*cmd_pos.value())?
+                    {
+                        Ok(Some(value))
+                    } else {
+                        Err(KvsError::UnexpectedCommandType)
+                    };
+                    reader_pool.push(reader).unwrap();
+                    res
+                } else {
+                    Ok(None)
+                }
+            })();
+            if tx.send(res).is_err() {
+                error!("Receiving end is dropped");
             }
-        } else {
-            Ok(None)
-        }
+        });
+        Box::new(
+            rx.map_err(|e| KvsError::StringError(format!("{}", e)))
+                .flatten(),
+        )
     }
 
     /// Removes a given key.
@@ -131,8 +177,19 @@ impl KvsEngine for KvStore {
     /// It returns `KvsError::KeyNotFound` if the given key is not found.
     ///
     /// It propagates I/O or serialization errors during writing the log.
-    fn remove(&self, key: String) -> Result<()> {
-        self.writer.lock().unwrap().remove(key)
+    fn remove(&self, key: String) -> Box<Future<Item = (), Error = KvsError> + Send> {
+        let writer = self.writer.clone();
+        let (tx, rx) = oneshot::channel();
+        self.thread_pool.spawn(move || {
+            let res = writer.lock().unwrap().remove(key);
+            if tx.send(res).is_err() {
+                error!("Receiving end is dropped");
+            }
+        });
+        Box::new(
+            rx.map_err(|e| KvsError::StringError(format!("{}", e)))
+                .flatten(),
+        )
     }
 }
 
