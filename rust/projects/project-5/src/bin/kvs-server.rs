@@ -75,20 +75,16 @@ fn run(opt: Opt) -> Result<()> {
     // write engine to engine file
     fs::write(current_dir()?.join("engine"), format!("{}", engine))?;
 
-    let pool = RayonThreadPool::new(num_cpus::get() as u32)?;
-
+    //    let pool = RayonThreadPool::new(num_cpus::get() as u32)?;
+    //
     match engine {
-        Engine::kvs => run_with(KvStore::open(env::current_dir()?)?, pool, opt.addr),
-        Engine::sled => run_with(
-            sled::Db::start_default(env::current_dir()?)?,
-            pool,
-            opt.addr,
-        ),
+        Engine::kvs => run_with(KvStore::open(env::current_dir()?)?, opt.addr),
+        Engine::sled => run_with(sled::Db::start_default(env::current_dir()?)?, opt.addr),
     }
 }
 
-pub fn run_with<E: KvsEngine, P: ThreadPool>(engine: E, pool: P, addr: SocketAddr) -> Result<()> {
-    let server = KvsServer::new(engine, pool);
+pub fn run_with<E: KvsEngine>(engine: E, addr: SocketAddr) -> Result<()> {
+    let server = KvsServer::new(engine);
     server.run(addr)
 }
 

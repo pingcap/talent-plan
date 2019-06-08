@@ -1,72 +1,60 @@
-use crate::common::{GetResponse, Request, SetResponse};
+use crate::common::{Request, Response};
 use crate::thread_pool::ThreadPool;
-use crate::{KvsEngine, Result};
+use crate::{KvsEngine, KvsError, Result};
 use serde_json::Deserializer;
 use std::io::{BufReader, BufWriter, Write};
-use std::net::{TcpListener, TcpStream, ToSocketAddrs};
+use std::net::SocketAddr;
+use tokio::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
+use tokio::io::{ReadHalf, WriteHalf};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::prelude::*;
+use tokio_serde_json::{ReadJson, WriteJson};
 
 /// The server of a key value store.
-pub struct KvsServer<E: KvsEngine, P: ThreadPool> {
+pub struct KvsServer<E: KvsEngine> {
     engine: E,
-    pool: P,
 }
 
-impl<E: KvsEngine, P: ThreadPool> KvsServer<E, P> {
+impl<E: KvsEngine> KvsServer<E> {
     /// Create a `KvsServer` with a given storage engine.
-    pub fn new(engine: E, pool: P) -> Self {
-        KvsServer { engine, pool }
+    pub fn new(engine: E) -> Self {
+        KvsServer { engine }
     }
 
     /// Run the server listening on the given address
-    pub fn run<A: ToSocketAddrs>(self, addr: A) -> Result<()> {
-        let listener = TcpListener::bind(addr)?;
-        for stream in listener.incoming() {
-            let engine = self.engine.clone();
-            self.pool.spawn(move || match stream {
-                Ok(stream) => {
-                    if let Err(e) = serve(engine, stream) {
-                        error!("Error on serving client: {}", e);
-                    }
-                }
-                Err(e) => error!("Connection failed: {}", e),
-            })
-        }
+    pub fn run(self, addr: SocketAddr) -> Result<()> {
+        let listener = TcpListener::bind(&addr)?;
+        let server = listener
+            .incoming()
+            .map_err(|e| error!("IO error: {}", e))
+            .for_each(move |tcp| {
+                let engine = self.engine.clone();
+                serve(engine, tcp).map_err(|e| error!("Error on serving client: {}", e))
+            });
+        tokio::run(server);
         Ok(())
     }
 }
 
-fn serve<E: KvsEngine>(engine: E, tcp: TcpStream) -> Result<()> {
-    let peer_addr = tcp.peer_addr()?;
-    let reader = BufReader::new(&tcp);
-    let mut writer = BufWriter::new(&tcp);
-    let req_reader = Deserializer::from_reader(reader).into_iter::<Request>();
-
-    macro_rules! send_resp {
-        ($resp:expr) => {{
-            let resp = $resp;
-            serde_json::to_writer(&mut writer, &resp)?;
-            writer.flush()?;
-            debug!("Response sent to {}: {:?}", peer_addr, resp);
-        };};
-    }
-
-    for req in req_reader {
-        let req = req?;
-        debug!("Receive request from {}: {:?}", peer_addr, req);
-        match req {
-            Request::Get { key } => send_resp!(match engine.get(key) {
-                Ok(value) => GetResponse::Ok(value),
-                Err(e) => GetResponse::Err(format!("{}", e)),
-            }),
-            Request::Set { key, value } => send_resp!(match engine.set(key, value) {
-                Ok(_) => SetResponse::Ok(()),
-                Err(e) => SetResponse::Err(format!("{}", e)),
-            }),
-            Request::Remove { key } => send_resp!(match engine.remove(key) {
-                Ok(_) => SetResponse::Ok(()),
-                Err(e) => SetResponse::Err(format!("{}", e)),
-            }),
-        };
-    }
-    Ok(())
+fn serve<E: KvsEngine>(engine: E, tcp: TcpStream) -> impl Future<Item = (), Error = KvsError> {
+    let (read_half, write_half) = tcp.split();
+    let read_json = ReadJson::new(FramedRead::new(read_half, LengthDelimitedCodec::new()));
+    let write_json = WriteJson::new(FramedWrite::new(write_half, LengthDelimitedCodec::new()));
+    write_json
+        .send_all(read_json.map(move |req| match req {
+            Request::Get { key } => match engine.get(key) {
+                Ok(value) => Response::Get(value),
+                Err(e) => Response::Err(format!("{}", e)),
+            },
+            Request::Set { key, value } => match engine.set(key, value) {
+                Ok(_) => Response::Set,
+                Err(e) => Response::Err(format!("{}", e)),
+            },
+            Request::Remove { key } => match engine.remove(key) {
+                Ok(_) => Response::Remove,
+                Err(e) => Response::Err(format!("{}", e)),
+            },
+        }))
+        .map(|_| ())
+        .map_err(|e| e.into())
 }
