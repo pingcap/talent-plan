@@ -1,4 +1,4 @@
-# Project: File I/O
+# PNA Rust Project 2: Log-structured file I/O
 
 **Task**: Create a persistent key/value store that can be accessed from the
 command line

@@ -1,4 +1,4 @@
-# Contributing to PNAR
+# Contributing to PNA Rust
 
 TODO organize this
 

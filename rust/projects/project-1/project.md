@@ -1,4 +1,4 @@
-# Project: Tools and good bones
+# PNA Rust Project 1: The Rust toolbox and strong foundations
 
 **Task**: Create an in-memory key/value store that passes simple tests and responds
 to command-line arguments.

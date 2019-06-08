@@ -1,42 +1,187 @@
-# Practical Networked Applications in Rust - Lesson plan
+# PNA Rust Lesson plan
 
-This course is divided into five _sections_, each with a _project_ designed to
-give you exposure to practical Rust programming subjects.
+A training course about practical systems software construction in Rust.
 
-Each project builds on experience from the previous project. It is reasonable to
-start each project by copy-pasting the previous.
+Over a series of projects, you will build a networked, persistent [key-value
+database][kv] with multithreading and asynchronous I/O. In between projects you
+will study and practice individual subjects necessary to complete the project.
+Along the way you will explore multiple designs and their tradeoffs.
 
-As you work through the course content, _please_ be on the lookout for things
-you would improve about the course, and either [submit issues][si] explaining,
-or [submit pull requests][spr] with improvements. _Each accepted pull request
-counts toward extra credit during final evaluation_. Pull requests to any other
-project used during this course count as well. This is an opportunity to gain
-experience contributing to an open-source Rust project. Make this a better
-course for the next student to take it than it was for you. That is how open
-source projects evolve.
+See [README.md] for the overview, goals, audience, and prerequisites.
 
-[si]: https://github.com/pingcap/talent-plan/issues/new
-[spr]: https://github.com/pingcap/talent-plan/compare
+- [Prerequisites](#user-content-prerequisites)
+- [Getting the materials](#user-content-getting-the-materials)
+- [Course structure](#user-content-course-structure)
+- [Getting help](#user-content-getting-help)
+- [Making PNA Rust Better](#user-content-making-pna-rust-better)
+- [Practical Networked Applications in Rust](#user-content-practical-networked-applications-in-rust)
+  - [Building Blocks 1](#user-content-building-blocks-1)
+  - [Project 1: The Rust toolbox and strong foundations](#user-content-project-1-the-rust-toolbox-and-strong-foundations)
+  - [Building Blocks 2](#user-content-building-blocks-2)
+  - [Project 2: Log-structured file I/O](#user-content-project-2-log-structured-file-io)
+  - [Building Blocks 3](#user-content-building-blocks-3)
+  - [Project 3: Synchronous client-server networking](#user-content-project-3-synchronous-client-server-networking)
+  - [Building Blocks 4](#user-content-building-blocks-4)
+  - [Project 4: Parallelism](#user-content-project-4-parallelism)
+  - [Building Blocks 5](#user-content-building-blocks-5)
+  - [Project 5: Asynchronous programming in Rust](#user-content-project-5-asynchronous-programming-in-rust)
 
-TODO
 
-Links to the _readings_, _lessons_, and _slides_ are in the [lesson plan][plan],
-presented in the order they should be followed. See the lesson plan for
-further suggestions on how to get the most out of this course.
+## Prerequisites
+
+As [described in the README.md][pre], this is not a course for novice
+programmers, and there are significant prerequisites. Ensure that you meet them
+all before proceeding.
+
+
+## Getting the materials
 
 All material for this course is in the
 
 > https://github.com/pingcap/talent-training
 
-git repository on GitHub, in the `rust` subdirectory. You may want a copy of it
-on your local computer, particularly for easy access to the conformance tests
-for each project.
+git repository on GitHub, in the [`rust` subdirectory][rs]. You may want a copy
+of it on your local computer, particularly for easy access to the conformance
+tests for each project.
+
+Each project builds on experience from the previous project. It is reasonable to
+start each project by copying the previous.
 
 
-## Section 1 (Setup)
+## Course structure
+
+The overall arc of the course is defined by a series of projects that
+incrementally introduce new subjects important to systems programming in Rust.
+
+Because building an entire database from scratch while also learning all the
+concepts involved is a daunting task, each project is proceeded by a "building
+blocks" section, where individual concepts are explored individually. These
+building blocks will consist of external readings, external programming
+problems, and other single-subject content.
+
+The building blocks sections are an opportunity to clear your mind, step away
+from the larger project, and focus your attention on learning and practicing a
+single subject in isolation. **Do not pass them up**.
+
+Each project builds on the last &mdash; the APIs, command-line interfaces, and
+parts of the implementation will often remain the same between projects, while
+you only integrate new features and improvements related to a project's subject
+matter. As such, it is ok to begin each project by copying your source code from
+the last.
+
+The projects live in the [`projects` subdirectory][psd], each in their own
+directories, and consist of a project description in `project.md`, and a Cargo
+project containing a complete example solution, and the project test suite. Each
+project comes with a test suite, and the project should not be considered
+finished until it passes with `cargo test`.
+
+You should not read the example code for any project until completing the
+project yourself. You are encouraged though to learn from and apply techniques
+they contain to your own projects retroactively. Keep in mind though that the
+example projects are not the only way &mdash; or even the best way &mdash; to
+solve the problems. Trust yourself and your own creativity.
+
+> RE plagiarism (this is mostly relevant to students being evaluated on their
+coursework): The line between applying techniques learned by code-reading and
+copying code outright can be hard to identify. But as a professional you have
+ethical responsibilites, and only you can know if you are upholding them. For
+those not being evaluated for their coursework, simply copying from the example
+code will only hurt your experience; for those who are being evaluated, your
+instructors and evaluators are expecting you to use your own skills.
+
+You will recieve further instruction about setting up the source code and test
+suite, as well as project specifications, as you progress through the individual
+projects.
+
+The expected time to complete each section is not currently well-estimated, but
+the building blocks might take up to 8 hours, and the projects up to 40 hours.
+If you are spending much less time than that, or are spending more time, don't
+worry: these are just bad estimates, and everybody's experience is different.
 
 
-### [Project: Tools and good bones][p-tools]
+## Getting help
+
+You will run into problems that you don't know how to solve. Don't suffer in
+silence. Everybody needs help sometimes.
+
+And fortunately the Rust community is amazing and welcoming, and wants to help
+you. As you are progressing through this course, you are _strongly_ encouraged
+to join the Rust community experience.
+
+Here are the resources you should consider turning to first:
+
+- The #rust-training channel on the [TiKV Slack]. This channel exists just for
+  this course. Please consider joining to support your fellow students and other
+  course-takers. There will always be someone there to answer questions, but
+  there may be a delay due to time zones and other factors. Both English and
+  Chinese languages are welcome here.
+
+- The #beginners channel on the official [Rust Discord]. You are almost
+  guaranteed to get some answer here, and if not, don't hesitate to ask again.
+  The people who hang out here are there specifically to help. Because of time
+  zone differences it may take time for somebody to respond. Only English will
+  be consistently understood here.
+
+- The QQ Rust group ([QR code][qq]). For Chinese students, this is one of the
+  major Rust communities in China. This is a great place to hang out generally,
+  and for those unconfident in their English skills, a great place to ask
+  for help.
+
+- The WeChat Rust group #2 ([QR code][wechat]). Again this is mostly for the
+  Chinese audience. With WeChat's group limits there are multiple Rust groups.
+  This is the most recent. It is though relatively unpopulated, so you are more
+  likely to get help in the QQ group. Do join this one though to get in before
+  it spills over into a third group.
+
+These resources may also be helpful:
+
+- The official [users forum]. Apply the "help" tag to your post. Questions
+  usually recieve an answer here, but the responses can be limited.
+
+- [StackOverflow]. Apply the "rust" tag. You may or may not recieve a satisfying
+  answer.
+
+You are also welcome to email the primary author of this course, [Brian
+Anderson][brson], at brian@pingcap.com. I will happily answer questions, and am
+eager to hear your experience with the course.
+
+Finally, if there is a [Rust user group] near you, go check it out. As a Rust programmer
+these groups are where you will build some of your strongest connections. (Note
+that that link goes to the old Rust website and may not be up to date).
+
+
+## Making PNA Rust better
+
+At the end of each project is a link to a survey about your experience. Please
+take a few minutes to complete it, and be comfortable expressing the challenges
+you faced, and your criticisms of the course. The survey results are not seen by
+anybody but the [primary author of the course][author], though aggregate
+statistics may be reported publicly.
+
+As you work through the course content, please be on the lookout for things you
+would improve about the course, and either [submit issues][si] explaining, or
+[submit pull requests][spr] with improvements. (If you are being graded,
+accepted pull requests count toward extra credit during final evaluation &mdash;
+let your instructor or evaluator know! Accepted pull requests to any other
+project used during this course count as well. Note: I have no way to guarantee
+this is true…). This is an opportunity to gain experience contributing to an
+open-source Rust project. Make this a better course for the next person to take
+it than it was for you.
+
+See [CONTRIBUTING.md] for more.
+
+
+## Practical Networked Applications in Rust
+
+This is an outline of the course. Clicking each header will take you to the
+instructions for that section.
+
+### [Building Blocks 1][b1]
+
+Rust tooling.
+
+
+### [Project 1: The Rust toolbox and strong foundations][p1]
 
 **Task**: Create an in-memory key/value store that passes simple tests and responds
 to command-line arguments.
@@ -45,18 +190,21 @@ to command-line arguments.
 
 - Install the Rust compiler and tools
 - Learn the project structure used throughout this course
-- Use `cargo build` / `run` / `test` / `clippy` / `fmt`
-- Use external crates
-- Define a data type for a key-value store
+- Use `cargo init` / `run` / `test` / `clippy` / `fmt`
+- Learn how to find and import crates from crates.io
+- Define an appropriate data type for a key-value store
 
-**Topics**: clap, testing, `CARGO_VERSION`, clippy, rustfmt
+**Topics**: testing, clap, `CARGO_VERSION` etc., clippy, rustfmt
 
-**Extensions**: `structopt`, `log` / `slog`,
-
-## Section 2 (File I/O)
+**Extensions**: structopt
 
 
-### [Project: File I/O][p-fs]
+### [Building Blocks 2][b2]
+
+Databases, file I/O, and Rust error handling.
+
+
+### [Project 2: Log-structured file I/O][p2]
 
 **Task**: Create a persistent key/value store that can be accessed from the
 command line
@@ -64,7 +212,7 @@ command line
 **Goals**:
 
 - Handle and report errors robustly
-- Write data to disk as a write-ahead log
+- Write data to disk as a log using standard file APIs.
 - Read the state of the key/value store from disk
 - Use serde for serialization
 - Use file I/O APIs to binary search
@@ -72,12 +220,15 @@ command line
 **Topics**: `failure` crate, `std::net::fs`, `Read` / `Write` traits,
 serde
 
-**Extensions**: range queries, store data using bitcast algo?
-
-## Section 3 (Networking)
+**Extensions**: range queries, store data using bitcast algo? TODO
 
 
-### [Project: Synchronous client-server networking][p-net]
+### [Building Blocks][b3]
+
+TCP, logging, traits, benchmarking.
+
+
+### [Project 3: Synchronous client-server networking][p3]
 
 **Task**: Create a single-threaded, persistent key/value store server and client
 with synchronous networking over a custom protocol.
@@ -87,18 +238,20 @@ with synchronous networking over a custom protocol.
 - Create a client-server application
 - Write a custom protocol with `std` networking APIs
 - Introduce logging to the server
-- Chain errors and report them in a human-readable way
 - Implement pluggable backends via traits
 - Benchmark the hand-written backend against `sled`
 
- **Topics**: `std::net`, logging, error handling, `impl Trait`, benchmarking
+**Topics**: `std::net`, logging, traits, benchmarking
 
 **Extensions**: shutdown on signal
 
-## Section 4 (Parallelism)
+
+### [Building Blocks][b4]
+
+Message passing, lock-free data structures.
 
 
-### [Project: Parallelism, profiling, and benchmarking][p-par]
+### [Project 4: Parallelism][p4]
 
 **Task**: Create a multi-threaded, persistent key/value store server and client
 with synchronous networking over a custom protocol.
@@ -106,92 +259,57 @@ with synchronous networking over a custom protocol.
 **Goals**:
 
 - Write a simple thread-pool
-- Use crossbeam channels
+- Use channels for cross-thread communication
+- Share data structures with locks
 - Perform compaction in a background thread
+- Share data structures without locks
 - Benchmark single-threaded vs multi-threaded
 
-## Section 5 (Async)
+**Topics**: threads, thread-pools, channels, locks
 
 
-### [Project: Async I/O][p-async]
+### [Building Blocks 5][b5]
 
-**Task**: Create a multi-threaded, persistent key/value store server and client
-with asynchronous networking via HTTP.
-
-**Goals**:
-
-- Use async hyper and futures
-- Support range queries
-- Understand the distinction between concurrency and parallelism
-- Use a thread pool to prevent "blocking"
-
-**Extensions**: crash recovery, async/await
+Sync vs. async, Rust futures, tokio, `impl Trait`, existential types.
 
 
-<!--
-
-## TODOs
-
-- reduce scope
-- fmt subject isn't _necessary_ but is a deep-dive topic
-- need to have a "how to get help" section somewhere
-
--->
+### [Project 5: Asynchronous programming in Rust][p5]
 
 
+<!-- building block links -->
+
+[b1]: building-blocks/bb-1.md
+[b2]: building-blocks/bb-2.md
+[b3]: building-blocks/bb-3.md
+[b4]: building-blocks/bb-4.md
+[b5]: building-blocks/bb-5.md
 
 
-<!-- lesson and project links -->
+<!-- project links -->
+
+[p1]: projects/project-1/project.md
+[p2]: projects/project-2/project.md
+[p3]: projects/project-3/project.md
+[p4]: projects/project-4/project.md
+[p5]: projects/project-5/project.md
 
 
-<!-- section 1 -->
+<!-- other links -->
 
-[p-tools]: projects/project-1/project.md
-[t-whirlwind]: lessons/whirlwind.md
-[s-whirlwind]: lessons/whirlwind.slides.html
-[t-data]: lessons/data-structures.md
-[s-data]: lessons/data-structures.slides.html
-[t-crates]: lessons/crates.md
-[s-crates]: lessons/crates.slides.html
-[t-tools]: lessons/tools.md
-[s-tools]: lessons/tools.slides.html
-[t-fmt]: lessons/formatting.md
-[s-fmt]: lessons/formatting.slides.html
-
-<!-- section 2 -->
-
-[p-fs]: projects/project-2/project.md
-[t-errors]: lessons/error-handling.md
-[s-errors]: lessons/error-handling.slides.html
-[t-coll]: lessons/collections-and-iterators.md
-[s-coll]: lessons/collections-and-iterators.slides.html
-
-<!-- section 3 -->
-
-[p-net]: projects/project-3/project.md
-[t-net]: lessons/networking.md
-[s-net]: lessons/networking.slides.html
-[t-build]: lessons/build-time.md
-[s-build]: lessons/build-time.slides.html
-[t-grpc]: lessons/grpc.md
-[s-grpc]: lessons/gprc.slides.html
-
-<!-- section 4 -->
-
-[p-par]: projects/project-4/project.md
-[t-alias]: lessons/aliasing-and-mutability.md
-[s-alias]: lessons/aliasing-and-mutability.slides.html
-[t-own]: lessons/ownership-and-borrowing.md
-[s-own]: lessons/ownership-and-borrowing.slides.html
-[t-par]: lessons/parallelism.md
-[s-par]: lessons/parallelism.slides.html
-[t-prof]: lessons/profiling.md
-[s-prof]: lessons/profiling.slides.html
-
-<!-- section 5 -->
-
-[p-async]: projects/project-5/project.md
-[t-fut]: lessons/futures.md
-[s-fut]: lessons/futures.slides.html
-[t-async-await]: lessons/async-await.md
-[s-async-await]: lessons/async-await.slides.html
+[CONTRIBUTING.md]: ./CONTRIBUTING.md
+[README.md]: ./README.md
+[Rust Discord]: https://discord.gg/rust-lang
+[Rust user group]: https://prev.rust-lang.org/en-US/user-groups.html
+[StackOverflow]: https://stackoverflow.com/questions/tagged/rust
+[TiKV Slack]: https://join.slack.com/t/tikv-wg/shared_invite/enQtNTUyODE4ODU2MzI0LTgzZDQ3NzZlNDkzMGIyYjU1MTA0NzIwMjFjODFiZjA0YjFmYmQyOTZiNzNkNzg1N2U1MDdlZTIxNTU5NWNhNjk
+[author]: https://github.com/brson/
+[brson]: https://github.com/brson/
+[kv]: https://en.wikipedia.org/wiki/Key-value_database
+[pre]: ./README.md#user-content-prerequisites
+[psd]: https://github.com/pingcap/talent-plan/tree/master/rust/projects
+[qq]: ./qq-qr.jpg
+[rs]: https://github.com/pingcap/talent-training/rust
+[si]: https://github.com/pingcap/talent-plan/issues
+[spr]: https://github.com/pingcap/talent-plan/pulls
+[users forum]: https://users.rust-lang.org/
+[wechat]: ./wechat-qr.jpg

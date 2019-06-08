@@ -1,3 +1,3 @@
-# PNAR Prerequisites
+# PNA Rust Prerequisites
 
 TODO

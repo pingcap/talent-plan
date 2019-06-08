@@ -96,6 +96,7 @@ in the README.
 - https://rust-lang-nursery.github.io/failure/
 - https://serde.rs/
 - https://doc.rust-lang.org/cargo/
+- https://medium.com/rabiprasadpadhy/google-spanner-a-newsql-journey-or-beginning-of-the-end-of-the-nosql-era-3785be8e5c38
 
 ## Subjects to potentially cut
 
@@ -140,10 +141,18 @@ in the README.
   - removed goal of teaching how to find information on your own about rust
     - it's now an implicit goal
 - be clearer about crate deps
-- consistent formatting for crate names (code or not?)
+- consistent formatting for crate names (code or not?) (no)
 - do better at identifing and explaining the individual problems being solved
 - add tips for finding documentation and crates
 - mention mdbook when first linking to a book
+- rustup doc and cargo doc and where both draw their content from
+- make project contents more consistent
+  - projects contain sections that are unrelated to the main subject
+- change project.md to description.md, to get rid of the path stuttering
+- replace wikipedia, docs.rs, official rust, readings with blog posts, papers
+  and other more specific, harder to find resources
+- create place to submit solutions
+- compare criterion to bench
 
 # Future projects
 
@@ -153,3 +162,7 @@ in the README.
 - 8 - focus on data integrity
 - 9 - try to match performance of the production components
 - ? - streaming scan operation with lifetimes and streaming network api
+
+# survey
+
+- time to complete

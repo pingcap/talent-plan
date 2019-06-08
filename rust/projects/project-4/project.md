@@ -1,4 +1,4 @@
-# Project: Parallelism
+# PNA Rust Project 4: Parallelism
 
 **Task**: Create a multi-threaded, persistent key/value store server and client
 with synchronous networking over a custom protocol.
