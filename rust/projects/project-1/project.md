@@ -414,5 +414,7 @@ arguments instead of using `clap` directly._
 - do range lookups (`scan`)?
 - README.md?
 - GitHub CI setup?
+- Add suggestions to read clippy and rustfmt documentation
+- Make clippy / rustfmt docs readings?
 
 -->

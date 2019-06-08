@@ -18,6 +18,21 @@ source projects evolve.
 [si]: https://github.com/pingcap/talent-plan/issues/new
 [spr]: https://github.com/pingcap/talent-plan/compare
 
+TODO
+
+Links to the _readings_, _lessons_, and _slides_ are in the [lesson plan][plan],
+presented in the order they should be followed. See the lesson plan for
+further suggestions on how to get the most out of this course.
+
+All material for this course is in the
+
+> https://github.com/pingcap/talent-training
+
+git repository on GitHub, in the `rust` subdirectory. You may want a copy of it
+on your local computer, particularly for easy access to the conformance tests
+for each project.
+
+
 ## Section 1 (Setup)
 
 

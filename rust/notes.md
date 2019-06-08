@@ -81,12 +81,21 @@ in the README.
 - https://github.com/nrc/talks
 - RustBridge
 
+## Pedagogy
+
+- https://launchschool.com/pedagogy
+- https://launchschool.com/is_this_for_me
+
 ## Reading sources
 
 - previous reading ideas https://github.com/pingcap/talent-plan/blob/32311e6999a2a5b7db25cd2b4dd96491d5181165/rust/plan.md
 - http://highscalability.com/blog/2011/1/10/riaks-bitcask-a-log-structured-hash-table-for-fast-keyvalue.html
 - https://github.com/brson/rust-anthology/blob/master/master-list.md
 - https://github.com/ctjhoa/rust-learning
+- https://github.com/basho/bitcask/blob/develop/doc/bitcask-intro.pdf
+- https://rust-lang-nursery.github.io/failure/
+- https://serde.rs/
+- https://doc.rust-lang.org/cargo/
 
 ## Subjects to potentially cut
 
@@ -117,6 +126,24 @@ in the README.
 - find a way to use specialization via the KvsEngine trait
 - use imperative "part" titles? "creating" vs "create"
 - add explanation of "blocking" to parallelism / thread pool project
+- per readme, make parallelism project "fun and foolproof"
+- per readme, incorporate critcmp
+- deleted from readme:
+  - Build scripts and the interaction between build-time and run-time
+  - Insights into inner workings of the language and libraries
+  - to look "under the hood" and understand how and why Rust works like it does
+  - the course can be delivered offline
+  - _lessons_ - focused coverage of subjects required for writing practical
+    software of the type developed in the corresponding projects, including
+    advanced tips, best practices, and deep dives. This are in the form of slides,
+    speaker notes, and short _writeups_.
+  - removed goal of teaching how to find information on your own about rust
+    - it's now an implicit goal
+- be clearer about crate deps
+- consistent formatting for crate names (code or not?)
+- do better at identifing and explaining the individual problems being solved
+- add tips for finding documentation and crates
+- mention mdbook when first linking to a book
 
 # Future projects
 
