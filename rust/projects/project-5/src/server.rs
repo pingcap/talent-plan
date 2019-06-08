@@ -35,10 +35,9 @@ impl<E: KvsEngine> KvsServer<E> {
 fn serve<E: KvsEngine>(engine: E, tcp: TcpStream) -> impl Future<Item = (), Error = KvsError> {
     let (read_half, write_half) = tcp.split();
     let read_json = ReadJson::new(FramedRead::new(read_half, LengthDelimitedCodec::new()));
-    let write_json = WriteJson::new(FramedWrite::new(write_half, LengthDelimitedCodec::new()));
-    write_json
-        .sink_map_err(|e| e.into())
-        .send_all(read_json.map_err(|e| e.into()).and_then(
+    let resp_stream = read_json
+        .map_err(KvsError::from)
+        .and_then(
             move |req| -> Box<dyn Future<Item = Response, Error = KvsError> + Send> {
                 match req {
                     Request::Get { key } => Box::new(engine.get(key).map(Response::Get)),
@@ -50,6 +49,16 @@ fn serve<E: KvsEngine>(engine: E, tcp: TcpStream) -> impl Future<Item = (), Erro
                     }
                 }
             },
-        ))
+        )
+        .then(|resp| -> Result<Response> {
+            match resp {
+                Ok(resp) => Ok(resp),
+                Err(e) => Ok(Response::Err(format!("{}", e))),
+            }
+        });
+    let write_json = WriteJson::new(FramedWrite::new(write_half, LengthDelimitedCodec::new()));
+    write_json
+        .sink_map_err(KvsError::from)
+        .send_all(resp_stream)
         .map(|_| ())
 }
