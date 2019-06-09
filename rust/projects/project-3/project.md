@@ -146,10 +146,11 @@ compacts it into a new log, removing redundant entries to reclaim disk space.
 
 ## Project setup
 
-Create a new cargo project and copy the `tests` directory into it. This project
-should contain a library named `kvs`, and two executables, `kvs-server` and
-`kvs-client`. As with previous projects, add enough definitions that the
-test suite builds.
+Continuing from your previous project, delete your privous `tests` directory and
+copy this project's `tests` directory into its place. This project should
+contain a library named `kvs`, and two executables, `kvs-server` and
+`kvs-client`. As with previous projects, add enough definitions that the test
+suite builds.
 
 
 ## Part 1: Command line parsing

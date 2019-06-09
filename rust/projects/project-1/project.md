@@ -22,6 +22,9 @@ In this project you will create a simple in-memory key/value store that passes
 some tests and responds to command line arguments. The focus of this project is
 on the tooling and setup that goes into a typical Rust project.
 
+If this sounds basic to you, please do the project anyway as it discusses some
+general patterns that will be used throughout the course.
+
 
 ## Project spec
 
@@ -66,27 +69,6 @@ The `KvStore` type stores values in-memory, and thus the command-line client can
 do little more than print the version. The `get`/ `set` / `rm` commands will 
 return an "unimplemented" error when run from the command line. Future projects 
 will store values on disk and have a working command line interface.
-
-
-## How to treat these projects
-
-The more you find the answers for yourself, the more you learn. So even though
-this course comes with solutions and answers to every project, don't just go
-read the answers and move on. Read the material, do the projects, and answer the
-questions yourself.
-
-It is ok to get help though. In particular, you are encouraged
-to ask questions an the #beginners channel in [the Rust Discord][rd]
-or the #rust-beginners channel or [Mozilla IRC][mi].
-
-[rd]: https://discord.gg/rust-lang
-[mi]: https://chat.mibbit.com/?server=irc.mozilla.org&channel=%23rust
-
-For each project, your task is to make the provided tests pass, as described
-below. If you are submitting the project for evaluation, then this is the part
-that will be evaluated. In addition, the projects pose questions periodically.
-These are to encourage you to think deeper about the subject matter, though your
-answers won't be evaluated.
 
 
 ## Installation
@@ -168,20 +150,22 @@ fn main() {
 }
 ```
 
-The `name` and `authors` values can be whatever you like, and the author should
-be yourself. Note though that the contents of `kvs.rs` are affected by the
-package name, which is also the name of the library within the package. (TODO
-clarify)
+The author should be yourself, but the name needs to be `kvs` in order for the
+test cases to work. That's because the project name is also the name of the
+library it contains. Likewise the name of the binary (the command line
+application) needs to be `kvs`. In the above setup it will be `kvs` implicitly
+based on the file name, but you could name the file whatever you wanted by
+putting the appropriate information in the manifest (`Cargo.toml`).
+
+You may set up this project with `cargo new --lib`, `cargo init --lib` (in a
+clean directory), or manually. You'll probably also want to initialize a git
+repository in the same directory.
 
 Finally, the `tests` directory is copied from the course materials. In this case,
-copy from the course repository the file `rust/project/tools/tests`
+copy from the course repository the file `rust/project/project-1/tests`
 into your own repository, as `tests`.
 
-You may set up this project with `cargo new --lib`, `cargo init --lib`, or
-manually. You'll probably also want to initialize a git repository in the same
-directory.
-
-At this point you should be able to run the program with `cargo run`. It should 
+At this point you should be able to run the program with `cargo run`.
 
 _Try it now._
 
@@ -197,17 +181,28 @@ Try to run the tests with `cargo test`. What happens? Why?
 
 Your first task for this project is to make the tests _compile_. In `src/lib.rs`
 write the type and method definitions necessary to make `cargo test --no-run`
-complete successfully. Don't write any method bodies yet &mdash;
-instead write `panic!()`.
+complete successfully. Don't write any method bodies yet &mdash; instead write
+`panic!()`. This is the way to sketch out your APIs without knowing or caring
+about the implementation (there's also the [`unimplemented!`] macro, but since
+typing it is longer, it's common to simply use `panic!`, a possible exception
+being if you are releasing software that contains unimplemented methods).
+
+[`unimplemented!`]: https://doc.rust-lang.org/std/macro.unimplemented.html
 
 _Do that now before moving on._
 
 Once that is done, if you run `cargo test` (without `--no-run`),
-you should see that some of your tests are failing, like
+you should see that some of your tests are failing.
+
+<!--
+like
 
 ```
 TODO insert after we have a sample project
 ```
+-->
+
+<!-- TODO the following doesn't make sense in this project because only one suite -->
 
 In practice, particularly with large projects, you won't run the entire set of
 test suites while developing a single feature. To narrow down the set of tests
@@ -238,6 +233,24 @@ _Try it now._
 That's probably how you will be running the tests yourself as you work
 through the project, otherwise you will be distracted by the many failing tests
 that you have not yet fixed.
+
+
+## Aside: A note about test cases and reality
+
+During this course you will read the test cases a lot. The test cases tell you
+exactly what is expected of your code. If the text and the tests don't agree,
+the tests are right (file a bug!). This is true in the real world too. The test
+cases demonstrate what the software _actually_ does. They are reality. Get used
+to reading test cases.
+
+And, bonus &mdash; test cases are often the poorest-written code in any project,
+sloppy and undocumented.
+
+Note that, as of this writing, the test cases for the projects in this course
+are not organized in a way that makes it clear which test cases should complete
+for any particular section of a project &mdash; only that by the end the entire
+suite should pass. You'll need to read the names and implementations of the
+tests to figure out which you _think_ should pass at any particular time.
 
 
 ## Part 2: Accept command line arguments
@@ -276,14 +289,18 @@ error.
 
 You will use the `clap` crate to handle command-line arguments.
 
-<i>Use [crates.io](https://crates.io) to find the documentation
-for the `clap` crate, and implement the command line interface
-such that the `cli_*` test cases pass.</i>
+<i>Use [crates.io], [lib.rs], or [docs.rs] to find the documentation for the
+`clap` crate, and implement the command line interface such that the `cli_*`
+test cases pass.</i>
 
 When you are testing, use `cargo run`; do not run the executable directly from
 the `target/` directory. When passing arguments to the program, separate them
 from the `cargo run` command with two dashes, `--`, like `cargo run -- get
 key1`.
+
+[crates.io]: https://crates.io
+[lib.rs]: https://lib.rs
+[docs.rs]: https://docs.rs
 
 
 ## Part 3: Cargo environment variables
@@ -295,8 +312,6 @@ that can be accessed through Rust source code, at build time.
 
 _Modify your clap setup to set these values from standard cargo environment
 variables._
-
-
 
 
 ## Part 4: Store values in memory
@@ -338,8 +353,8 @@ the type or function is used from the name and type signature alone.
 Doc comments contain examples, and those examples can be tested with `cargo test
 --doc`.
 
-You may want to add `#![deny(missing_docs)]` to the top of `src/lib.rs`
-to enforce that all public items have doc comments.
+Add `#![deny(missing_docs)]` to the top of `src/lib.rs` to enforce that all
+public items have doc comments.
 
 _Add doc comments to the types and methods in your library. Follow the
 [documentatine guidelines][gdc]. Give each an example and make sure they pass
@@ -375,6 +390,8 @@ against yur project and commit any changes it makes._
 
 Congratulations, you are done with project 1! If you like you
 may complete the remaining "extensions". They are optional.
+
+<!-- TODO add text about discovering components, and filtering with rg -->
 
 
 ## Extension 1: `structopt`

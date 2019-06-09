@@ -127,8 +127,9 @@ until it is dropped.
 
 ## Project setup
 
-Create a new cargo project and copy the `tests` directory into it. Like project 1,
-this project should contain a library and an executable, both named `kvs`.
+Continuing from your previous project, delete your privous `tests` directory and
+copy this project's `tests` directory into its place. Like project 1, this
+project should contain a library and an executable, both named `kvs`.
 
 As with the previous project, use `clap` or `structopt` to handle the command
 line arguments. They are the same as last time.
