@@ -212,6 +212,8 @@ of the course will likely not use `failure`. In the meantime, it is fine, and
 presents an opportunity to learn more of the history and nuance of Rust error
 handling._
 
+[nbp]: https://github.com/rust-lang-nursery/rust-cookbook/issues/502#issue-387418261
+
 <!--
 Rust error handling has a long and winding history. Expert Rust programmers will
 be aware of it, as that history informs and explains modern Rust error handling.
@@ -399,8 +401,8 @@ redundancy:
 
 Here's the basic algorithm you will use:
 
-TODO: Think about this. should the algorithm be specified? what _is_ a
-good heuristic to rebuild the log? always rebuild the entire log?
+<!-- TODO: Think about this. should the algorithm be specified? what _is_ a
+good heuristic to rebuild the log? always rebuild the entire log? -->
 
 _How_ you re-build the log is up to you. Consider questions like: what is the
 naive solution? How much memory do you need? What is the minimum amount of
@@ -408,17 +410,6 @@ copying necessary to compact the log? Can the compaction be done in-place? How
 do you maintain data-integrity of compaction fails?
 
 _Implement log compaction for your database._
-
-TODO: Think about the below paragraph, what the actual answers are and whether
-the questions make sense. sticnarf and brson had discussion here:
-
-- https://github.com/pingcap/talent-plan/pull/36#issuecomment-479773794
-
-With compaction, what is the amortized complexity (big O) of calling `set`? What
-is the worst case complexity of calling `set`? The worst case is the case with
-maximum write latency. Think about how you could reduce the worst-case latency
-of the compaction strategy you've implemented. You may find good opportunities
-to reconsider your compaction algorithm in future projects. For now though ...
 
 **Congratulations! You have written a fully-functional database. And it is quite
 good as-is.**
