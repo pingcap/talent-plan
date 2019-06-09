@@ -19,6 +19,10 @@ with asynchronous networking over a custom protocol.
 
 ## Introduction
 
+_Note: this project is only outlined, not written. If you are at this point in
+the course email brian@pingcap.com and let me know and I will finish writing it
+ASAP._
+
 In this project you will create a simple key/value server and client that
 communicate over a custom protocol. The server will use asynchronous networking,
 built on the tokio runtime. The key/value engine that reads and writes to files
