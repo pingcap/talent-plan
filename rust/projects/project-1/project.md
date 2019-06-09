@@ -68,27 +68,6 @@ return an "unimplemented" error when run from the command line. Future projects
 will store values on disk and have a working command line interface.
 
 
-## How to treat these projects
-
-The more you find the answers for yourself, the more you learn. So even though
-this course comes with solutions and answers to every project, don't just go
-read the answers and move on. Read the material, do the projects, and answer the
-questions yourself.
-
-It is ok to get help though. In particular, you are encouraged
-to ask questions an the #beginners channel in [the Rust Discord][rd]
-or the #rust-beginners channel or [Mozilla IRC][mi].
-
-[rd]: https://discord.gg/rust-lang
-[mi]: https://chat.mibbit.com/?server=irc.mozilla.org&channel=%23rust
-
-For each project, your task is to make the provided tests pass, as described
-below. If you are submitting the project for evaluation, then this is the part
-that will be evaluated. In addition, the projects pose questions periodically.
-These are to encourage you to think deeper about the subject matter, though your
-answers won't be evaluated.
-
-
 ## Installation
 
 At this point in your Rust programming experience you should know
