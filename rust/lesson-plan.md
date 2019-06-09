@@ -178,7 +178,7 @@ instructions for that section.
 
 ### [Building Blocks 1][b1]
 
-Rust tooling.
+**Topics**: Rust tooling.
 
 
 ### [Project 1: The Rust toolbox and strong foundations][p1]
@@ -201,7 +201,7 @@ to command-line arguments.
 
 ### [Building Blocks 2][b2]
 
-Databases, file I/O, and Rust error handling.
+**Topics**: Databases, file I/O, and Rust error handling.
 
 
 ### [Project 2: Log-structured file I/O][p2]
@@ -225,7 +225,7 @@ serde
 
 ### [Building Blocks][b3]
 
-TCP, logging, traits, benchmarking.
+**Topics**: TCP, logging, traits, benchmarking.
 
 
 ### [Project 3: Synchronous client-server networking][p3]
@@ -248,7 +248,7 @@ with synchronous networking over a custom protocol.
 
 ### [Building Blocks][b4]
 
-Message passing, lock-free data structures.
+**Topics**: Message passing, lock-free data structures.
 
 
 ### [Project 4: Parallelism][p4]
@@ -270,7 +270,7 @@ with synchronous networking over a custom protocol.
 
 ### [Building Blocks 5][b5]
 
-Sync vs. async, Rust futures, tokio, `impl Trait`, existential types.
+**Topics**: Sync vs. async, Rust futures, tokio, `impl Trait`, existential types.
 
 
 ### [Project 5: Asynchronous programming in Rust][p5]
