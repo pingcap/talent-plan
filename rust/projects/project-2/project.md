@@ -31,6 +31,7 @@ well-architected database using Rust file APIs.
 [bitcask]: https://github.com/basho/bitcask
 
 
+<!--
 ## Basic database architecture
 
 TODO
@@ -39,21 +40,35 @@ TODO
 - good opportunity for a diagram
 - find a good background reading
 - using the os page cache for caching
+-->
 
-Terminology:
+## Terminology
 
-Same terminology used by bitcask. Different databases will have slightly
-different terminology.
+Some terminology we we will use in this course. It is the same as or inspired by
+[bitcask]. Different databases will have slightly different terminology.
 
-- _log_ - todo
-- _log pointer_ - todo
-- _log compaction_ - todo
-- _in-memory index_ (or _index_) - todo
-- _index file_ - todo
-- _command_ - todo
-
-simplifications:
-- single log and index
+- _command_ - A request or the representation of a request made to the database.
+  These are issued on the command line or over the network. The have an
+  in-memory representation, a textual representation, and a machine-readable
+  serialized representation.
+- _log_ - An on-disk sequence of commands, in the order originally received and
+  executed. Our database's on-disk format is almost entirely made up of logs. It
+  will be simple, but also surprisingly effecient.
+- _log pointer_ - A file offset into the log. Sometimes we'll just call this a
+  "file offset".
+- _log compaction_ - As writes are issued to the database they sometimes
+  invalidate old log entries. For example, writing key/value `a = 0` then
+  writing `a = 1`, makes the first log entry for "a" useless. Compaction &mdash;
+  in our database at least &mdash; is the process of reducing the size of the
+  database by remove stale commands from the log.
+- _in-memory index_ (or _index_) - A map of keys to log pointers. When a read
+  request is issues, the in-memory index is searched for the appropriate log
+  pointer, and when it is found the value retrieved from the on-disk log. In our
+  key/value store, like in bitcask, the index for the _entire database_ is
+  stored in memory.
+- _index file_ - The on-disk representation of the in-memory index. Without this
+  the log would need to be completely replayed to restore the state of the
+  in-memory index each time the database is started.
 
 
 ## Project spec
