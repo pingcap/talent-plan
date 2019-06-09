@@ -9,12 +9,9 @@ command line
 - Write data to disk as a log using standard file APIs.
 - Read the state of the key/value store from disk
 - Use serde for serialization
-- Use file I/O APIs to binary search
 
 **Topics**: `failure` crate, `std::net::fs`, `Read` / `Write` traits,
 serde
-
-**Extensions**: range queries, store data using bitcast algo? TODO
 
 
 ## Introduction
@@ -420,11 +417,6 @@ projects will give you opportunities to optimize.
 [sled]: https://github.com/spacejam/sled
 [badger]: https://github.com/dgraph-io/badger
 [RocksDB]: https://rocksdb.org/
-
-
-# Extension 1: Range queries
-
-(implement 'scan' to return a range of records)
 
 
 <!--

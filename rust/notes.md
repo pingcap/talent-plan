@@ -157,6 +157,7 @@ in the README.
 - sort lines of links
 - how to find the names and descriptions of all lints
 - consider adding links to project source code somewhere
+- add note encouraging reading the rustfmt / rustclippy docs
 
 # Future projects
 

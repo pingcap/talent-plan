@@ -179,7 +179,8 @@ instructions for that section.
 
 ### [Building Blocks 1][b1]
 
-**Topics**: Rust tooling.
+**Topics**: CLI programming, the cargo manifest and environment variables,
+documenting Rust projects, rustup.
 
 
 ### [Project 1: The Rust toolbox and strong foundations][p1]
