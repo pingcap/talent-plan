@@ -3,7 +3,7 @@
 Let's learn some building blocks!
 
 Put your other projects and concerns aside. Take a breath and relax. Here
-are some important resources for you to explore.
+are some fun resources for you to explore.
 
 - **[Exercise: Write a Good CLI Program]**. Writing a CLI program in Rust. This
   is a good warmup to the CLI program you'll be writing in this course, and the
