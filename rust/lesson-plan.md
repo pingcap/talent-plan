@@ -40,7 +40,7 @@ All material for this course is in the
 
 > https://github.com/pingcap/talent-training
 
-git repository on GitHub, in the [`rust` subdirectory][rs]. You may want a copy
+git repository on GitHub, in the [`rust` subdirectory][rs]. You will want a copy
 of it on your local computer, particularly for easy access to the conformance
 tests for each project.
 
