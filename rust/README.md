@@ -28,11 +28,11 @@ discover that doing so is simpler than you expected.
 _**Important note: Practical Networked Applications in Rust is in an alpha
 state**. It contains bugs and its scope is limited. If you are taking it now you
 are brave, but you are also an early tester and your feedback is greatly
-appreciated. As you are following along please [file issues]<!-- TODO and complete the
-[post-project surveys] -->. You are also encouraged to fix problems on your own and
-submit pull requests. See [CONTRIBUTING.md] for more about contributing to
-Practical Networked Applications in Rust. See [the roadmap] for details about
-future course subject matter._
+appreciated. As you are following along please [file issues]<!-- TODO and
+complete the [post-project surveys] -->. You are also encouraged to fix problems
+on your own and submit pull requests. See [CONTRIBUTING.md] for more about
+contributing.<!-- See [the roadmap] for details about future course subject
+matter.-->_
 
 **[View the lesson plan][plan]**.
 
