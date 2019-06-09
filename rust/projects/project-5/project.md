@@ -178,4 +178,20 @@ TODO:
 - background readings
   - something on associated types
 
+via @sticnarf:
+
+> As there is only the outline of project 5, I write the code mostly according to
+my own thoughts. Hope this will be a reference while you're writing the text.
+@brson
+
+> I change the concurrent_get/set tests to use async. Students should change their
+SledKvsEngine and KvStore to adapt to the KvsEngine trait with new async APIs.
+The engines have a ThreadPool type parameter and the constructor has a
+concurrency argument (maybe we should remove it). Students need to follow the
+design so that the test will work.
+
+> I don't test the client. Implementors can choose the API design of the client
+themselves (unless we work out a perfect design so we can just give instructions
+to students).
+
 -->
