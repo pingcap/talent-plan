@@ -289,9 +289,21 @@ error.
 
 You will use the `clap` crate to handle command-line arguments.
 
-<i>Use [crates.io], [lib.rs], or [docs.rs] to find the documentation for the
-`clap` crate, and implement the command line interface such that the `cli_*`
+_Find the latest version of the `clap` crate and add it to your dependencies in
+`Cargo.toml`._ There are a number of ways to find and import a crate, but
+pro-tip: check out the built-in [`cargo search`] and the plug-in [`cargo edit`].
+
+[`cargo search`]: https://doc.rust-lang.org/cargo/commands/cargo-search.html
+[`cargo edit`]: https://github.com/killercup/cargo-edit
+
+<!-- note: above is basically assuming that by now they know about
+crates.io, so expanding their world with the two CLI commands. -->
+
+<i>Next use [crates.io], [lib.rs], or [docs.rs] to find the documentation for
+the `clap` crate, and implement the command line interface such that the `cli_*`
 test cases pass.</i>
+
+<!-- note: above casually mentioning lib.rs and docs.rs to make sure they are aware. -->
 
 When you are testing, use `cargo run`; do not run the executable directly from
 the `target/` directory. When passing arguments to the program, separate them

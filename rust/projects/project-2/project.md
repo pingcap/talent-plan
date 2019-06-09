@@ -153,11 +153,6 @@ Rust's error handling is powerful, but involves a lot of boilerplate to use
 correctly. For this project the [`failure`] crate will provide the tools to
 easily handle errors of all kinds.
 
-_Find the latest version of the failure crate and add it to your dependencies in
-`Cargo.toml`._ There are a number of ways to find and import the latest version
-of crate, but hint: check out the built-in [`cargo search`] and the plug-in
-[`cargo edit`]. <!-- TODO: make sure cargo edit is still cool. -->
-
 [`failure`]: https://docs.rs/failure/0.1.5/failure/
 
 The [failure guide][fg] describes [several] error handling patterns.

@@ -141,7 +141,7 @@ in the README.
   - removed goal of teaching how to find information on your own about rust
     - it's now an implicit goal
 - be clearer about crate deps
-- consistent formatting for crate names (code or not?) (no)
+- consistent formatting for crate names (code or not?) (yes, to offset them as crates when not explicitly mentioned)
 - do better at identifing and explaining the individual problems being solved
 - add tips for finding documentation and crates
 - mention mdbook when first linking to a book
