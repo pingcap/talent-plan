@@ -89,12 +89,10 @@ following:
 
 ## Project setup
 
-Create a new cargo project and copy the `tests` directory into it. This project
-should contain a library named `kvs`, and two executables, `kvs-server` and
+Continuing from your previous project, delete your privous `tests` directory and
+copy this project's `tests` directory into its place. This project should
+contain a library named `kvs`, and two executables, `kvs-server` and
 `kvs-client`.
-
-Copy the code from your previous project into this project. You will refactor it
-to use futures in small steps.
 
 Unlike with previous projects, don't bother to fill in enough type definitions
 to make the test suite compile. Doing so would require jumping a number of steps
