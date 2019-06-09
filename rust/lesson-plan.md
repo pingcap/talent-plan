@@ -154,11 +154,11 @@ that that link goes to the old Rust website and may not be up to date).
 
 ## Making PNA Rust better
 
-At the end of each project is a link to a survey about your experience. Please
+<!-- TODO At the end of each project is a link to a survey about your experience. Please
 take a few minutes to complete it, and be comfortable expressing the challenges
 you faced, and your criticisms of the course. The survey results are not seen by
 anybody but the [primary author of the course][author], though aggregate
-statistics may be reported publicly.
+statistics may be reported publicly. -->
 
 As you work through the course content, please be on the lookout for things you
 would improve about the course, and either [submit issues][si] explaining, or
