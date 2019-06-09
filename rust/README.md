@@ -16,7 +16,7 @@ Subjects covered include:
 - Simple log-structured storage, inspired by [bitcask]
 - Network programming with std and [tokio]
 - Benchmarking with [criterion] and [critcmp]
-- Fun and foolproof parallel programming with [rayon], and [crossbeam]
+- Fun and foolproof parallel programming with [crossbeam] and more
 - Asyncronous programming with Rust [futures]
 - How to learn what you don't know about Rust and find the documentation and
   crates you need to succeed
@@ -150,7 +150,6 @@ See [CONTRIBUTING.md].
 [post-project surveys]: lesson-plan.md#user-content-making-pna-rust-better
 [pre]: prerequisites.md
 [programming a guessing game]: https://doc.rust-lang.org/stable/book/ch02-00-guessing-game-tutorial.html
-[rayon]: https://github.com/rayon-rs/rayon
 [rustfmt]: https://github.com/rust-lang/rustfmt/
 [serde]: https://github.com/serde-rs/serde
 [series of courses]: https://github.com/pingcap/talent-plan/

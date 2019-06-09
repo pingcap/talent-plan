@@ -146,7 +146,7 @@ In this project it will be possible for the code to fail due to I/O errors. So
 before we get started implementing a database we need to do one more thing that
 is crucial to Rust projects: decide on an error handling strategy.
 
-TODO
+<!-- TODO outline strategies? -->
 
 Rust's error handling is powerful, but involves a lot of boilerplate to use
 correctly. For this project the [`failure`] crate will provide the tools to
@@ -155,7 +155,7 @@ easily handle errors of all kinds.
 _Find the latest version of the failure crate and add it to your dependencies in
 `Cargo.toml`._ There are a number of ways to find and import the latest version
 of crate, but hint: check out the built-in [`cargo search`] and the plug-in
-[`cargo edit`]. TODO: make sure cargo edit is still cool.
+[`cargo edit`]. <!-- TODO: make sure cargo edit is still cool. -->
 
 [`failure`]: https://docs.rs/failure/0.1.5/failure/
 
@@ -192,20 +192,24 @@ this should be straightforward. Add panics anywhere necessary to get the test to
 compile (`cargo test --no-run`).
 
 
+<!--
 ## Aside: The history of Rust error handling
+-->
 
 _Note: Error-handling practices in Rust are still evolving. This course
 currently uses the [`failure`] crate to make defining error types easier. While
 `failure` has a good design, it's use [arguably not a best practice][nbp]. It
-may not continue to be viewed favorably by the Rust zeitgeist. Future iterations
+may not continue to be viewed favorably by Rust experts. Future iterations
 of the course will likely not use `failure`. In the meantime, it is fine, and
 presents an opportunity to learn more of the history and nuance of Rust error
 handling._
 
+<!--
 Rust error handling has a long and winding history. Expert Rust programmers will
 be aware of it, as that history informs and explains modern Rust error handling.
 
 TODO
+-->
 
 
 ## Part 2: Storing writes in the log

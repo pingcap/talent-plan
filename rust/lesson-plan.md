@@ -45,7 +45,11 @@ of it on your local computer, particularly for easy access to the conformance
 tests for each project.
 
 Each project builds on experience from the previous project. It is reasonable to
-start each project by copying the previous.
+simply start each project in the same git repository where you left off on the
+previous (though you may want to add a [git tag] indicating where the previous
+project ended).
+
+[git tag]: https://git-scm.com/book/en/v2/Git-Basics-Tagging
 
 
 ## Course structure
@@ -75,8 +79,8 @@ project containing a complete example solution, and the project test suite. Each
 project comes with a test suite, and the project should not be considered
 finished until it passes with `cargo test`.
 
-You should not read the example code for any project until completing the
-project yourself. You are encouraged though to learn from and apply techniques
+**You should not read the example code for any project until completing the
+project yourself**. You are encouraged though to learn from and apply techniques
 they contain to your own projects retroactively. Keep in mind though that the
 example projects are not the only way &mdash; or even the best way &mdash; to
 solve the problems. Trust yourself and your own creativity.
@@ -125,13 +129,10 @@ Here are the resources you should consider turning to first:
 - The QQ Rust group ([QR code][qq]). For Chinese students, this is one of the
   major Rust communities in China. This is a great place to hang out generally,
   and for those unconfident in their English skills, a great place to ask
-  for help.
+  for help. There are also WeChat groups, bit with their low population caps
+  and invite requirements are more difficult to deal with here.
 
-- The WeChat Rust group #2 ([QR code][wechat]). Again this is mostly for the
-  Chinese audience. With WeChat's group limits there are multiple Rust groups.
-  This is the most recent. It is though relatively unpopulated, so you are more
-  likely to get help in the QQ group. Do join this one though to get in before
-  it spills over into a third group.
+- The QQ Rust group #2 ([QR code][qq2]). Like the above.
 
 These resources may also be helpful:
 
@@ -161,10 +162,9 @@ statistics may be reported publicly.
 As you work through the course content, please be on the lookout for things you
 would improve about the course, and either [submit issues][si] explaining, or
 [submit pull requests][spr] with improvements. (If you are being graded,
-accepted pull requests count toward extra credit during final evaluation &mdash;
-let your instructor or evaluator know! Accepted pull requests to any other
-project used during this course count as well. Note: I have no way to guarantee
-this is true…). This is an opportunity to gain experience contributing to an
+accepted pull requests to this or any other repo used in the course _may_ count
+toward extra credit during final evaluation &mdash; let your instructor or
+evaluator know!). This is an opportunity to gain experience contributing to an
 open-source Rust project. Make this a better course for the next person to take
 it than it was for you.
 
@@ -275,6 +275,8 @@ with synchronous networking over a custom protocol.
 
 ### [Project 5: Asynchronous programming in Rust][p5]
 
+Coming soon!
+
 
 <!-- building block links -->
 
@@ -308,8 +310,8 @@ with synchronous networking over a custom protocol.
 [pre]: ./README.md#user-content-prerequisites
 [psd]: https://github.com/pingcap/talent-plan/tree/master/rust/projects
 [qq]: ./qq-qr.jpg
+[qq2]: ./wechat-qr.jpg
 [rs]: https://github.com/pingcap/talent-training/rust
 [si]: https://github.com/pingcap/talent-plan/issues
 [spr]: https://github.com/pingcap/talent-plan/pulls
 [users forum]: https://users.rust-lang.org/
-[wechat]: ./wechat-qr.jpg
