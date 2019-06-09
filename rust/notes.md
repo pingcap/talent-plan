@@ -153,6 +153,9 @@ in the README.
   and other more specific, harder to find resources
 - create place to submit solutions
 - compare criterion to bench
+- move all links to ends of documents and explain in contributing.md
+- sort lines of links
+- how to find the names and descriptions of all lints
 
 # Future projects
 
