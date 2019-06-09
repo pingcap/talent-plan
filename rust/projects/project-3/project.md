@@ -1,4 +1,4 @@
-# Project: Synchronous client-server networking
+# PNA Rust Project 3: Synchronous client-server networking
 
 **Task**: Create a single-threaded, persistent key/value store server and client
 with synchronous networking over a custom protocol.
@@ -8,11 +8,10 @@ with synchronous networking over a custom protocol.
 - Create a client-server application
 - Write a custom protocol with `std` networking APIs
 - Introduce logging to the server
-- Chain errors and report them in a human-readable way
 - Implement pluggable backends via traits
 - Benchmark the hand-written backend against `sled`
 
-**Topics**: `std::net`, logging, error handling, `impl Trait`, benchmarking
+**Topics**: `std::net`, logging, traits, benchmarking
 
 **Extensions**: shutdown on signal
 

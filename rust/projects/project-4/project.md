@@ -1,4 +1,4 @@
-# Project: Parallelism
+# PNA Rust Project 4: Parallelism
 
 **Task**: Create a multi-threaded, persistent key/value store server and client
 with synchronous networking over a custom protocol.
@@ -45,7 +45,7 @@ self`, and now it implements `Clone`. This is common with parallel
 data structures. Why is that? It's not that we're not going to be writing
 immutable code. It _is_ though going to be shared across threads. Why might that
 preclude using `&mut self` in the method signatures? If you don't know now,
-it'll become obvious by the end of this project.
+it will become obvious by the end of this project.
 
 The second is that the library in this project contains a new _trait_,
 `ThreadPool`. It contains the following methods:

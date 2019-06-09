@@ -1,4 +1,4 @@
-# Project: Tools and good bones
+# PNA Rust Project 1: The Rust toolbox and strong foundations
 
 **Task**: Create an in-memory key/value store that passes simple tests and responds
 to command-line arguments.
@@ -414,5 +414,7 @@ arguments instead of using `clap` directly._
 - do range lookups (`scan`)?
 - README.md?
 - GitHub CI setup?
+- Add suggestions to read clippy and rustfmt documentation
+- Make clippy / rustfmt docs readings?
 
 -->
