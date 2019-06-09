@@ -277,7 +277,7 @@ with synchronous networking over a custom protocol.
 
 ### [Project 5: Asynchronous programming in Rust][p5]
 
-Coming soon!
+Coming soon! <!-- TODO -->
 
 
 <!-- building block links -->
