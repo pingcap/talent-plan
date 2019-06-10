@@ -226,7 +226,7 @@ command line.
 `Write` traits, the `serde` crate.
 
 
-### [Building Blocks][b3]
+### [Building Blocks 3][b3]
 
 **Topics**: TCP, logging, traits, benchmarking.
 
@@ -249,7 +249,7 @@ with synchronous networking over a custom protocol.
 **Extensions**: shutdown on signal.
 
 
-### [Building Blocks][b4]
+### [Building Blocks 4][b4]
 
 **Topics**: Message passing, lock-free data structures.
 
