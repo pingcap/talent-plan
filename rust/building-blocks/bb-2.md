@@ -34,3 +34,5 @@ are some fun resources for you to explore.
 [bc]: https://github.com/basho/bitcask/blob/develop/doc/bitcask-intro.pdf
 [BurntSushi]: https://github.com/BurntSushi
 [other things]: https://github.com/BurntSushi/ripgrep
+
+<!-- TODO: better LSS paper -->
