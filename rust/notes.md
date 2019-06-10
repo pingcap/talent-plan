@@ -98,6 +98,11 @@ in the README.
 - https://serde.rs/
 - https://doc.rust-lang.org/cargo/
 - https://medium.com/rabiprasadpadhy/google-spanner-a-newsql-journey-or-beginning-of-the-end-of-the-nosql-era-3785be8e5c38
+- https://github.com/Hexilee/async-io-demo
+- https://stjepang.github.io/2019/01/29/lock-free-rust-crossbeam-in-2019.html
+- https://limpet.net/mbrubeck/2019/02/07/rust-a-unique-perspective.html
+- https://doc.rust-lang.org/nomicon/aliasing.html
+- https://manishearth.github.io/blog/2015/05/17/the-problem-with-shared-mutability/
 
 ## Subjects to potentially cut
 
@@ -163,6 +168,7 @@ in the README.
 - describe in more depth the final product
 - put a reminder about building blocks at top of every project
 - add back-links in some non-intrusive way, somehow
+- to p1 just add a list of useful Rust cli tools!
 
 # Future projects
 
