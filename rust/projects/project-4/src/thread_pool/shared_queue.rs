@@ -23,7 +23,10 @@ impl ThreadPool for SharedQueueThreadPool {
         let (tx, rx) = channel::unbounded::<Box<dyn FnOnce() + Send + 'static>>();
         for _ in 0..threads {
             let rx = TaskReceiver(rx.clone());
-            thread::Builder::new().spawn(move || run_tasks(rx))?;
+            thread::Builder::new().spawn(move || {
+                panic_control::disable_hook_in_current_thread();
+                run_tasks(rx)
+            })?;
         }
         Ok(SharedQueueThreadPool { tx })
     }
@@ -50,7 +53,10 @@ impl Drop for TaskReceiver {
     fn drop(&mut self) {
         if thread::panicking() {
             let rx = self.clone();
-            if let Err(e) = thread::Builder::new().spawn(move || run_tasks(rx)) {
+            if let Err(e) = thread::Builder::new().spawn(move || {
+                panic_control::disable_hook_in_current_thread();
+                run_tasks(rx)
+            }) {
                 error!("Failed to spawn a thread: {}", e);
             }
         }
