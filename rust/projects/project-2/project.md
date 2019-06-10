@@ -416,8 +416,7 @@ compact the log if you split your log across files.
 
 _Implement log compaction for your database._
 
-**Congratulations! You have written a fully-functional database. And it is quite
-good as-is.**
+**Congratulations! You have written a fully-functional database.**
 
 If you are curious, now is a good time to start comparing the performance of
 your key/value store to others, like [sled], [bitcask], [badger], or [RocksDB].
