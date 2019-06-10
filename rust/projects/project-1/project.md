@@ -18,9 +18,10 @@ to command-line arguments.
 
 ## Introduction
 
-In this project you will create a simple in-memory key/value store that passes
-some tests and responds to command line arguments. The focus of this project is
-on the tooling and setup that goes into a typical Rust project.
+In this project you will create a simple in-memory key/value store that maps
+strings to strings, and that passes some tests and responds to command line
+arguments. The focus of this project is on the tooling and setup that goes into
+a typical Rust project.
 
 If this sounds basic to you, please do the project anyway as it discusses some
 general patterns that will be used throughout the course.
