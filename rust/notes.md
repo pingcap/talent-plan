@@ -179,6 +179,7 @@ in the README.
 - to p1 just add a list of useful Rust cli tools!
 - sort deps in manifests
 - after p1 link first uses of crate names to docs.rs
+- say why we're doing each exercise or diversion
 
 # Future projects
 

@@ -7,6 +7,8 @@ with multithreading and asynchronous I/O. In between projects you will study and
 practice individual subjects necessary to complete the project. Along the way
 you will explore multiple designs and their tradeoffs.
 
+<!-- TODO make the above sparkle -->
+
 Subjects covered include:
 
 - Structuring and maintaining Rust programs
