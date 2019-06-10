@@ -252,9 +252,10 @@ _Go ahead and add the appropriate dev-deps to your manifest._
 
 Try again to run the tests with `cargo test`. What happens? Why?
 
-Hopefully those errors are gone. Now the errors are all about the test cases not
-being able to find all the code it expects in your own code. So now your task is
-to outline all the types, methods, etc. necessary to make the tests build.
+Hopefully those _previous_ errors are gone. Now the errors are all about the
+test cases not being able to find all the code it expects in your own code. So
+now your task is to outline all the types, methods, etc. necessary to make the
+tests build.
 
 During this course you will read the test cases a lot. The test cases tell you
 exactly what is expected of your code. If the text and the tests don't agree,
@@ -264,6 +265,8 @@ to reading test cases.
 
 And, bonus &mdash; test cases are often the poorest-written code in any project,
 sloppy and undocumented.
+
+Again, ry to run the tests with `cargo test`. What happens? Why?
 
 In `src/lib.rs` write the type and method definitions necessary to make `cargo
 test --no-run` complete successfully. Don't write any method bodies yet &mdash;
@@ -278,47 +281,158 @@ unimplemented methods).
 _Do that now before moving on._
 
 Once that is done, if you run `cargo test` (without `--no-run`),
-you should see that some of your tests are failing.
-
-<!--
-like
+you should see that some of your tests are failing, like
 
 ```
-TODO insert after we have a sample project
-```
--->
+    Finished dev [unoptimized + debuginfo] target(s) in 2.32s
+     Running target/debug/deps/kvs-b03a01e7008067f6
 
-<!-- TODO the following doesn't make sense in this project because only one suite -->
+running 0 tests
 
-In practice, particularly with large projects, you won't run the entire set of
-test suites while developing a single feature. To narrow down the set of tests
-to the ones we care about, run the following:
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 
-```
-cargo test --test tests
-```
+     Running target/debug/deps/kvs-a3b5a004932c6715
 
-That reads pretty silly: "test test tests". What it means though is that we're
-testing (`cargo test`), we want to run a specific suite of tests (`--test`), in
-this case the tests in `tests.rs` (`--test tests`). We can even narrow our testing
-down to a single test case within the `tests` test suite, like
+running 0 tests
 
-```
-cargo test --test tests -- cli_no_args
-```
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 
-or, by matching multiple test cases, a few, like:
+     Running target/debug/deps/tests-5e1c2e20bd1fa377
 
-
-```
-cargo test --test tests -- cli
+running 13 tests
+test cli_get ... FAILED
+test cli_invalid_get ... FAILED
+test cli_invalid_rm ... FAILED
+test cli_invalid_set ... FAILED
+test cli_no_args ... FAILED
+test cli_invalid_subcommand ... FAILED
+... more lines of spew ...
 ```
 
-_Try it now._
+... followed by many more lines. That's great! That's all we need right now.
+You'll make those pass throughout the rest of this project.
 
-That's probably how you will be running the tests yourself as you work
-through the project, otherwise you will be distracted by the many failing tests
-that you have not yet fixed.
+
+## Aside: Testing tips
+
+If you look again at the output from `cargo test` you'll see something
+interesting:
+
+```
+     Running target/debug/deps/kvs-b03a01e7008067f6
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+     Running target/debug/deps/kvs-a3b5a004932c6715
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+     Running target/debug/deps/tests-5e1c2e20bd1fa377
+
+
+running 13 tests
+test cli_get ... FAILED
+```
+
+Cargo says "Running ..." three times. And the first two of those times it in
+fact did not run any tests. And furthermore, if all those tests hadn't failed,
+cargo would have run _yet another_ set of tests.
+
+Why is this?
+
+Well, it is because there are many places you can write tests in Rust:
+
+- Inside the source of your library
+- Inside the source of each of your binaries
+- Inside each test file
+- In the doc comments of your library
+
+And cargo doesn't know which of these actually contain tests, so it just builds
+and runs them all.
+
+So those two sets of empty tests:
+
+```
+     Running target/debug/deps/kvs-b03a01e7008067f6
+running 0 tests
+     Running target/debug/deps/kvs-a3b5a004932c6715
+running 0 tests
+```
+
+Well, this is a bit confusing, but one of them is your library, compiled for
+testing, and the other is your binary, compiled for testing. Neither contains
+any tests. The reason both have "kvs" in their names is because both your
+library and your binary are called "kvs".
+
+All this test spew gets annoying, and there are two ways to quiet cargo:
+with command line arguments, and with changes to the manifest.
+
+Here are the relevant command line flags:
+
+- `cargo test --lib` &mdash; test just the tests inside the library
+- `cargo test --doc &mdash; test the doc tests in the library
+- `cargo test --bins` &mdash; test all the bins in the project
+- `cargo test --bin foo` &mdash; test just the `foo` bin
+- `cargo test --doc` &mdash; test the libraries doc tests
+- `cargo test --test foo` &mdash; test the tests in test file `foo`
+
+These are convenient to quickly hide test spew, but if a project doesn't contain
+a type of tests it's probably best to just never deal with them. If you recall
+from The Cargo Book's [manifest description][m], there are two keys that can be
+applied: `test = false` and `doctest = false`. They go in the `[lib]` and
+`[[bin]]` sections. Consider updating your manifest.
+
+[m]: https://doc.rust-lang.org/cargo/reference/manifest.html
+
+Another quick thing to do if you haven't before. Run this:
+
+```
+cargo test -- --help
+```
+
+Just do it. It's cool. What you are seeing there is the help information for
+_the executable containing your compiled tests_ (that `--` surrounded by spaces
+tells cargo to pass all following arguments to the test binary). It's not
+the same info displayed when you run `cargo test --help`. They are two different
+things: cargo is running your test bin by passing it all these various arguments.
+
+If you want you can do exactly the same thing. Let's go back one more time
+to our `cargo test` example. We saw this line:
+
+```
+     Running target/debug/deps/kvs-b03a01e7008067f6
+```
+
+That's cargo telling you the name of the test binary. You can run it
+yourself, like `target/debug/deps/kvs-b03a01e7008067f6 --help`.
+
+The `target` directory contains lots of cool stuff. Digging through it can teach
+you a lot about what the Rust toolchain is actually doing.
+
+In practice, particularly with large projects, you won't run the entire test
+suite while developing a single feature. To narrow down the set of tests to the
+ones we care about, run the following:
+
+```
+cargo test cli_no_args
+```
+
+This will run the test called `cli_no_args`. In fact, it will run any test
+containing `cli_no_args` in the name, so if, e.g., you want to run all the CLI
+tests, you can run `cargo test cli`. That's probably how you will be running the
+tests yourself as you work through the project, otherwise you will be distracted
+by the many failing tests that you have not yet fixed. Unfortunately that
+pattern is a simple substring match, not something fancy like a regular
+expression.
+
+<!-- TODO: need an excuse to explain `cargo test --test suite`.
+Per https://github.com/pingcap/talent-plan/pull/129#issuecomment-498477590
+we might organize the the test suite into test files by project section.
+Then we could talk about `cargo test --test part-1` -->
 
 Note that, as of this writing, the test cases for the projects in this course
 are not organized in a way that makes it clear which test cases should complete
@@ -423,9 +537,12 @@ First, public items should generally have doc comments.
 Doc comments are displayed in a crate's API documentation. API documentation can
 be generated with the command, `cargo doc`, which will render them as HTML to
 the `target/doc` folder. Note though that `target/doc` folder does not contain
-an `index.html`. Your crate's documentation will be located at
+an `index.html`. In this project, your crate's documentation will be located at
 `target/doc/kvs/index.html`. You can launch a web browser at that location with
-`cargo doc --open`.
+`cargo doc --open`. `cargo doc --open` doesn't always work, e.g. if you are
+ssh'd into a cloud instance. If it doesn't though the command will print the
+name of the html file it couldn't open &mdash; useful simply for finding the
+location of your API docs.
 
 [Good doc comments][gdc] do not just repeat the name of the function, nor repeat
 information gathered from the type signature. They explain why and how one would
@@ -439,21 +556,25 @@ the type or function is used from the name and type signature alone.
 Doc comments contain examples, and those examples can be tested with `cargo test
 --doc`.
 
-Add `#![deny(missing_docs)]` to the top of `src/lib.rs` to enforce that all
-public items have doc comments.
-
-_Add doc comments to the types and methods in your library. Follow the
-[documentatine guidelines][gdc]. Give each an example and make sure they pass
-`cargo test --doc`._
+_Add `#![deny(missing_docs)]` to the top of `src/lib.rs` to enforce that all
+public items have doc comments. Then add doc comments to the types and methods
+in your library. Follow the [documentatine guidelines][gdc]. Give each an
+example and make sure they pass `cargo test --doc`._
 
 [gdc]: https://rust-lang-nursery.github.io/api-guidelines/documentation.html
 
 
 ## Part 6: Ensure good style with `clippy` and `rustfmt`
 
-`clippy` and `rustfmt` are tools for enforcing common Rust style. `clippy` helps
-ensure that code uses modern idioms, and prevents patterns that commonly lead to
-errors. `rustfmt` enforces that code is formatted consistently.
+[`clippy`] and [`rustfmt`] are tools for enforcing common Rust style. `clippy`
+helps ensure that code uses modern idioms, and prevents patterns that commonly
+lead to errors. `rustfmt` enforces that code is formatted consistently. It's not
+necessary right now, but you might click those links and read their
+documentation. They are both sophisticated tools capable of much more than
+described below.
+
+[`clippy`]: https://github.com/rust-lang/rust-clippy
+[`rustfmt`]: https://github.com/rust-lang/rustfmt
 
 Both tools are included in the Rust toolchain, but not installed by default.
 They can be installed with the following commands:
@@ -467,9 +588,11 @@ _Do that now._
 
 Both tools are invoked as cargo subcommands, `clippy` as `cargo clippy` and
 `rustfmt` as `cargo fmt`. Note that `cargo fmt` modifies your source code, so
-you might want to check in any changes before running it to avoid accidentally
-making unwanted changes, after which you can include the changes as part of the
-previous commit with `git commit --amend`.
+commit your work before making before running it to avoid accidentally making
+unwanted changes, after which you can either include the changes as part of the
+previous commit with `git commit --amend`. Or just commit them as their own
+formatting commit &mdash; it's common to rust both `clippy` and `rustfmt` after
+a series of commits, e.g. before submitting a pull request.
 
 _Run `clippy` against your project and make any suggested changes. Run `rustfmt`
 against yur project and commit any changes it makes._
@@ -504,7 +627,6 @@ arguments instead of using `clap` directly._
 
 ## TODOs
 
-- use "test suite" as-is here or pick different terminology?
 - set the binary's name
 - ask about pros / cons of this main.rs setup
   - explain why we're doing this setup
