@@ -20,10 +20,11 @@ num_cpus = "1.10.0"
 crossbeam-skiplist = { version = "0.0.0", git = "https://github.com/crossbeam-rs/crossbeam.git", rev = "8cc906b" }
 
 [dev-dependencies]
+assert_cmd = "0.11"
+criterion = "0.2.11"
+crossbeam-utils = "0.6.5"
+float-cmp = "=0.4.0" # FIXME: https://github.com/assert-rs/predicates-rs/issues/78
+predicates = "1.0.0"
+rand = "0.6.5"
 tempfile = "3.0.7"
 walkdir = "2.2.7"
-assert_cmd = "0.11"
-predicates = "1.0.0"
-criterion = "0.2.11"
-rand = "0.6.5"
-crossbeam-utils = "0.6.5"

@@ -77,8 +77,23 @@ This project should not require any changes at all to the client code.
 Continuing from your previous project, delete your privous `tests` directory and
 copy this project's `tests` directory into its place. This project should
 contain a library named `kvs`, and two executables, `kvs-server` and
-`kvs-client`. As with previous projects, add enough definitions that the test
-suite builds.
+`kvs-client`.
+
+You need the following dev-dependencies in your `Cargo.toml`:
+
+```toml
+[dev-dependencies]
+assert_cmd = "0.11"
+criterion = "0.2.11"
+crossbeam-utils = "0.6.5"
+float-cmp = "=0.4.0" # FIXME: https://github.com/assert-rs/predicates-rs/issues/78
+predicates = "1.0.0"
+rand = "0.6.5"
+tempfile = "3.0.7"
+walkdir = "2.2.7"
+```
+
+As with previous projects, add enough definitions that the test suite builds.
 
 
 ## Part 1: Multithreading

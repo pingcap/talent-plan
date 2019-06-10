@@ -94,6 +94,20 @@ copy this project's `tests` directory into its place. This project should
 contain a library named `kvs`, and two executables, `kvs-server` and
 `kvs-client`.
 
+You need the following dev-dependencies in your `Cargo.toml`:
+
+```toml
+[dev-dependencies]
+assert_cmd = "0.11"
+criterion = "0.2.11"
+crossbeam-utils = "0.6.5"
+float-cmp = "=0.4.0" # FIXME: https://github.com/assert-rs/predicates-rs/issues/78
+predicates = "1.0.0"
+rand = "0.6.5"
+tempfile = "3.0.7"
+walkdir = "2.2.7"
+```
+
 Unlike with previous projects, don't bother to fill in enough type definitions
 to make the test suite compile. Doing so would require jumping a number of steps
 ahead at once. The text will indicate when to working with the test suite.

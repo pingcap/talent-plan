@@ -145,12 +145,19 @@ Continuing from your previous project, delete your privous `tests` directory and
 copy this project's `tests` directory into its place. Like the previous project,
 this project should contain a library and an executable, both named `kvs`.
 
-As with the previous project, use `clap` or `structopt` to handle the command
-line arguments. They are the same as last time.
+You need the following dev-dependencies in your `Cargo.toml`:
+
+```toml
+[dev-dependencies]
+assert_cmd = "0.11.0"
+float-cmp = "=0.4.0" # FIXME: https://github.com/assert-rs/predicates-rs/issues/78
+predicates = "1.0.0"
+tempfile = "3.0.7"
+walkdir = "2.2.7"
+```
 
 As with the previous project, go ahead and write enough empty tor panicking
-definitions to make the test cases build. This time you'll need to add
-some `dev-dependencies` to `Cargo.toml` that the tests rely on.
+definitions to make the test cases build.
 
 _Do that now._
 

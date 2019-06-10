@@ -181,13 +181,97 @@ and take a look.
 
 Try to run the tests with `cargo test`. What happens? Why?
 
-Your first task for this project is to make the tests _compile_. In `src/lib.rs`
-write the type and method definitions necessary to make `cargo test --no-run`
-complete successfully. Don't write any method bodies yet &mdash; instead write
-`panic!()`. This is the way to sketch out your APIs without knowing or caring
-about the implementation (there's also the [`unimplemented!`] macro, but since
-typing it is longer, it's common to simply use `panic!`, a possible exception
-being if you are releasing software that contains unimplemented methods).
+Your first task for this project is to make the tests _compile_. Fun!
+
+If your project is like mine you probably saw a huge spew of build errors. Look
+at the first few. In general, when you see a bunch of errors, the first are the
+most important &mdash; rustc will keep trying to compile even after hitting
+errors, so errors can cascade, the later ones being pretty meaningless. Your
+first few errors probably look like:
+
+```
+error[E0433]: failed to resolve: use of undeclared type or module `assert_cmd`
+ --> tests/tests.rs:1:5
+  |
+1 | use assert_cmd::prelude::*;
+  |     ^^^^^^^^^^ use of undeclared type or module `assert_cmd`
+
+error[E0432]: unresolved import
+ --> tests/tests.rs:3:5
+  |
+3 | use predicates::str::contains;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+```
+
+(If you are seeing something else, please file an issue).
+
+These two errors are quite hard to diagnose to a new Rust programmer so I'll
+just tell you what's going on here: you are missing [dev-dependency] crates
+in your manifest.
+
+[dev-dependency]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#development-dependencies
+
+For this project your `Cargo.toml` file needs to contain these lines:
+
+```toml
+[dev-dependencies]
+assert_cmd = "0.11.0"
+float-cmp = "=0.4.0" # FIXME: https://github.com/assert-rs/predicates-rs/issues/78
+predicates = "1.0.0"
+```
+
+The details of these dependencies are not important to you completing the
+project, but you might want to investigate them on your own. We didn't tell you
+about the need for dev-deps earlier just so you would experience these errors
+yourself. In future projects, the setup text will tell you the dev-deps you
+need.
+
+One quick note: how can you figure out that these errors are due to missing
+dependencies in your manifest and not due to errors in your source code? Here's
+one big clue, from the error shown previously:
+
+```
+1 | use assert_cmd::prelude::*;
+  |     ^^^^^^^^^^ use of undeclared type or module `assert_cmd`
+```
+
+In `use` statements the first path element is always the name of a crate. The
+exception to this is when the first path element references a name that was
+previously brought into scope with _another_ `use` statement. In other words, if
+there had been another `use` statement in this file like `use foo::assert_cmd`,
+then use `assert_cmd::prelude::*` would refer to _that_ `assert_cmd`. There is
+more that could be said about this but we shouldn't go deeper into the nuances
+of path resolution here. Just know that, in general, in a `use` statement, if
+the first element in the path isn't found (i.e. cannot be resolved), the problem
+is probably that the crate hasn't been named in the manifest.
+
+Whew. That is an unfortunate diversion in the very first project. But hopefully
+instructive.
+
+_Go ahead and add the appropriate dev-deps to your manifest._
+
+Try again to run the tests with `cargo test`. What happens? Why?
+
+Hopefully those errors are gone. Now the errors are all about the test cases not
+being able to find all the code it expects in your own code. So now your task is
+to outline all the types, methods, etc. necessary to make the tests build.
+
+During this course you will read the test cases a lot. The test cases tell you
+exactly what is expected of your code. If the text and the tests don't agree,
+the tests are right (file a bug!). This is true in the real world too. The test
+cases demonstrate what the software _actually_ does. They are reality. Get used
+to reading test cases.
+
+And, bonus &mdash; test cases are often the poorest-written code in any project,
+sloppy and undocumented.
+
+In `src/lib.rs` write the type and method definitions necessary to make `cargo
+test --no-run` complete successfully. Don't write any method bodies yet &mdash;
+instead write `panic!()`. This is the way to sketch out your APIs without
+knowing or caring about the implementation (there's also the [`unimplemented!`]
+macro, but since typing it is longer, it's common to simply use `panic!`, a
+possible exception being if you are releasing software that contains
+unimplemented methods).
 
 [`unimplemented!`]: https://doc.rust-lang.org/std/macro.unimplemented.html
 
@@ -235,18 +319,6 @@ _Try it now._
 That's probably how you will be running the tests yourself as you work
 through the project, otherwise you will be distracted by the many failing tests
 that you have not yet fixed.
-
-
-## Aside: A note about test cases and reality
-
-During this course you will read the test cases a lot. The test cases tell you
-exactly what is expected of your code. If the text and the tests don't agree,
-the tests are right (file a bug!). This is true in the real world too. The test
-cases demonstrate what the software _actually_ does. They are reality. Get used
-to reading test cases.
-
-And, bonus &mdash; test cases are often the poorest-written code in any project,
-sloppy and undocumented.
 
 Note that, as of this writing, the test cases for the projects in this course
 are not organized in a way that makes it clear which test cases should complete

@@ -169,6 +169,7 @@ in the README.
 - put a reminder about building blocks at top of every project
 - add back-links in some non-intrusive way, somehow
 - to p1 just add a list of useful Rust cli tools!
+- sort deps in manifests
 
 # Future projects
 
