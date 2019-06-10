@@ -18,7 +18,7 @@ are some fun resources for you to explore.
   complex, and has a complex history of trial and error. This is a classic
   in-depth article on best-practices for error handling in Rust. It is from
   2015, and there have been some minor changes to error handling since then, but
-  there is a lot of wisdom in here. The author, [BurtSushi], has done much
+  there is a lot of wisdom in here. The author, [BurntSushi], has done much
   experimenting with Rust error handling, and is considered an authority on that
   and [other things].
 
