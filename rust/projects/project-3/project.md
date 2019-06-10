@@ -403,6 +403,10 @@ may produce more consistent results than your local desktop._
 
 TODO: criterion output example
 
+Nice coding, friend. Enjoy a nice break.
+
+---
+
 
 ## Extension 1: Signal handling
 

@@ -782,6 +782,11 @@ TODO: just do a read-write benchmark in the earlier section,
       verify sum of keys
 TODO: make sure benchmark section always mentions to assert the results
 
+Nice coding, friend. Enjoy a nice break.
+
+
+---
+
 
 ## Extension 1: Background compaction
 

@@ -402,10 +402,15 @@ previous commit with `git commit --amend`.
 _Run `clippy` against your project and make any suggested changes. Run `rustfmt`
 against yur project and commit any changes it makes._
 
-Congratulations, you are done with project 1! If you like you
+Congratulations, you are done with your first project! If you like you
 may complete the remaining "extensions". They are optional.
 
 <!-- TODO add text about discovering components, and filtering with rg -->
+
+Nice coding, friend. Enjoy a nice break.
+
+
+---
 
 
 ## Extension 1: `structopt`

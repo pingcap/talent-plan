@@ -29,11 +29,17 @@ In projects, be clear on when the student should start hacking, and what they
 should be hacking, by writing an imperative statement. Format that command in
 italics:
 
-> <i>Use [crates.io](https://crates.io) to find the documentation
-for the `clap` crate, and implement the command line interface
-such that the `cli_*` test cases pass.</i>
-
 > _Try it now._
+
+
+Building blocks pages generally begin with the same encouraging phrase, and
+project pages generally end with the same encouraging phrase.
+
+If there are project extension sections, the first one is preceeded by a
+thematic break (`---`).
+
+For readability headers are always preceeded by two spaces.
+
 
 ## Developing a new section
 
