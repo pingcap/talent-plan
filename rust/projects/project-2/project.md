@@ -140,15 +140,15 @@ until it is dropped.
 ## Project setup
 
 Continuing from your previous project, delete your privous `tests` directory and
-copy this project's `tests` directory into its place. Like project 1, this
-project should contain a library and an executable, both named `kvs`.
+copy this project's `tests` directory into its place. Like the previous project,
+this project should contain a library and an executable, both named `kvs`.
 
 As with the previous project, use `clap` or `structopt` to handle the command
 line arguments. They are the same as last time.
 
-As with project 1, go ahead and write enough empty tor panicking definitions to
-make the test cases build. This time you'll need to add `dev-dependencies` to
-`Cargo.toml`.
+As with the previous project, go ahead and write enough empty tor panicking
+definitions to make the test cases build. This time you'll need to add
+some `dev-dependencies` to `Cargo.toml` that the tests rely on.
 
 _Do that now._
 
