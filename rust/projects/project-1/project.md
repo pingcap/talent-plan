@@ -1,4 +1,4 @@
-# PNA Rust Project 1: The Rust toolbox and strong foundations
+# PNA Rust Project 1: The Rust toolbox
 
 **Task**: Create an in-memory key/value store that passes simple tests and responds
 to command-line arguments.
@@ -11,9 +11,10 @@ to command-line arguments.
 - Learn how to find and import crates from crates.io
 - Define an appropriate data type for a key-value store
 
-**Topics**: testing, clap, `CARGO_VERSION` etc., clippy, rustfmt
+**Topics**: testing, the `clap` crate, `CARGO_VERSION` etc., the `clippy` and
+  `rustfmt` tools.
 
-**Extensions**: structopt
+**Extensions**: the `structopt` crate.
 
 
 ## Introduction
@@ -323,7 +324,7 @@ the name, version, authors, and description (if not, do so). This information is
 redundant w/ values provided in `Cargo.toml`. Cargo sets environment variables
 that can be accessed through Rust source code, at build time.
 
-_Modify your clap setup to set these values from standard cargo environment
+_Modify your `clap` setup to set these values from standard cargo environment
 variables._
 
 

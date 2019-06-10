@@ -36,3 +36,4 @@ are some fun resources for you to explore.
 [other things]: https://github.com/BurntSushi/ripgrep
 
 <!-- TODO: better LSS paper -->
+<!-- TODO: want a general non-wikipedia survey of how databases and/or key/value dbs work -->

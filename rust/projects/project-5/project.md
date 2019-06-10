@@ -12,9 +12,9 @@ with asynchronous networking over a custom protocol.
 - Use boxed futures to handle difficult type-system problems
 - Use `impl Trait` to create anonymous `Future` types
 
-**Topics**: asynchrony, futures, tokio, `impl Trait`
+**Topics**: asynchrony, futures, tokio, `impl Trait`.
 
-**Extensions**: tokio-fs
+**Extensions**: tokio-fs.
 
 
 ## Introduction

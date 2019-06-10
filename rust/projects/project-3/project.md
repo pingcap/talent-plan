@@ -11,9 +11,9 @@ with synchronous networking over a custom protocol.
 - Implement pluggable backends via traits
 - Benchmark the hand-written backend against `sled`
 
-**Topics**: `std::net`, logging, traits, benchmarking
+**Topics**: `std::net`, logging, traits, benchmarking.
 
-**Extensions**: shutdown on signal
+**Extensions**: shutdown on signal.
 
 
 ## Introduction

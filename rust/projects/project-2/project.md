@@ -1,17 +1,19 @@
 # PNA Rust Project 2: Log-structured file I/O
 
 **Task**: Create a persistent key/value store that can be accessed from the
-command line
+command line.
 
 **Goals**:
 
 - Handle and report errors robustly
-- Write data to disk as a log using standard file APIs.
-- Read the state of the key/value store from disk
 - Use serde for serialization
+- Write data to disk as a log using standard file APIs
+- Read the state of the key/value store from disk
+- Map in-memory key-indexes to on-disk values
+- Periodically compact the log to remove stale data
 
-**Topics**: `failure` crate, `std::net::fs`, `Read` / `Write` traits,
-serde
+**Topics**: log-structured file I/O, bitcask, the `failure` crate, `Read` /
+`Write` traits, the `serde` crate.
 
 
 ## Introduction
@@ -240,8 +242,8 @@ This is the basic behavior of `kvs` with a log:
   - If it fails, it exits by printing the error and return a non-zero error code
 - "get"
   - The user invokes `kvs get mykey`
-  - `kvs` reads the entire log, one command at a time, recording the
-    affected key and file offset of the command to an in-memory _key -> log
+  - `kvs` reads the entire log, one command at a time, recording the 
+   affected key and file offset of the command to an in-memory _key -> log
     pointer_ map
   - It then checks the map for the log pointer
   - If it fails, it prints "Key not found", and exits with exit code 0

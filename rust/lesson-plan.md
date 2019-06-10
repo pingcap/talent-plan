@@ -183,7 +183,7 @@ instructions for that section.
 documenting Rust projects, rustup.
 
 
-### [Project 1: The Rust toolbox and strong foundations][p1]
+### [Project 1: The Rust toolbox][p1]
 
 **Task**: Create an in-memory key/value store that passes simple tests and responds
 to command-line arguments.
@@ -196,33 +196,34 @@ to command-line arguments.
 - Learn how to find and import crates from crates.io
 - Define an appropriate data type for a key-value store
 
-**Topics**: testing, clap, `CARGO_VERSION` etc., clippy, rustfmt
+**Topics**: testing, the `clap` crate, `CARGO_VERSION` etc., the `clippy` and
+  `rustfmt` tools.
 
-**Extensions**: structopt
+**Extensions**: the `structopt` crate.
 
 
 ### [Building Blocks 2][b2]
 
-**Topics**: Databases, file I/O, and Rust error handling.
+**Topics**: Log-structured file I/O, the bitcask algorithm, Rust error handling,
+comparing collection types.
 
 
 ### [Project 2: Log-structured file I/O][p2]
 
 **Task**: Create a persistent key/value store that can be accessed from the
-command line
+command line.
 
 **Goals**:
 
 - Handle and report errors robustly
-- Write data to disk as a log using standard file APIs.
-- Read the state of the key/value store from disk
 - Use serde for serialization
-- Use file I/O APIs to binary search
+- Write data to disk as a log using standard file APIs
+- Read the state of the key/value store from disk
+- Map in-memory key-indexes to on-disk values
+- Periodically compact the log to remove stale data
 
-**Topics**: `failure` crate, `std::net::fs`, `Read` / `Write` traits,
-serde
-
-**Extensions**: range queries, store data using bitcast algo? TODO
+**Topics**: log-structured file I/O, bitcask, the `failure` crate, `Read` /
+`Write` traits, the `serde` crate.
 
 
 ### [Building Blocks][b3]
@@ -243,9 +244,9 @@ with synchronous networking over a custom protocol.
 - Implement pluggable backends via traits
 - Benchmark the hand-written backend against `sled`
 
-**Topics**: `std::net`, logging, traits, benchmarking
+**Topics**: `std::net`, logging, traits, benchmarking.
 
-**Extensions**: shutdown on signal
+**Extensions**: shutdown on signal.
 
 
 ### [Building Blocks][b4]
@@ -267,7 +268,7 @@ with synchronous networking over a custom protocol.
 - Share data structures without locks
 - Benchmark single-threaded vs multi-threaded
 
-**Topics**: threads, thread-pools, channels, locks
+**Topics**: threads, thread-pools, channels, locks.
 
 
 ### [Building Blocks 5][b5]
@@ -277,7 +278,21 @@ with synchronous networking over a custom protocol.
 
 ### [Project 5: Asynchronous programming in Rust][p5]
 
-Coming soon! <!-- TODO -->
+**Task**: Create a multi-threaded, persistent key/value store server and client
+with asynchronous networking over a custom protocol.
+
+**Goals**:
+
+- Understand the patterns used when writing Rust futures
+- Understand error handling with futures
+- Learn to debug the type system
+- Perform asynchronous networking with the tokio runtime
+- Use boxed futures to handle difficult type-system problems
+- Use `impl Trait` to create anonymous `Future` types
+
+**Topics**: asynchrony, futures, tokio, `impl Trait`.
+
+**Extensions**: tokio-fs.
 
 
 <!-- building block links -->

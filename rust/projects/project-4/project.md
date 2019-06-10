@@ -12,7 +12,7 @@ with synchronous networking over a custom protocol.
 - Share data structures without locks
 - Benchmark single-threaded vs multi-threaded
 
-**Topics**: threads, thread-pools, channels, locks
+**Topics**: threads, thread-pools, channels, locks.
 
 
 ## Introduction
