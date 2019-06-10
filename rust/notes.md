@@ -161,6 +161,8 @@ in the README.
 - add note encouraging reading the rustfmt / rustclippy docs
 - replace "_Note: ..." with "_**Note**: ..."
 - describe in more depth the final product
+- put a reminder about building blocks at top of every project
+- add back-links in some non-intrusive way, somehow
 
 # Future projects
 
