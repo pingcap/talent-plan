@@ -76,8 +76,8 @@ Those taking this course should:
 - [ ] have novice-level experience with [asynchronous programming] in some language,
 - [ ] have novice-level experience writing code to query a database, [SQL],
   [NoSQL], [NewSQL], [key-value][kv], or otherwise.
-- [ ] **have read [The Rust Book] in its entirety**, and written _some_ Rust
-  code, including the projects from the book:
+- [ ] **have read [The Rust Book] in its entirety**,
+- [ ] have written _some_ Rust code, including the projects from the book:
   - [programming a guessing game],
   - [building a command-line program] and
   - [building a multithreaded web server].

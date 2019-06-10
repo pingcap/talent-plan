@@ -8,3 +8,5 @@ are some fun resources for you to explore.
 Read all the readings and perform all the exercises.
 
 Coming soon! <!-- TODO -->
+
+<!-- TODO https://github.com/rust-lang/rustlings/blob/master/exercises/threads/threads1.rs -->
