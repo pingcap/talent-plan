@@ -71,6 +71,7 @@ in the README.
 - https://github.com/altsysrq/proptest
 - fuzzing
 - dbg!
+- shadowing
 
 ## Sources
 
@@ -158,6 +159,8 @@ in the README.
 - how to find the names and descriptions of all lints
 - consider adding links to project source code somewhere
 - add note encouraging reading the rustfmt / rustclippy docs
+- replace "_Note: ..." with "_**Note**: ..."
+- describe in more depth the final product
 
 # Future projects
 

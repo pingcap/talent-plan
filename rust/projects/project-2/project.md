@@ -179,10 +179,7 @@ your `Result`s, converting error types from other crates to your own with the
 
 After that, define a type alias for `Result` that includes your concrete error
 type, so that you don't need to type `Result<T, YourErrorType>` everywhere, but
-can simply type `Result<T>`. This type alias is also typically called `Result`,
-[shadowing] the standard library's.
-
-[shadowing]: https://en.wikipedia.org/wiki/Variable_shadowing
+can simply type `Result<T>`. This is a common Rust pattern.
 
 Finally, import those types into your executable with `use` statements, and
 chainge `main`s function signature to return `Result<()>`. All functions in your
@@ -196,8 +193,8 @@ _Set up your error handling strategy before continuing._
 
 As with the previous project, you'll want to create placeholder data structures
 and methods so that the tests compile. Now that you have defined an error type
-this should be straightforward. Add panics anywhere necessary to get the test to
-compile (`cargo test --no-run`).
+this should be straightforward. Add panics anywhere necessary to get the test
+suite to compile (`cargo test --no-run`).
 
 
 <!--
@@ -208,7 +205,7 @@ _Note: Error-handling practices in Rust are still evolving. This course
 currently uses the [`failure`] crate to make defining error types easier. While
 `failure` has a good design, it's use [arguably not a best practice][nbp]. It
 may not continue to be viewed favorably by Rust experts. Future iterations
-of the course will likely not use `failure`. In the meantime, it is fine, and
+of the course will likely not use `failure`. In the meantime, it is a fine, and
 presents an opportunity to learn more of the history and nuance of Rust error
 handling._
 
@@ -222,12 +219,12 @@ TODO
 -->
 
 
-## Part 2: Storing writes in the log
+## Part 2: How the log behaves
 
-Now we are finally going to begin implementing the beginnings of a real
-database, by storing its contents to disk. You will use [`serde`] to serialize
-the "set" and "rm" commands to a string, and the standard file I/O APIs to write
-it to disk.
+Now we are finally going to begin implementing the beginnings of a real database
+by reading and writing from disk. You will use [`serde`] to serialize the "set"
+and "rm" commands to a string, and the standard file I/O APIs to write it to
+disk.
 
 [`serde`]: https://serde.rs/
 
@@ -267,8 +264,12 @@ The log is a record of the transactions committed to the database. By
 "replaying" the records in the log on startup we reconstruct the previous state
 of the database.
 
-In this iteration you may store the value of the keys directly in memory.
-In a future iteration you will store only "log pointers" (file offsets) into the log.
+In this iteration you may store the value of the keys directly in memory (and
+thus never reading from the log after initial startup and log replay). In a
+future iteration you will store only "log pointers" (file offsets) into the log.
+
+
+# Part 3: Writing to the log
 
 You will start by implementing the "set" flow. There are a number of steps here.
 Most of them are straightforward to implement and you can verify you've done so
@@ -304,7 +305,7 @@ command. It may help to keep both in mind, or to implement them both
 simultaniously. It is your choice.
 
 
-## Part 3: Reading from the log
+## Part 4: Reading from the log
 
 Now it's time to implement "get". In this part, you don't need to store
 log pointers in the index, we will leave the work to the next part. Instead,
@@ -335,7 +336,7 @@ additional information to distinguish the length of each record. Maybe not.
 _Implement "get" now_.
 
 
-## Part 4: Storing log pointers in the index
+## Part 5: Storing log pointers in the index
 
 At this point most, if not all, of the test suite should pass. The changes
 introduced in the next steps are simple optimizations, necessary for fast
@@ -355,7 +356,7 @@ memory, now is the time to update your code to store log pointers instead,
 loading from disk on demand._
 
 
-## Part 5: Stateless vs. stateful `KvStore`
+## Part 6: Stateless vs. stateful `KvStore`
 
 Remember that our project is both a library and a command-line program.
 They have sligtly different requirements: the `kvs` CLI commits a single change
@@ -369,9 +370,7 @@ _Make your `KvStore` retain the index in memory so it doesn't need to
 re-evaluate it for every call to `get`._
 
 
-
-
-## Part 6: Compacting the log
+## Part 7: Compacting the log
 
 At this point the database works just fine, but the log grows indefinitely. That
 is appropriate for some databases, but not the one we're building &mdash; we
@@ -408,6 +407,10 @@ _How_ you re-build the log is up to you. Consider questions like: what is the
 naive solution? How much memory do you need? What is the minimum amount of
 copying necessary to compact the log? Can the compaction be done in-place? How
 do you maintain data-integrity of compaction fails?
+
+So for we've been refering to "the log", but in actuallity it is common for a
+database to store many logs, in different files. You may find it easier to
+compact the log if you split your log across files.
 
 _Implement log compaction for your database._
 
