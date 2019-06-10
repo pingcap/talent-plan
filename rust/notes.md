@@ -103,6 +103,14 @@ in the README.
 - https://limpet.net/mbrubeck/2019/02/07/rust-a-unique-perspective.html
 - https://doc.rust-lang.org/nomicon/aliasing.html
 - https://manishearth.github.io/blog/2015/05/17/the-problem-with-shared-mutability/
+- https://www.youtube.com/watch?v=9_3krAQtD2k (futures async await)
+- https://shipilev.net/blog/2014/java-scala-divided-we-fail/
+
+## Exercise sources
+
+- https://github.com/rust-lang/rustlings
+- https://exercism.io/tracks/rust
+- https://doc.rust-lang.org/rust-by-example/index.html
 
 ## Subjects to potentially cut
 
@@ -170,6 +178,7 @@ in the README.
 - add back-links in some non-intrusive way, somehow
 - to p1 just add a list of useful Rust cli tools!
 - sort deps in manifests
+- after p1 link first uses of crate names to docs.rs
 
 # Future projects
 

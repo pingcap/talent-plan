@@ -496,7 +496,7 @@ Call this benchmark `read_queued_kvstore` (or whatever).
 
 **Whew. That was a lot of work**.
 
-So you can run this set of criterion benchmarks as usual with `cargo bench`,
+So you can run this set of criterion benchmarks as usual with `cargo bench --release`,
 and you'll see an output like:
 
 ```

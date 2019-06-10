@@ -5,10 +5,13 @@ Let's learn some building blocks!
 Put your other projects and concerns aside. Take a breath and relax. Here
 are some fun resources for you to explore.
 
+Read all the readings and perform all the exercises.
+
 - **[Exercise: Write a Good CLI Program]**. Writing a CLI program in Rust. This
   is a good warmup to the CLI program you'll be writing in this course, and the
   techniques used by this author may provide an interesting contrast to those we
-  suggest.
+  suggest. Follow along and write the same code. Can you reproduce their
+  results?
 
 - **[Reading: The Cargo manifest format]**. A single page in [The Cargo Book],
   this will give you an idea of how your project can be customized a bit if you

@@ -228,7 +228,7 @@ command line.
 
 ### [Building Blocks 3][b3]
 
-**Topics**: TCP, logging, traits, benchmarking.
+**Topics**: unstructured vs. structured logging, benchmarking.
 
 
 ### [Project 3: Synchronous client-server networking][p3]
@@ -241,12 +241,13 @@ with synchronous networking over a custom protocol.
 - Create a client-server application
 - Write a custom protocol with `std` networking APIs
 - Introduce logging to the server
+- Chain errors together and write an error handler for `main`
 - Implement pluggable backends via traits
 - Benchmark the hand-written backend against `sled`
 
 **Topics**: `std::net`, logging, traits, benchmarking.
 
-**Extensions**: shutdown on signal.
+<!-- TODO **Extensions**: shutdown on signal. -->
 
 
 ### [Building Blocks 4][b4]
