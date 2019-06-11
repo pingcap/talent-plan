@@ -45,18 +45,17 @@ git repository on GitHub, in the [`rust` subdirectory][rs]. You will want a copy
 of it on your local computer, particularly for easy access to the conformance
 tests for each project.
 
-Each project builds on experience from the previous project. It is reasonable to
-simply start each project in the same git repository where you left off on the
+
+## Course structure
+
+The overall arc of the course is defined by a series of coding projects that
+incrementally introduce new subjects important to systems programming in Rust.
+Each project extends the previous project, so it is reasonable to simply start
+your work on each project in the same git repository where you left off on the
 previous (though you may want to add a [git tag] indicating where the previous
 project ended).
 
 [git tag]: https://git-scm.com/book/en/v2/Git-Basics-Tagging
-
-
-## Course structure
-
-The overall arc of the course is defined by a series of projects that
-incrementally introduce new subjects important to systems programming in Rust.
 
 Because building an entire database from scratch while also learning all the
 concepts involved is a daunting task, each project is proceeded by a "building
