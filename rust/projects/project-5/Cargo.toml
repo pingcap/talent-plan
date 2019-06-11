@@ -18,7 +18,6 @@ crossbeam = "0.7.1"
 rayon = "1.0.3"
 num_cpus = "1.10.0"
 crossbeam-skiplist = { version = "0.0.0", git = "https://github.com/crossbeam-rs/crossbeam.git", rev = "8cc906b" }
-panic-control = "0.1.4"
 tokio = "0.1.21"
 tokio-serde-json = "0.2.0"
 
@@ -31,3 +30,4 @@ predicates = "1.0.0"
 rand = "0.6.5"
 tempfile = "3.0.7"
 walkdir = "2.2.7"
+panic-control = "0.1.4"
