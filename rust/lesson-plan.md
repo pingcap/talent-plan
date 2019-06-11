@@ -25,6 +25,7 @@ See [README.md] for the overview, goals, audience, and prerequisites.
   - [Project 4: Parallelism](#user-content-project-4-parallelism)
   - [Building Blocks 5](#user-content-building-blocks-5)
   - [Project 5: Asynchronous programming in Rust](#user-content-project-5-asynchronous-programming-in-rust)
+- [What next?](#user-content-what-next)
 
 
 ## Prerequisites
@@ -288,6 +289,13 @@ Coming soon! ([preview][b5])
 Coming soon! ([preview][p5])
 
 
+## What next?
+
+So you have completed Practical Networked Applications in Rust. That's a Rusty
+accomplishment! Now you are on the path to being a great Rust programmer. Want
+to know where to go next on that path? We've got [some ideas][n].
+
+
 <!-- building block links -->
 
 [b1]: building-blocks/bb-1.md
@@ -325,3 +333,4 @@ Coming soon! ([preview][p5])
 [si]: https://github.com/pingcap/talent-plan/issues
 [spr]: https://github.com/pingcap/talent-plan/pulls
 [users forum]: https://users.rust-lang.org/
+[n]: ./what-next.md
