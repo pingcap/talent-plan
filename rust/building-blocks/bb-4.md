@@ -53,7 +53,11 @@ Read all the readings and perform all the exercises. Also watch the video.
   then those threads will wait for jobs to be spawned. When a thread recieves a
   job, it runs it to completion, then waits for the next job.
 
+  The [`threadpool`][tp1] crate and Rayon's [`ThreadPool`][tp2] may provide inspiration.
 
+
+[tp1]: https://docs.rs/threadpool/1.7.1/threadpool/struct.ThreadPool.html
+[tp2]: https://docs.rs/rayon/1.0.3/rayon/struct.ThreadPool.html
 [thread pool]: https://softwareengineering.stackexchange.com/questions/173575/what-is-a-thread-pool#173581
 [ss]: https://doc.rust-lang.org/std/sync/index.html
 [Servo]: https://github.com/servo/servo

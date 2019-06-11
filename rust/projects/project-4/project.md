@@ -409,11 +409,11 @@ It's not as much as work as it sounds &mdash; four of them are essentially
 duplicates of the first two.
 
 _Note: the next two sections describe a fairly complex set of benchmarks. They
-can be written (probably… nobody has done it yet), but may be challenging to
-write, and may be challenging write efficiently. If this benchmarking section is
-too overwhelming it's ok to skip to [part 8][next] (and file a bug about what
-didn't work for you). On the other hand, the difficulty here may present a good
-learning opportunity._
+can be written (probably… nobody has done it yet), but it may be challenging
+both to understand and to write efficiently. These sections do introduce some
+useful criterion features, but if it's too overwhelming it's ok to skip to [part
+8][next] (and file a bug about what didn't work for you). On the other hand, the
+difficulty here may present a good learning opportunity._
 
 [next]: #user-content-part-8-reduced-contention-shared-data-structures
 
