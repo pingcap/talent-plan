@@ -24,7 +24,7 @@ See [README.md] for the overview, goals, audience, and prerequisites.
   - [Building Blocks 3](#user-content-building-blocks-3)
   - [Project 3: Synchronous client-server networking](#user-content-project-3-synchronous-client-server-networking)
   - [Building Blocks 4](#user-content-building-blocks-4)
-  - [Project 4: Parallelism](#user-content-project-4-parallelism)
+  - [Project 4: Concurrency and Parallelism](#user-content-project-4-concurrency-and-parallelism)
   - [Building Blocks 5](#user-content-building-blocks-5)
   - [Project 5: Asynchronous programming in Rust](#user-content-project-5-asynchronous-programming-in-rust)
 - [What next?](#user-content-what-next)
@@ -188,7 +188,7 @@ instructions for that section.
 ### [Building Blocks 1][b1]
 
 **Topics**: CLI programming, the cargo manifest and environment variables,
-documenting Rust projects, rustup.
+documenting Rust projects.
 
 
 ### [Project 1: The Rust toolbox][p1]
@@ -258,24 +258,26 @@ with synchronous networking over a custom protocol.
 
 ### [Building Blocks 4][b4]
 
-**Topics**: message passing, lock-free data structures.
+**Topics**: multithreading, thread pools, aliasing and mutability, concurrent
+data types.
 
 
 ### [Project 4: Concurrency and parallelism][p4]
 
-**Task**: Create a multi-threaded, persistent key/value store server and client
+**Task**: Create a multithreaded, persistent key/value store server and client
 with synchronous networking over a custom protocol.
 
 **Goals**:
 
-- Write a simple thread-pool
+- Write a simple thread pool
 - Use channels for cross-thread communication
 - Share data structures with locks
 - Perform compaction in a background thread
 - Share data structures without locks
-- Benchmark single-threaded vs multi-threaded
+- Benchmark single-threaded vs multithreaded
 
-**Topics**: threads, thread-pools, channels, locks.
+**Topics**: thread pools, channels, locks, lock-free data structures,
+  atomics, parameterized benchmarking.
 
 
 ### Building Blocks 5

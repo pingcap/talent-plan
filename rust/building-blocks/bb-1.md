@@ -7,6 +7,12 @@ are some fun resources for you to explore.
 
 Read all the readings and perform all the exercises.
 
+- **[Exercise: Write a Good CLI Program]**. Writing a CLI program in Rust. This
+  is a good warmup to the CLI program you'll be writing in this course, and the
+  techniques used by this author may provide an interesting contrast to those we
+  suggest. Follow along and write the same code. Can you reproduce their
+  results?
+
 - **[Reading: The Cargo manifest format]**. A single page in [The Cargo Book],
   this will give you an idea of how your project can be customized a bit if you
   so choose. This is a page you will come back to repeatedly is a Rust
@@ -21,19 +27,10 @@ Read all the readings and perform all the exercises.
 
 - **[Reading: Rust API Guidelines: Documentation]**. The Rust project is
   opinionated about how Rust source is written. This page is on how to document
-  Rust projects, but the whole book is very worthile, and not so easy to find
-  for new Rust developers. The are written by experienced Rust developers, but
-  are in an incomplete state. Note the GitHub organization it belongs to &mdash;
-  [`rust-lang-nursery`]. It contains many interesting projects.
-
-- **[Reading: The rustup documentation]**. You will be interacting with this
-  tool all the time, and it has powerful capabilities. Know it well.
-
-- **[Exercise: Write a Good CLI Program]**. Writing a CLI program in Rust. This
-  is a good warmup to the CLI program you'll be writing in this course, and the
-  techniques used by this author may provide an interesting contrast to those we
-  suggest. Follow along and write the same code. Can you reproduce their
-  results?
+  Rust projects, but the whole book is worth reading. These are written by
+  experienced Rust developers, but are in an incomplete state. Note the GitHub
+  organization it belongs to &mdash; [`rust-lang-nursery`]. It contains many
+  interesting projects.
 
 
 [Reading: Rust API Guidelines: Documentation]: https://rust-lang-nursery.github.io/api-guidelines/documentation.html

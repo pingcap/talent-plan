@@ -179,13 +179,13 @@ You are set up for this project and ready to start hacking.
 You've been provided with a suite of unit tests in `tests/tests.rs`. Open it up
 and take a look.
 
-Try to run the tests with `cargo test`. What happens? Why?
+_Try to run the tests with `cargo test`._ What happens? Why?
 
 Your first task for this project is to make the tests _compile_. Fun!
 
 If your project is like mine you probably saw a huge spew of build errors. Look
 at the first few. In general, when you see a bunch of errors, the first are the
-most important &mdash; rustc will keep trying to compile even after hitting
+most important &mdash; `rustc` will keep trying to compile even after hitting
 errors, so errors can cascade, the later ones being pretty meaningless. Your
 first few errors probably look like:
 
@@ -576,12 +576,14 @@ described below.
 [`rustfmt`]: https://github.com/rust-lang/rustfmt
 
 Both tools are included in the Rust toolchain, but not installed by default.
-They can be installed with the following commands:
+They can be installed with the following [`rustup`] commands:
 
 ```
 rustup component add clippy
 rustup component add rustfmt
 ```
+
+[`rustup`]: https://github.com/rust-lang/rustup.rs/blob/master/README.md
 
 _Do that now._
 
@@ -593,8 +595,11 @@ previous commit with `git commit --amend`. Or just commit them as their own
 formatting commit &mdash; it's common to rust both `clippy` and `rustfmt` after
 a series of commits, e.g. before submitting a pull request.
 
-_Run `clippy` against your project and make any suggested changes. Run `rustfmt`
-against yur project and commit any changes it makes._
+_Run `cargo clippy` against your project and make any suggested changes. Run
+`cargo fmt` against yur project and commit any changes it makes._
+
+It's worth reading the [`rustup`], [`clippy`], and [`rustfmt`] documentation, as
+these are tools you will be using frequently.
 
 Congratulations, you are done with your first project! If you like you
 may complete the remaining "extensions". They are optional.

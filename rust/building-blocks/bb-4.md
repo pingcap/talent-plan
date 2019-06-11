@@ -18,9 +18,9 @@ Read all the readings and perform all the exercises. Also watch the video.
   more general than "parallel". Sometimes we'll use the word "parallel" to be
   more specific, sometimes because it sounds better…
 
-- **[Reading: Rust: A unique perspective][ru]**. An in-depth explanation of the
-  dangers of mutable aliasing and how Rust solves the problem. This one
-  is by [Matt Brubeck][mb], from the [Servo] team.
+- **[Reading: Rust: A unique perspective][ru]**. An explanation of the dangers
+  of mutable aliasing and how Rust solves the problem. This one is by [Matt
+  Brubeck][mb], from the [Servo] team.
 
 - **[Video: Rust Concurrency Explained][ex]**. A more in-depth talk by [Alex
   Crichton][ac]. Aaron and Alex wrote many of the concurrent data structures in
@@ -28,14 +28,15 @@ Read all the readings and perform all the exercises. Also watch the video.
   is a pretty great overview of what Rust can do.
 
 - **[Reading: `std::sync`][ss]**. Once again, the standard library documentation
-  provides good not only documentation about the library, but about the subject
-  in general. It also of course provides an overview of the concurrent tools
-  provided in the standard library.
+  provides not only good documentation about the library, but about the subject
+  in general. This provides an overview of most of the concurrent types provided
+  by the standard library.
 
 - **[Exercise: Basic multithreading][bmt]**. This is a simple multithreading
-  exercise from the [rustlings] project.
+  exercise from the [rustlings] project. It is small enough that it can be
+  completed on [play.rust-lang.org].
 
-- **Exercise: Write a thread pool**. A [thread pool] runs functions (jobs) on a
+- **Exercise: Write a thread pool**. A [thread pool] runs jobs (functions) on a
   set of reusable threads, which can be more efficient than spawning a new
   thread for every job.
 
@@ -56,6 +57,7 @@ Read all the readings and perform all the exercises. Also watch the video.
   The [`threadpool`][tp1] crate and Rayon's [`ThreadPool`][tp2] may provide inspiration.
 
 
+[play.rust-lang.org]: https://play.rust-lang.org/
 [tp1]: https://docs.rs/threadpool/1.7.1/threadpool/struct.ThreadPool.html
 [tp2]: https://docs.rs/rayon/1.0.3/rayon/struct.ThreadPool.html
 [thread pool]: https://softwareengineering.stackexchange.com/questions/173575/what-is-a-thread-pool#173581

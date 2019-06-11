@@ -181,6 +181,7 @@ in the README.
 - after p1 link first uses of crate names to docs.rs
 - say why we're doing each exercise or diversion
 - publishing on crates.io
+- critcmp
 
 # Future projects
 

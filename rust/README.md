@@ -2,10 +2,12 @@
 
 A training course about practical systems software construction in Rust.
 
-Over a series of projects, you will build a networked [key-value database][kv],
-with multithreading and asynchronous I/O. In between projects you will study and
-practice individual subjects necessary to complete the next project. Along the
-way you will explore multiple designs and their tradeoffs.
+Over a series of projects, you will build a single networked, multithreaded, and
+asynchronous Rust application. Creating this application, a [key-value
+database][kv], will provide opportunities to explore the best of the crate
+ecosystem, a variety of concurrent data types, the world of async Rust, and
+important Rust tools. In between projects are small lessons and exercises on the
+subjects necessary to complete the next project.
 
 <!-- TODO make the above sparkle -->
 <!-- NOTE: keep the above in sync with lesson-plan.md -->
@@ -18,7 +20,7 @@ Subjects covered include:
 - Serialization with [serde]
 - Simple log-structured storage, inspired by [bitcask]
 - Network programming with std and [tokio]
-- Benchmarking with [criterion] and [critcmp]
+- Benchmarking with [criterion]
 - Fun and foolproof parallel programming with [crossbeam] and more
 - Asyncronous programming with Rust [futures]
 - How to learn what you don't know about Rust and find the documentation and
@@ -139,7 +141,6 @@ See [CONTRIBUTING.md].
 [building a command-line program]: https://doc.rust-lang.org/stable/book/ch12-00-an-io-project.html
 [building a multithreaded web server]: https://doc.rust-lang.org/stable/book/ch20-00-final-project-a-web-server.html
 [clippy]: https://github.com/rust-lang/rust-clippy/
-[critcmp]: https://github.com/BurntSushi/critcmp
 [criterion]: https://github.com/bheisler/criterion.rs
 [crossbeam]: https://github.com/crossbeam-rs/crossbeam
 [file issues]: https://github.com/pingcap/talent-plan/issues/
