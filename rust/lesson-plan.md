@@ -2,10 +2,12 @@
 
 A training course about practical systems software construction in Rust.
 
-Over a series of projects, you will build a networked, persistent [key-value
-database][kv] with multithreading and asynchronous I/O. In between projects you
-will study and practice individual subjects necessary to complete the project.
-Along the way you will explore multiple designs and their tradeoffs.
+Over a series of projects, you will build a networked [key-value database][kv],
+with multithreading and asynchronous I/O. In between projects you will study and
+practice individual subjects necessary to complete the next project. Along the
+way you will explore multiple designs and their tradeoffs.
+
+<!-- NOTE: keep the above in sync with README.md -->
 
 See [README.md] for the overview, goals, audience, and prerequisites.
 
@@ -16,7 +18,7 @@ See [README.md] for the overview, goals, audience, and prerequisites.
 - [Making PNA Rust Better](#user-content-making-pna-rust-better)
 - [Practical Networked Applications in Rust](#user-content-practical-networked-applications-in-rust)
   - [Building Blocks 1](#user-content-building-blocks-1)
-  - [Project 1: The Rust toolbox and strong foundations](#user-content-project-1-the-rust-toolbox-and-strong-foundations)
+  - [Project 1: The Rust toolbox](#user-content-project-1-the-rust-toolbox)
   - [Building Blocks 2](#user-content-building-blocks-2)
   - [Project 2: Log-structured file I/O](#user-content-project-2-log-structured-file-io)
   - [Building Blocks 3](#user-content-building-blocks-3)
@@ -210,7 +212,7 @@ to command-line arguments.
 
 ### [Building Blocks 2][b2]
 
-**Topics**: Log-structured file I/O, the bitcask algorithm, Rust error handling,
+**Topics**: log-structured file I/O, the bitcask algorithm, Rust error handling,
 comparing collection types.
 
 
@@ -234,7 +236,8 @@ command line.
 
 ### [Building Blocks 3][b3]
 
-**Topics**: unstructured vs. structured logging, benchmarking.
+**Topics**: unstructured vs. structured logging, the Redis protocol,
+  benchmarking.
 
 
 ### [Project 3: Synchronous client-server networking][p3]
@@ -247,18 +250,15 @@ with synchronous networking over a custom protocol.
 - Create a client-server application
 - Write a custom protocol with `std` networking APIs
 - Introduce logging to the server
-- Chain errors together and write an error handler for `main`
-- Implement pluggable backends via traits
+- Implement pluggable backends with traits
 - Benchmark the hand-written backend against `sled`
 
 **Topics**: `std::net`, logging, traits, benchmarking.
 
-<!-- TODO **Extensions**: shutdown on signal. -->
-
 
 ### [Building Blocks 4][b4]
 
-**Topics**: Message passing, lock-free data structures.
+**Topics**: message passing, lock-free data structures.
 
 
 ### [Project 4: Parallelism][p4]
@@ -283,7 +283,7 @@ with synchronous networking over a custom protocol.
 Coming soon! ([preview][b5])
 
 
-### [Project 5: Asynchronous programming in Rust][p5]
+### Project 5: Asynchronous programming in Rust
 
 Coming soon! ([preview][p5])
 

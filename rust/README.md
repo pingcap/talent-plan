@@ -4,10 +4,11 @@ A training course about practical systems software construction in Rust.
 
 Over a series of projects, you will build a networked [key-value database][kv],
 with multithreading and asynchronous I/O. In between projects you will study and
-practice individual subjects necessary to complete the project. Along the way
-you will explore multiple designs and their tradeoffs.
+practice individual subjects necessary to complete the next project. Along the
+way you will explore multiple designs and their tradeoffs.
 
 <!-- TODO make the above sparkle -->
+<!-- NOTE: keep the above in sync with lesson-plan.md -->
 
 Subjects covered include:
 
@@ -39,31 +40,31 @@ matter._
 **[View the lesson plan][plan]**.
 
 
-## Goals of this course
+## The goal of this course
 
 The goal of this course is to teach new Rust programmers how build real-world
-Rust programs, with all the desirable Rust characteristics, including
+[systems programs][sp], with all the desirable Rust characteristics, including
 high-performance, reliability, and easy concurrency; and to do so using the best
-practices that might not be evident to new Rust programmers.
+practices that might not be evident to newcomers.
 
-Non-goals of this course include teaching installation, syntax and other Rust
+Non-goals of this course include teaching installation, syntax, and other Rust
 basics; teaching basic data structures and algorithms; teaching basic parallel
 and asynchronous programming concepts; and being a comprehensive resource on the
 Rust language. That information is easily found in [The Rust Book] and
-[elsewhere][pre].
+elsewhere.
 
 **[View the lesson plan][plan]**.
 
 
 ## Who is this for?
 
-Practical Networked Applications in Rust is for novice Rust programmers, but it
+Practical Networked Applications in Rust is for novice _Rust_ programmers, but it
 is not for novice programmers.
 
-The primary audience for this course is recent graduates and near-graduates of
+The primary audience of this course is recent graduates and near-graduates of
 an undergraduate computer science program who are considering starting a career
 as a Rust systems programmer. Others will also likely benefit, including
-experienced developers without systems-programming experience.
+experienced developers without systems programming experience.
 
 
 ## Prerequisites
@@ -85,11 +86,11 @@ Those taking this course should:
   - [building a multithreaded web server].
 
 To reiterate &mdash; read [The Rust Book] _before_ taking this course. It is not
-necessary to have more than novice knowledge or experience with Rust, but this
-course does not teach Rust basics.
+necessary to have more than novice-level knowledge or experience with Rust, but
+this course does not teach Rust basics.
 
 If you can check all the above boxes then you are ready for this course. If not,
-we have some [suggestions][pre] of where to look to learn the prerequisites.
+we have some [suggestions][pre] for how to learn the prerequisites.
 
 Get started now - **[view the lesson plan][plan]**.
 
@@ -106,11 +107,10 @@ to [Distributed Systems in Rust].
 
 This course, combined with [Deep Dive TiKV], and the [Distributed Systems in
 Rust] course is intended to be enough to enable programmers to meaningfully
-contribute to [TiKV] or any other Rust project. It is most specifically designed
-to teach those in the Chinese Rust community enough Rust to work on TiKV. The
-language used is intended to be simple so that those who read only a little
-English can follow. If you find any of the language difficult to understand
-please [file issues].
+contribute to [TiKV]. It is most specifically designed to teach those in the
+Chinese Rust community enough Rust to work on TiKV. The language used is
+intended to be simple so that those who read only a little English can follow.
+If you find any of the language difficult to understand please [file issues].
 
 
 ## Contributing
@@ -155,5 +155,6 @@ See [CONTRIBUTING.md].
 [rustfmt]: https://github.com/rust-lang/rustfmt/
 [serde]: https://github.com/serde-rs/serde
 [series of courses]: https://github.com/pingcap/talent-plan/
+[sp]: https://en.wikipedia.org/wiki/System_programming
 [the roadmap]: roadmap.md
 [tokio]: https://github.com/tokio-rs/tokio

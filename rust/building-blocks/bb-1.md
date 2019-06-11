@@ -7,12 +7,6 @@ are some fun resources for you to explore.
 
 Read all the readings and perform all the exercises.
 
-- **[Exercise: Write a Good CLI Program]**. Writing a CLI program in Rust. This
-  is a good warmup to the CLI program you'll be writing in this course, and the
-  techniques used by this author may provide an interesting contrast to those we
-  suggest. Follow along and write the same code. Can you reproduce their
-  results?
-
 - **[Reading: The Cargo manifest format]**. A single page in [The Cargo Book],
   this will give you an idea of how your project can be customized a bit if you
   so choose. This is a page you will come back to repeatedly is a Rust
@@ -22,7 +16,8 @@ Read all the readings and perform all the exercises.
   a page that you will see many times in the future. Environment variables are
   one way that it communicates with rustc, allowing it to set the various
   [`env!`] macros at build time, in both your program source code and build
-  scripts. It is also a way for scripts to communicate to Cargo.
+  scripts. It is also a way for scripts and other systems to communicate to
+  Cargo.
 
 - **[Reading: Rust API Guidelines: Documentation]**. The Rust project is
   opinionated about how Rust source is written. This page is on how to document
@@ -33,6 +28,12 @@ Read all the readings and perform all the exercises.
 
 - **[Reading: The rustup documentation]**. You will be interacting with this
   tool all the time, and it has powerful capabilities. Know it well.
+
+- **[Exercise: Write a Good CLI Program]**. Writing a CLI program in Rust. This
+  is a good warmup to the CLI program you'll be writing in this course, and the
+  techniques used by this author may provide an interesting contrast to those we
+  suggest. Follow along and write the same code. Can you reproduce their
+  results?
 
 
 [Reading: Rust API Guidelines: Documentation]: https://rust-lang-nursery.github.io/api-guidelines/documentation.html

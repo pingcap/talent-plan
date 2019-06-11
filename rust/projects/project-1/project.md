@@ -608,6 +608,16 @@ Nice coding, friend. Enjoy a nice break.
 ---
 
 
+<!--
+
+TODO ## Aside: exploring Rust toolchain components
+
+rust component list
+rust component list | rg -v std # opportunity to introduce rg
+
+-->
+
+
 ## Extension 1: `structopt`
 
 In this project we used `clap` to parse command line arguments. It's typical to

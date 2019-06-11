@@ -8,8 +8,7 @@ with synchronous networking over a custom protocol.
 - Create a client-server application
 - Write a custom protocol with `std` networking APIs
 - Introduce logging to the server
-- Chain errors together and write an error handler for `main`
-- Implement pluggable backends via traits
+- Implement pluggable backends with traits
 - Benchmark the hand-written backend against `sled`
 
 **Topics**: `std::net`, logging, traits, benchmarking.
@@ -275,11 +274,9 @@ correct.
 _Write your network protocol._
 
 
-## Part 5: More error handling
+<!-- ## Part 5: More error handling
 
-Coming soon!
-
-<!-- TODO write this section
+TODO write this section
 
 - handle error responses by converting errors to a serializable format
 - add context to errors
@@ -287,7 +284,7 @@ Coming soon!
 -->
 
 
-## Part 6: Pluggable storage engines
+## Part 5: Pluggable storage engines
 
 Your database has a storage engine, `KvStore`, implemented by you.
 Now you are going to add a second storage engine.
@@ -330,7 +327,7 @@ case can only result in an error, and you need to figure out how to detect the
 case to report the error. The test `cli_wrong_engine` reflects this scenario.
 
 
-## Part 7: Benchmarking
+## Part 6: Benchmarking
 
 As the course progresses we will increasingly concern ourselves with the
 performance of the database, exploring the impact of different architectures.
