@@ -434,6 +434,8 @@ assert that the key was found.
 
 Random numbers can be generated with the [`rand`] crate.
 
+[`rand`]: https://docs.rs/crate/rand/
+
 Once you have your benchmamrks, run them with `cargo bench --release`. Note
 the `--release` argument &mdash; unoptimized benchmarking is mostly useless!
 

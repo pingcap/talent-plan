@@ -40,6 +40,9 @@ thematic break (`---`).
 
 For readability headers are always preceeded by two spaces.
 
+One-paragraph side-notes are in italics and preceeded with "Note:", like `_Note:
+whatever._`
+
 
 ## Developing a new section
 

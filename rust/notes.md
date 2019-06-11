@@ -180,6 +180,7 @@ in the README.
 - sort deps in manifests
 - after p1 link first uses of crate names to docs.rs
 - say why we're doing each exercise or diversion
+- publishing on crates.io
 
 # Future projects
 

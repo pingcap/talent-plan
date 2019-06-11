@@ -80,27 +80,33 @@ project comes with a test suite, and the project should not be considered
 finished until it passes with `cargo test`.
 
 **You should not read the example code for any project until completing the
-project yourself**. You are encouraged though to learn from and apply techniques
-they contain to your own projects retroactively. Keep in mind though that the
-example projects are not the only way &mdash; or even the best way &mdash; to
-solve the problems. Trust yourself and your own creativity.
+project yourself** &mdash; good learning requires trying on your own and failing, over
+and over until you succeed. You are encouraged though to learn from and apply
+techniques they contain to your own projects retroactively. Keep in mind though
+that the example projects are not the only way &mdash; or even the best way
+&mdash; to solve the problems. Trust yourself and your own creativity.
+
+<!-- TODO this is pretty harsh
 
 > RE plagiarism (this is mostly relevant to students being evaluated on their
 coursework): The line between applying techniques learned by code-reading and
 copying code outright can be hard to identify. But as a professional you have
 ethical responsibilites, and only you can know if you are upholding them. For
 those not being evaluated for their coursework, simply copying from the example
-code will only hurt your experience; for those who are being evaluated, your
-instructors and evaluators are expecting you to use your own skills.
+isn't ; for those who are being evaluated, your instructors and evaluators are
+expecting you to use your own skills.
+
+-->
 
 You will recieve further instruction about setting up the source code and test
 suite, as well as project specifications, as you progress through the individual
 projects.
 
 The expected time to complete each section is not currently well-estimated, but
-the building blocks might take up to 8 hours, and the projects up to 40 hours.
-If you are spending much less time than that, or are spending more time, don't
-worry: these are just bad estimates, and everybody's experience is different.
+both "building blocks" and "project" will probably take hours, not days, with
+the projects taking more time. If you are spending much less time than that, or
+are spending more time, don't worry: these are just bad estimates, and
+everybody's experience is different.
 
 
 ## Getting help
@@ -147,7 +153,7 @@ You are also welcome to email the primary author of this course, [Brian
 Anderson][brson], at brian@pingcap.com. I will happily answer questions, and am
 eager to hear your experience with the course.
 
-Finally, if there is a [Rust user group] near you, go check it out. As a Rust programmer
+Finally, if there is a [Rust meetup] near you, go check it out. As a Rust programmer
 these groups are where you will build some of your strongest connections. (Note
 that that link goes to the old Rust website and may not be up to date).
 
@@ -272,28 +278,14 @@ with synchronous networking over a custom protocol.
 **Topics**: threads, thread-pools, channels, locks.
 
 
-### [Building Blocks 5][b5]
+### Building Blocks 5
 
-**Topics**: Sync vs. async, Rust futures, tokio, `impl Trait`, existential types.
+Coming soon! ([preview][b5])
 
 
 ### [Project 5: Asynchronous programming in Rust][p5]
 
-**Task**: Create a multi-threaded, persistent key/value store server and client
-with asynchronous networking over a custom protocol.
-
-**Goals**:
-
-- Understand the patterns used when writing Rust futures
-- Understand error handling with futures
-- Learn to debug the type system
-- Perform asynchronous networking with the tokio runtime
-- Use boxed futures to handle difficult type-system problems
-- Use `impl Trait` to create anonymous `Future` types
-
-**Topics**: asynchrony, futures, tokio, `impl Trait`.
-
-**Extensions**: tokio-fs.
+Coming soon! ([preview][p5])
 
 
 <!-- building block links -->
@@ -319,7 +311,7 @@ with asynchronous networking over a custom protocol.
 [CONTRIBUTING.md]: ./CONTRIBUTING.md
 [README.md]: ./README.md
 [Rust Discord]: https://discord.gg/rust-lang
-[Rust user group]: https://prev.rust-lang.org/en-US/user-groups.html
+[Rust meetup]: https://www.meetup.com/topics/rust
 [StackOverflow]: https://stackoverflow.com/questions/tagged/rust
 [TiKV Slack]: https://join.slack.com/t/tikv-wg/shared_invite/enQtNTUyODE4ODU2MzI0LTgzZDQ3NzZlNDkzMGIyYjU1MTA0NzIwMjFjODFiZjA0YjFmYmQyOTZiNzNkNzg1N2U1MDdlZTIxNTU5NWNhNjk
 [author]: https://github.com/brson/
