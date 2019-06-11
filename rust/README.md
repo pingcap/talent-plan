@@ -1,6 +1,6 @@
 # Practical Networked Applications in Rust
 
-A training course about practical systems software construction in Rust.
+A training course about practical systems software construction in [Rust].
 
 Over a series of projects, you will build a single networked, multithreaded, and
 asynchronous Rust application. Creating this application, a [key-value
@@ -158,3 +158,4 @@ See [CONTRIBUTING.md].
 [sp]: https://en.wikipedia.org/wiki/System_programming
 [the roadmap]: roadmap.md
 [tokio]: https://github.com/tokio-rs/tokio
+[Rust]: https://www.rust-lang.org/
