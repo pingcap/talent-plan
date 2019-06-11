@@ -158,7 +158,6 @@ You need the following dev-dependencies in your `Cargo.toml`:
 [dev-dependencies]
 assert_cmd = "0.11"
 criterion = "0.2.11"
-float-cmp = "=0.4.0" # FIXME: https://github.com/assert-rs/predicates-rs/issues/78
 predicates = "1.0.0"
 rand = "0.6.5"
 tempfile = "3.0.7"

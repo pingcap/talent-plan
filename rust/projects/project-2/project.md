@@ -150,7 +150,6 @@ You need the following dev-dependencies in your `Cargo.toml`:
 ```toml
 [dev-dependencies]
 assert_cmd = "0.11.0"
-float-cmp = "=0.4.0" # FIXME: https://github.com/assert-rs/predicates-rs/issues/78
 predicates = "1.0.0"
 tempfile = "3.0.7"
 walkdir = "2.2.7"

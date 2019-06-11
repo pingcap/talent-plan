@@ -216,7 +216,6 @@ For this project your `Cargo.toml` file needs to contain these lines:
 ```toml
 [dev-dependencies]
 assert_cmd = "0.11.0"
-float-cmp = "=0.4.0" # FIXME: https://github.com/assert-rs/predicates-rs/issues/78
 predicates = "1.0.0"
 ```
 
