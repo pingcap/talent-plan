@@ -4,10 +4,11 @@ A training course about practical systems software construction in [Rust].
 
 Over a series of projects, you will build a single networked, multithreaded, and
 asynchronous Rust application. Creating this application, a [key-value
-database][kv], will provide opportunities to explore the best of the crate
-ecosystem, a variety of concurrent data types, the world of async Rust, and
-important Rust tools. In between projects are small lessons and exercises on the
-subjects necessary to complete the next project.
+database][kv], will provide opportunities to exercise the best of the crate
+ecosystem, a variety of concurrent data types, the world of async Rust,
+interesting langauge features, and important Rust tools. In between projects are
+small lessons and exercises on the subjects necessary to complete the next
+project.
 
 <!-- TODO make the above sparkle -->
 <!-- NOTE: keep the above in sync with lesson-plan.md -->
