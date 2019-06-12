@@ -32,11 +32,11 @@ for details.
   distributed systems coursework, this course focuses on implementing important
   distributed algorithms, including the [Raft] consensus algorithm.
 
-- **[Distributed Systems in Go][tidb]**. Distributed systems algorithms in Go.
+- **[Distributed Systems in Go][go]**. Distributed systems algorithms in Go.
 
 [rust]: ./rust/
 [dss]: ./dss/
-[tidb]: ./tidb/
+[go]: ./tidb/
 
 [MIT 6.824]: http://nil.csail.mit.edu/6.824/2017/index.html
 [Raft]: https://raft.github.io/
