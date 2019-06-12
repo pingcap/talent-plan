@@ -1,44 +1,25 @@
 # Contributing to PNA Rust
 
-TODO organize this
+Contributions of any kind are welcome.
 
-Project text doesn't link directly to documentation resources containing
-solutions - students should learn where to get the answers from the
-pre-requisites and lessons.
+File bugs on the [issue tracker], no matter how small. If something in the
+course didn't make sense to you then it won't make sense to somebody else and
+needs to be fixed. That includes the language: this course is intended to be
+accessible to those with modest English-language comprehension. Non-technical
+words should be simple, and grammar should be easy to follow.
 
-Project text may include inline links to pages that offer explanatios of terms
-and concepts.
+General feedback and suggestions can be submitted to the issue tracker or to the
+#rust-training channel on the [TiKV Slack].
 
-Keep the project summary (the **Task**, **Goals**, etc. text) synced between
-plan.md and the project description.
+When you see something inconsistent or confusing, consider fixing it directly
+and sending a pull request.
 
-Common sections of project descriptions:
+For those looking for something to contribute, on the issue tracker, issues for
+the Rust course are tagged `p: rust`. The `help wanted` and `good first issue`
+tags may help you find something interesting.
 
-- The project summary (directly after h1)
-- "Introduction"
-- "Project spec"
-
-Headers do not capitalize every word; words after a colon
-are capitalized:
-
-> ## Project spec
-
-> ## Lesson: Tools and good bones
-
-In projects, be clear on when the student should start hacking, and what they
-should be hacking, by writing an imperative statement. Format that command in
-italics:
-
-> _Try it now._
-
-
-Building blocks pages generally begin with the same encouraging phrase, and
-project pages generally end with the same encouraging phrase.
-
-If there are project extension sections, the first one is preceeded by a
-thematic break (`---`).
-
-For readability headers are always preceeded by two spaces.
+[issue tracker]: https://github.com/pingcap/talent-plan/issues/
+[TiKV Slack]: https://join.slack.com/t/tikv-wg/shared_invite/enQtNTUyODE4ODU2MzI0LTgzZDQ3NzZlNDkzMGIyYjU1MTA0NzIwMjFjODFiZjA0YjFmYmQyOTZiNzNkNzg1N2U1MDdlZTIxNTU5NWNhNjk
 
 
 ## Developing a new section
@@ -47,42 +28,65 @@ Each section provides a similar project to previous sections, while expanding
 the scope and building off of learnings from previous sections. Each project
 lends itself to being extended by the next section's project.
 
-New sections are developed in pairs, to benefit from the feedback.
-
-Approximate workflow:
-
-- Author 1 and 2 collaborate on an outline for the new section, adding it to
-  plan.md, following the format of existing sections. This includes supporting lessons
-  and readings. Submit PR.
-
-- Author 1 writes the entire project description; optionally with test cases if
-  that makes the writing easier. Add new background readings or otherwise modify
-  the section plan as needed. Submit PR. Author 2 reviews.
-
-- Author 2 writes the remaining test cases and an example solution project. Add
-  new background readings or otherwise modify the section plan as needed. Submit
-  PR. Author 1 reviews.
-
-- Author 2 makes changes to the project text for clarification, improvement,
-  scope expansion, etc. Add new background readings or otherwise modify the
-  section plan as needed. Submit PR. Author 1 reviews.
-
-##
-
-When writing a project, look for steps where the design could be specified differently,
-where there are multiple solutions, where there is deeper understanding to be gained,
-and ask questions formulated to get the reader to think more deeply.
+When writing a project, look for steps where the design could be specified in
+multiple ways, where there are multiple solutions, where there is deeper
+understanding to be gained, and ask questions formulated to get the reader to
+think more deeply.
 
 Projects should be written to take between 2 - 4 hours to implement.
 
 When writing a project, look for optional "extension" steps that teach
 additional practical subjects, but which either aren't necessary to complete the
-project or require more time and skill to implement. Extenion steps go at the
-end of a project.
+project or require more time and skill to implement. Extension steps usually go
+at the end of a project.
 
-## Contributor notes
+Project text doesn't link directly to documentation resources containing
+solutions - students should learn where to get the answers from the
+previous "building blocks" sections.
 
-- in markdown, write links as relative to current directory
-- keep "task", "goals", etc in project intros in sync between "plan.md" and
-  project pages
+Project text may include inline links to pages that offer explanatios of terms
+and concepts.
+
+
+## Style notes
+
+Building blocks pages generally begin with the same encouraging phrase, and
+project pages generally end with the same encouraging phrase.
+
+Headers do not capitalize every word; words after a colon
+are capitalized:
+
+```
+## Project spec
+
+## Lesson: Tools and good bones
+```
+
+In projects, be clear on when the student should start hacking, and what they
+should be hacking, by writing an imperative statement. Format that command in
+italics:
+
+```
+_Try it now._
+```
+
+If there are project extension sections, the first one is preceeded by a
+thematic break (`---`).
+
+For markdown readability headers are always preceeded by two line breaks.
+
+One-paragraph side-notes are in italics and preceeded with "Note:", like `_Note:
+whatever._`
+
+Larger tangents that don't move the project forward are in their own sections,
+with their own headers, named "Aside: ...". They should be related to the
+subject matter and be interesting enough to justify the large detour.
+
+Internal hyperlinks are relative to the current directory, not absolute.
+
+
+## Maintenace notes
+
+Keep the project summary (the `**Task**`, `**Goals**`, etc. text) synced between
+plan.md and the project description.
 
