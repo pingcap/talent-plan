@@ -839,6 +839,7 @@ selection and their usage, it will be easy to corrupt the state of your database
 
 - TODO: https://gitlab.redox-os.org/redox-os/chashmap
 - TODO: https://github.com/jonhoo/rust-evmap
+- https://github.com/4lDO2/evc
 - crossbeam-skiplist
 - atomics
 - invariants
