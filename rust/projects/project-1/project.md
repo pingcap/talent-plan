@@ -265,7 +265,7 @@ to reading test cases.
 And, bonus &mdash; test cases are often the poorest-written code in any project,
 sloppy and undocumented.
 
-Again, ry to run the tests with `cargo test`. What happens? Why?
+Again, try to run the tests with `cargo test`. What happens? Why?
 
 In `src/lib.rs` write the type and method definitions necessary to make `cargo
 test --no-run` complete successfully. Don't write any method bodies yet &mdash;
@@ -373,7 +373,7 @@ with command line arguments, and with changes to the manifest.
 Here are the relevant command line flags:
 
 - `cargo test --lib` &mdash; test just the tests inside the library
-- `cargo test --doc &mdash; test the doc tests in the library
+- `cargo test --doc` &mdash; test the doc tests in the library
 - `cargo test --bins` &mdash; test all the bins in the project
 - `cargo test --bin foo` &mdash; test just the `foo` bin
 - `cargo test --doc` &mdash; test the libraries doc tests
