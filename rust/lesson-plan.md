@@ -137,8 +137,8 @@ Here are the resources you should consider turning to first:
 - The QQ Rust group #1 ([QR code][qq]). For Chinese students, this is one of the
   major Rust communities in China. This is a great place to hang out generally,
   and for those unconfident in their English skills, a great place to ask
-  for help. There are also WeChat groups, bit with their low population caps
-  and invite requirements are more difficult to deal with here.
+  for help. There are also WeChat groups, but with their low population caps
+  and invite requirements, they are more difficult to deal with here.
 
 - The QQ Rust group #2 ([QR code][qq2]). Like the above. If group 1 is
   at capacity you can get into this one.
@@ -329,7 +329,7 @@ to know where to go next on that path? We've got [some ideas][n].
 [pre]: ./README.md#user-content-prerequisites
 [psd]: https://github.com/pingcap/talent-plan/tree/master/rust/projects
 [qq]: ./qq-qr.jpg
-[qq2]: ./wechat-qr.jpg
+[qq2]: ./qq2-qr.jpg
 [rs]: https://github.com/pingcap/talent-plan/rust
 [si]: https://github.com/pingcap/talent-plan/issues
 [spr]: https://github.com/pingcap/talent-plan/pulls
