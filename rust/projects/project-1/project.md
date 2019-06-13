@@ -265,7 +265,7 @@ to reading test cases.
 And, bonus &mdash; test cases are often the poorest-written code in any project,
 sloppy and undocumented.
 
-Again, ry to run the tests with `cargo test`. What happens? Why?
+Again, try to run the tests with `cargo test`. What happens? Why?
 
 In `src/lib.rs` write the type and method definitions necessary to make `cargo
 test --no-run` complete successfully. Don't write any method bodies yet &mdash;
