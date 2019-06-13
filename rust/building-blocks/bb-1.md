@@ -15,7 +15,7 @@ Read all the readings and perform all the exercises.
 
 - **[Reading: The Cargo manifest format]**. A single page in [The Cargo Book],
   this will give you an idea of how your project can be customized a bit if you
-  so choose. This is a page you will come back to repeatedly is a Rust
+  so choose. This is a page you will come back to repeatedly as a Rust
   programmer.
 
 - **[Reading: Cargo environment variables]**. Also from The Cargo Book, and also
