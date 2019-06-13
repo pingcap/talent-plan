@@ -15,7 +15,7 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all --tests -- -D clippy::all
       - run: cargo test -p labcodec -p labrpc
-      - run: cargo test -- --test raft::persister
+      - run: cargo test -p raft -- --test raft::persister
       - run:
           command: cargo test -p linearizability
           no_output_timeout: 30m
