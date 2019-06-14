@@ -141,7 +141,7 @@ until it is dropped.
 
 ## Project setup
 
-Continuing from your previous project, delete your privous `tests` directory and
+Continuing from your previous project, delete your previous `tests` directory and
 copy this project's `tests` directory into its place. Like the previous project,
 this project should contain a library and an executable, both named `kvs`.
 
