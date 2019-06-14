@@ -164,7 +164,7 @@ clean directory), or manually. You'll probably also want to initialize a git
 repository in the same directory.
 
 Finally, the `tests` directory is copied from the course materials. In this case,
-copy from the course repository the file `rust/project/project-1/tests`
+copy from the course repository the file `rust/projects/project-1/tests`
 into your own repository, as `tests`.
 
 At this point you should be able to run the program with `cargo run`.
