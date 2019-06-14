@@ -41,7 +41,7 @@ In this lab you will implement the Raft consensus algorithm. This lab has 3 part
 named with 2A, 2B and 2C.
 
 To run all the test in this lab, run `make test_2`. Please run the tests multiple
-times to mak sure your are not passing the tests just by luck.
+times to make sure your are not passing the tests just by luck.
 
 To run just a single test, run `make cargo_test_<insert test name here>`.
 
@@ -188,7 +188,7 @@ In this lab you will build a fault-tolerant key-value storage service using the
 Raft module in lab 2. This lab has 2 parts named with 3A and 3B.
 
 To run all the test in this lab, run `make test_3`. Please run the tests multiple
-times to mak sure your are not passing the tests just by luck.
+times to make sure your are not passing the tests just by luck.
 
 To run just a single test, run `make cargo_test_<insert test name here>`.
 
