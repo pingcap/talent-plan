@@ -20,7 +20,7 @@ command line.
 
 In this project you will create a simple on-disk key/value store that can be
 modified and queried from the command line. It will use a simplification of the
-storage algorithm used by [bitcask], chosen for its combination if simplicity
+storage algorithm used by [bitcask], chosen for its combination of simplicity
 and effectiveness. You will start by maintaining a _log_ (sometimes called a
 ["write-ahead log"][wal] or "WAL") on disk of previous write commands that is
 evaluated on startup to re-create the state of the database in memory. Then you
@@ -46,11 +46,11 @@ TODO
 
 ## Terminology
 
-Some terminology we we will use in this course. It is the same as or inspired by
+Some terminology we will use in this course. It is the same as or inspired by
 [bitcask]. Different databases will have slightly different terminology.
 
 - _command_ - A request or the representation of a request made to the database.
-  These are issued on the command line or over the network. The have an
+  These are issued on the command line or over the network. They have an
   in-memory representation, a textual representation, and a machine-readable
   serialized representation.
 - _log_ - An on-disk sequence of commands, in the order originally received and
@@ -65,8 +65,8 @@ Some terminology we we will use in this course. It is the same as or inspired by
   database by remove stale commands from the log.
 - _in-memory index_ (or _index_) - A map of keys to log pointers. When a read
   request is issues, the in-memory index is searched for the appropriate log
-  pointer, and when it is found the value retrieved from the on-disk log. In our
-  key/value store, like in bitcask, the index for the _entire database_ is
+  pointer, and when it is found the value is retrieved from the on-disk log. In
+  our key/value store, like in bitcask, the index for the _entire database_ is
   stored in memory.
 - _index file_ - The on-disk representation of the in-memory index. Without this
   the log would need to be completely replayed to restore the state of the
@@ -109,7 +109,7 @@ methods:
 
 - `KvStore::get(&mut self, key: String) -> Result<Option<String>>`
 
-  Get the string value of the a string key.
+  Get the string value of a string key.
   If the key does not exist, return `None`.
   Return an error if the value is not read successfully.
 
@@ -155,7 +155,7 @@ tempfile = "3.0.7"
 walkdir = "2.2.7"
 ```
 
-As with the previous project, go ahead and write enough empty tor panicking
+As with the previous project, go ahead and write enough empty or panicking
 definitions to make the test cases build.
 
 _Do that now._
@@ -190,7 +190,7 @@ type, so that you don't need to type `Result<T, YourErrorType>` everywhere, but
 can simply type `Result<T>`. This is a common Rust pattern.
 
 Finally, import those types into your executable with `use` statements, and
-chainge `main`s function signature to return `Result<()>`. All functions in your
+change `main`s function signature to return `Result<()>`. All functions in your
 library that may fail will pass these `Results` back down the stack all the way
 to `main`, and then to the Rust runtime, which will print an error.
 
@@ -211,9 +211,9 @@ suite to compile (`cargo test --no-run`).
 
 _Note: Error-handling practices in Rust are still evolving. This course
 currently uses the [`failure`] crate to make defining error types easier. While
-`failure` has a good design, it's use [arguably not a best practice][nbp]. It
+`failure` has a good design, it's use is [arguably not a best practice][nbp]. It
 may not continue to be viewed favorably by Rust experts. Future iterations
-of the course will likely not use `failure`. In the meantime, it is a fine, and
+of the course will likely not use `failure`. In the meantime, it is fine, and
 presents an opportunity to learn more of the history and nuance of Rust error
 handling._
 
@@ -245,7 +245,7 @@ This is the basic behavior of `kvs` with a log:
   - It then serializes that command to a `String`
   - It then appends the serialized command to a file containing the log
   - If that succeeds, it exits silently with error code 0
-  - If it fails, it exits by printing the error and return a non-zero error code
+  - If it fails, it exits by printing the error and returning a non-zero error code
 - "get"
   - The user invokes `kvs get mykey`
   - `kvs` reads the entire log, one command at a time, recording the 
@@ -273,8 +273,8 @@ The log is a record of the transactions committed to the database. By
 of the database.
 
 In this iteration you may store the value of the keys directly in memory (and
-thus never reading from the log after initial startup and log replay). In a
-future iteration you will store only "log pointers" (file offsets) into the log.
+thus never read from the log after initial startup and log replay). In a future
+iteration you will store only "log pointers" (file offsets) into the log.
 
 
 # Part 3: Writing to the log
@@ -414,9 +414,9 @@ good heuristic to rebuild the log? always rebuild the entire log? -->
 _How_ you re-build the log is up to you. Consider questions like: what is the
 naive solution? How much memory do you need? What is the minimum amount of
 copying necessary to compact the log? Can the compaction be done in-place? How
-do you maintain data-integrity of compaction fails?
+do you maintain data-integrity if compaction fails?
 
-So for we've been refering to "the log", but in actuallity it is common for a
+So far we've been refering to "the log", but in actuallity it is common for a
 database to store many logs, in different files. You may find it easier to
 compact the log if you split your log across files.
 
