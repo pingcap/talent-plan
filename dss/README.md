@@ -4,9 +4,9 @@ A training course about the distributed systems in [Rust].
 
 Subjects covered include:
 
-- Raft consensus algorithm (including a fault-tolerant key-value storage service
+- [Raft consensus algorithm] (including a fault-tolerant key-value storage service
 using Raft)
-- Percolator transaction model
+- [Percolator transaction model]
 
 After completing this course you will have the knowledge to implement a basic
 key-value storage service with transaction and fault-tolerant in Rust.
@@ -42,8 +42,10 @@ understand please [file issues].
 [CC-BY 4.0](https://opendefinition.org/licenses/cc-by/)
 
 <!-- links -->
-[rust]: ./rust/
+[rust]: ../rust/README.md
 [file issues]: https://github.com/pingcap/talent-plan/issues/
 [Deep Dive TiKV]: https://tikv.org/deep-dive/
 [TiKV]: https://github.com/tikv/tikv/
 [Rust]: https://www.rust-lang.org/
+[Raft consensus algorithm]: raft/README.md
+[Percolator transaction model]: percolator/README.md
