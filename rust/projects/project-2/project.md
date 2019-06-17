@@ -46,7 +46,7 @@ TODO
 
 ## Terminology
 
-Some terminology we we will use in this course. It is the same as or inspired by
+Some terminology we will use in this course. It is the same as or inspired by
 [bitcask]. Different databases will have slightly different terminology.
 
 - _command_ - A request or the representation of a request made to the database.
