@@ -45,9 +45,7 @@ arg_enum! {
 }
 
 fn main() {
-    env_logger::builder()
-        .filter_level(LevelFilter::Debug)
-        .init();
+    env_logger::builder().filter_level(LevelFilter::Info).init();
     let mut opt = Opt::from_args();
     let res = current_engine().and_then(move |curr_engine| {
         if opt.engine.is_none() {

@@ -1,7 +1,7 @@
 [package]
 name = "kvs"
 version = "0.1.0"
-authors = ["Brian Anderson <andersrb@gmail.com>"]
+authors = ["Yilin Chen <sticnarf@gmail.com>"]
 description = "A key-value store"
 edition = "2018"
 
@@ -16,12 +16,12 @@ env_logger = "0.6.1"
 sled = "0.22.1"
 
 [dev-dependencies]
+assert_cmd = "0.11"
+criterion = "0.2.11"
+predicates = "1.0.0"
+rand = "0.6.5"
 tempfile = "3.0.7"
 walkdir = "2.2.7"
-assert_cmd = "0.11"
-predicates = "1.0.0"
-criterion = "0.2.11"
-rand = "0.6.5"
 
 [[bench]]
 name = "engine_bench"

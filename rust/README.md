@@ -1,82 +1,101 @@
 # Practical Networked Applications in Rust
 
-A training course on practical software construction in Rust.
+A training course about practical systems software construction in [Rust].
 
-The final project in this course is a networked, persistent [key-value store]
-with multithreading, asynchronous I/O (via [hyper]).
+Over a series of projects, you will build a single networked, multithreaded, and
+asynchronous Rust application. Creating this application, a [key-value
+database][kv], will provide opportunities to exercise the best of the crate
+ecosystem, a variety of concurrent data types, the world of async Rust,
+interesting language features, and important Rust tools. In between projects are
+small lessons and exercises on the subjects necessary to complete the next
+project.
+
+<!-- TODO make the above sparkle -->
+<!-- NOTE: keep the above in sync with lesson-plan.md -->
 
 Subjects covered include:
 
 - Structuring and maintaining Rust programs
-- Fun and foolproof parallel programming
-- Asyncronous programming with [futures]
-- Networking with [hyper]
-- Benchmarking with [criterion] and [critcmp]
-- Robust and reliable error handling with [failure]
+- Applying common tools like [clippy] and [rustfmt]
+- Best practices in Rust error handling
 - Serialization with [serde]
-- Build scripts and the interaction between build-time and run-time
-- Insights into inner workings of the language and libraries
-- How to learn what you don't know about Rust and find what you need to find
+- Simple log-structured storage, inspired by [bitcask]
+- Network programming with std and [tokio]
+- Benchmarking with [criterion]
+- Fun and foolproof parallel programming with [crossbeam] and more
+- Asyncronous programming with Rust [futures]
+- How to learn what you don't know about Rust and find the documentation and
+  crates you need to succeed
 
-Goals of this course are to convey knowledge relevant to real-world Rust
-programming, including inherited wisdom and best practices; to look "under the
-hood" and understand how and why Rust works like it does; to tour the world of
-Rust documentation and code such that the student can learn how to find answers
-to their questions on their own.
+After completing this course you will have the knowledge and experience to begin
+writing high performance, reliable, systems software in Rust. And you might
+discover that doing so is simpler than you expected.
 
-Non-goals of this course include teaching installation, syntax and other Rust
-basics; teaching basic data structures and algorithms; being a comprehensive
-resource on the Rust language. That information is easily found in [The Rust
-Book].
+_**Important note: Practical Networked Applications in Rust is in an alpha
+state**. It contains bugs and its scope is limited. If you are taking it now you
+are brave, but you are also an early tester and your feedback is greatly
+appreciated. As you are following along please [file issues]<!-- TODO and
+complete the [post-project surveys] -->. You are also encouraged to fix problems
+on your own and submit pull requests. See [CONTRIBUTING.md] for details.<!-- See
+[the roadmap] for details about future course subject matter.-->_
 
-The course can be followed and completed online or delivered offline as a series
-of training sessions, and consists of
+**[View the lesson plan][plan]**.
 
-- _readings_ - background material that is expected to be read before each
-  lesson
-- _lessons_ - focused coverage of subjects required for writing practical
-  software of the type developed in the corresponding projects, including
-  advanced tips, best practices, and deep dives. This are in the form of slides,
-  speaker notes, and short _writeups_.
-- _projects_ - practical exercises that build upon each other to construct a
-  final, testable and gradable project. Includes extra credit problems and
-  anwsers.
 
-[View the lesson plan][plan].
+## The goal of this course
 
-## Audience - who is this course for?
+The goal of this course is to teach new Rust programmers how build real-world
+[systems programs][sp], with all the desirable Rust characteristics, including
+high-performance, reliability, and easy concurrency; and to do so using the best
+practices that might not be evident to newcomers.
 
-_This book is not for novice programmers, but it is for novice Rust programmers._
+Non-goals of this course include teaching installation, syntax, and other Rust
+basics; teaching basic data structures and algorithms; teaching basic parallel
+and asynchronous programming concepts; and being a comprehensive resource on the
+Rust language. That information is easily found in [The Rust Book] and
+elsewhere.
 
-This course is for programmers with some knowledge of data structures,
-algorithms and I/O.
+**[View the lesson plan][plan]**.
 
-This course is for programmers who have begun learning Rust, but still need
-guidance in production Rust programming and best practices.
 
-This is a course for active learners &mdash; it will lead you in the right
-direction, but the journey is yours.
+## Who is this for?
 
-Those who complete the course will have the knowledge and experience to begin to
-write high performance, reliable, networked applications in Rust.
+Practical Networked Applications in Rust is for novice _Rust_ programmers, but it
+is not for novice programmers.
 
-This course, combined with [Deep Dive TiKV] is intended to be enough to enable
-programmers to meaningfully contribute to [TiKV] or any other Rust project. It
-is most specifically designed to teach those in the Chinese Rust community
-enough Rust to work on TiKV. The language used is intended to be simple so that
-those who read only a little English can follow.
+The primary audience of this course is recent graduates and near-graduates of
+an undergraduate computer science program who are considering starting a career
+as a Rust systems programmer. Others will also likely benefit, including
+experienced developers without systems programming experience.
 
-### Prerequisite knowledge
 
-Students should:
+## Prerequisites
 
-- have intermediate-level experience in some programming language,
-- be familiar with the terminal and command line,
-- know how to use [git],
-- have read [The Rust Book],
-- have Rust installed and know how to compile and run Rust programs.
+Those taking this course should:
 
-[View the lesson plan][plan].
+- [ ] have the equivalent of an undergraduate computer science education,
+- [ ] have intermediate-level experience in some programming language,
+- [ ] be comfortable working in the terminal and command line,
+- [ ] know how to use [git],
+- [ ] have novice-level experience with [parallel programming] in some language,
+- [ ] have novice-level experience with [asynchronous programming] in some language,
+- [ ] have novice-level experience writing code to query a database, [SQL],
+  [NoSQL], [NewSQL], [key-value][kv], or otherwise.
+- [ ] **have read [The Rust Book] in its entirety**,
+- [ ] have written _some_ Rust code, including the projects from the book:
+  - [programming a guessing game],
+  - [building a command-line program] and
+  - [building a multithreaded web server].
+
+To reiterate &mdash; read [The Rust Book] _before_ taking this course. It is not
+necessary to have more than novice-level knowledge or experience with Rust, but
+this course does not teach Rust basics.
+
+If you can check all the above boxes then you are ready for this course. If not,
+we have some [suggestions][pre] for how to learn the prerequisites.
+
+Get started now - **[view the lesson plan][plan]**.
+
 
 ## Other courses in this series
 
@@ -85,39 +104,21 @@ students, contributors, new hires, and existing employees in Rust for
 distributed systems. Those who complete this one may wish to continue
 to [Distributed Systems in Rust].
 
-## How to use this course
 
-Links to the _readings_, _lessons_, and _slides_ are in the [lesson plan][plan],
-presented in the order they should be followed. See the lesson plan for
-further suggestions on how to get the most out of this course.
+## A PingCAP-specific note
 
-All material for this course is in the
+This course, combined with [Deep Dive TiKV], and the [Distributed Systems in
+Rust] course is intended to be enough to enable programmers to meaningfully
+contribute to [TiKV]. It is most specifically designed to teach those in the
+Chinese Rust community enough Rust to work on TiKV. The language used is
+intended to be simple so that those who read only a little English can follow.
+If you find any of the language difficult to understand please [file issues].
 
-> https://github.com/pingcap/talent-training
-
-git repository on GitHub, in the `rust` subdirectory. You may want a copy of it
-on your local computer, particularly for easy access to the conformance tests
-for each project.
-
-All material for this course can be viewed as a static website, online at
-
-> https://todo.later
-
-or on your own local computer. To browse locally just open index.html in a web
-browser.
-
-Get started now - [view the lesson plan][plan].
-
-## For instructors
-
-This _might_ be (or become) a useful teaching resource. As of yet it has
-not been tested at all in a live setting. There is no guidance within
-as to how to teach this course. And for now it is definitely not
-recommended to teach this course.
 
 ## Contributing
 
 See [CONTRIBUTING.md].
+
 
 ## License
 
@@ -128,27 +129,38 @@ discretion.
 
 <!-- links -->
 
-[key-value store]: todo
-[tokio]: todo
-[tower]: todo
-[GRPC]: todo
-[prost]: todo
-[tower-grpc]: todo
-[LSM-tree]: todo
-[futures]: todo
-[criterion]: todo
-[critcmp]: todo
-[failure]: todo
-[Deep Dive TiKV]: todo
-[TiKV]: todo
-[git]: todo
-[The Rust Book]: todo
-[series of courses]: todo
-[PingCAP]: todo
-[Distributed Systems in Rust]: todo
-[The Rust Book]: https://doc.rust-lang.org/book/
-[plan]: plan.md
-[serde]: todo
 [CONTRIBUTING.md]: CONTRIBUTING.md
 [CC-BY 4.0]: https://opendefinition.org/licenses/cc-by/
 [MIT]: https://opensource.org/licenses/MIT
+[Deep Dive TiKV]: https://tikv.org/deep-dive/
+[Distributed Systems in Rust]: https://github.com/pingcap/talent-plan/tree/master/dss
+[NewSQL]: https://en.wikipedia.org/wiki/NewSQL
+[NoSQL]: https://www.thoughtworks.com/insights/blog/nosql-databases-overview
+[PingCAP]: https://pingcap.com/
+[SQL]: https://en.wikipedia.org/wiki/SQL
+[The Rust Book]: https://doc.rust-lang.org/book/
+[The Rust Book]: https://doc.rust-lang.org/stable/book/
+[TiKV]: https://github.com/tikv/tikv/
+[asynchronous programming]: todo
+[bitcask]: https://github.com/basho/bitcask/blob/develop/doc/bitcask-intro.pdf
+[building a command-line program]: https://doc.rust-lang.org/stable/book/ch12-00-an-io-project.html
+[building a multithreaded web server]: https://doc.rust-lang.org/stable/book/ch20-00-final-project-a-web-server.html
+[clippy]: https://github.com/rust-lang/rust-clippy/
+[criterion]: https://github.com/bheisler/criterion.rs
+[crossbeam]: https://github.com/crossbeam-rs/crossbeam
+[file issues]: https://github.com/pingcap/talent-plan/issues/
+[futures]: https://docs.rs/futures/0.1.27/futures/
+[git]: https://git-scm.com/
+[kv]: https://en.wikipedia.org/wiki/Key-value_database
+[parallel programming]: todo
+[plan]: lesson-plan.md
+[post-project surveys]: lesson-plan.md#user-content-making-pna-rust-better
+[pre]: prerequisites.md
+[programming a guessing game]: https://doc.rust-lang.org/stable/book/ch02-00-guessing-game-tutorial.html
+[rustfmt]: https://github.com/rust-lang/rustfmt/
+[serde]: https://github.com/serde-rs/serde
+[series of courses]: https://github.com/pingcap/talent-plan/
+[sp]: https://en.wikipedia.org/wiki/System_programming
+[the roadmap]: roadmap.md
+[tokio]: https://github.com/tokio-rs/tokio
+[Rust]: https://www.rust-lang.org/

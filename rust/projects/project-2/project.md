@@ -1,20 +1,19 @@
-# Project: File I/O
+# PNA Rust Project 2: Log-structured file I/O
 
 **Task**: Create a persistent key/value store that can be accessed from the
-command line
+command line.
 
 **Goals**:
 
 - Handle and report errors robustly
-- Write data to disk as a log using standard file APIs.
-- Read the state of the key/value store from disk
 - Use serde for serialization
-- Use file I/O APIs to binary search
+- Write data to disk as a log using standard file APIs
+- Read the state of the key/value store from disk
+- Map in-memory key-indexes to on-disk values
+- Periodically compact the log to remove stale data
 
-**Topics**: `failure` crate, `std::net::fs`, `Read` / `Write` traits,
-serde
-
-**Extensions**: range queries, store data using bitcast algo?
+**Topics**: log-structured file I/O, bitcask, the `failure` crate, `Read` /
+`Write` traits, the `serde` crate.
 
 
 ## Introduction
@@ -34,6 +33,7 @@ well-architected database using Rust file APIs.
 [bitcask]: https://github.com/basho/bitcask
 
 
+<!--
 ## Basic database architecture
 
 TODO
@@ -42,21 +42,35 @@ TODO
 - good opportunity for a diagram
 - find a good background reading
 - using the os page cache for caching
+-->
 
-Terminology:
+## Terminology
 
-Same terminology used by bitcask. Different databases will have slightly
-different terminology.
+Some terminology we we will use in this course. It is the same as or inspired by
+[bitcask]. Different databases will have slightly different terminology.
 
-- _log_ - todo
-- _log pointer_ - todo
-- _log compaction_ - todo
-- _in-memory index_ (or _index_) - todo
-- _index file_ - todo
-- _command_ - todo
-
-simplifications:
-- single log and index
+- _command_ - A request or the representation of a request made to the database.
+  These are issued on the command line or over the network. The have an
+  in-memory representation, a textual representation, and a machine-readable
+  serialized representation.
+- _log_ - An on-disk sequence of commands, in the order originally received and
+  executed. Our database's on-disk format is almost entirely made up of logs. It
+  will be simple, but also surprisingly effecient.
+- _log pointer_ - A file offset into the log. Sometimes we'll just call this a
+  "file offset".
+- _log compaction_ - As writes are issued to the database they sometimes
+  invalidate old log entries. For example, writing key/value `a = 0` then
+  writing `a = 1`, makes the first log entry for "a" useless. Compaction &mdash;
+  in our database at least &mdash; is the process of reducing the size of the
+  database by remove stale commands from the log.
+- _in-memory index_ (or _index_) - A map of keys to log pointers. When a read
+  request is issues, the in-memory index is searched for the appropriate log
+  pointer, and when it is found the value retrieved from the on-disk log. In our
+  key/value store, like in bitcask, the index for the _entire database_ is
+  stored in memory.
+- _index file_ - The on-disk representation of the in-memory index. Without this
+  the log would need to be completely replayed to restore the state of the
+  in-memory index each time the database is started.
 
 
 ## Project spec
@@ -127,15 +141,22 @@ until it is dropped.
 
 ## Project setup
 
-Create a new cargo project and copy the `tests` directory into it. Like project 1,
+Continuing from your previous project, delete your previous `tests` directory and
+copy this project's `tests` directory into its place. Like the previous project,
 this project should contain a library and an executable, both named `kvs`.
 
-As with the previous project, use `clap` or `structopt` to handle the command
-line arguments. They are the same as last time.
+You need the following dev-dependencies in your `Cargo.toml`:
 
-As with project 1, go ahead and write enough empty tor panicking definitions to
-make the test cases build. This time you'll need to add `dev-dependencies` to
-`Cargo.toml`.
+```toml
+[dev-dependencies]
+assert_cmd = "0.11.0"
+predicates = "1.0.0"
+tempfile = "3.0.7"
+walkdir = "2.2.7"
+```
+
+As with the previous project, go ahead and write enough empty tor panicking
+definitions to make the test cases build.
 
 _Do that now._
 
@@ -146,12 +167,11 @@ In this project it will be possible for the code to fail due to I/O errors. So
 before we get started implementing a database we need to do one more thing that
 is crucial to Rust projects: decide on an error handling strategy.
 
+<!-- TODO outline strategies? -->
+
 Rust's error handling is powerful, but involves a lot of boilerplate to use
 correctly. For this project the [`failure`] crate will provide the tools to
 easily handle errors of all kinds.
-
-_Find the latest version of the failure crate and add it to your dependencies in
-`Cargo.toml`._
 
 [`failure`]: https://docs.rs/failure/0.1.5/failure/
 
@@ -167,10 +187,7 @@ your `Result`s, converting error types from other crates to your own with the
 
 After that, define a type alias for `Result` that includes your concrete error
 type, so that you don't need to type `Result<T, YourErrorType>` everywhere, but
-can simply type `Result<T>`. This type alias is also typically called `Result`,
-[shadowing] the standard library's.
-
-[shadowing]: https://en.wikipedia.org/wiki/Variable_shadowing
+can simply type `Result<T>`. This is a common Rust pattern.
 
 Finally, import those types into your executable with `use` statements, and
 chainge `main`s function signature to return `Result<()>`. All functions in your
@@ -184,16 +201,38 @@ _Set up your error handling strategy before continuing._
 
 As with the previous project, you'll want to create placeholder data structures
 and methods so that the tests compile. Now that you have defined an error type
-this should be straightforward. Add panics anywhere necessary to get the test to
-compile (`cargo test --no-run`).
+this should be straightforward. Add panics anywhere necessary to get the test
+suite to compile (`cargo test --no-run`).
 
 
-## Part 2: Storing writes in the log
+<!--
+## Aside: The history of Rust error handling
+-->
 
-Now we are finally going to begin implementing the beginnings of a real
-database, by storing its contents to disk. You will use [`serde`] to serialize
-the "set" and "rm" commands to a string, and the standard file I/O APIs to write
-it to disk.
+_Note: Error-handling practices in Rust are still evolving. This course
+currently uses the [`failure`] crate to make defining error types easier. While
+`failure` has a good design, it's use [arguably not a best practice][nbp]. It
+may not continue to be viewed favorably by Rust experts. Future iterations
+of the course will likely not use `failure`. In the meantime, it is a fine, and
+presents an opportunity to learn more of the history and nuance of Rust error
+handling._
+
+[nbp]: https://github.com/rust-lang-nursery/rust-cookbook/issues/502#issue-387418261
+
+<!--
+Rust error handling has a long and winding history. Expert Rust programmers will
+be aware of it, as that history informs and explains modern Rust error handling.
+
+TODO
+-->
+
+
+## Part 2: How the log behaves
+
+Now we are finally going to begin implementing the beginnings of a real database
+by reading and writing from disk. You will use [`serde`] to serialize the "set"
+and "rm" commands to a string, and the standard file I/O APIs to write it to
+disk.
 
 [`serde`]: https://serde.rs/
 
@@ -209,8 +248,8 @@ This is the basic behavior of `kvs` with a log:
   - If it fails, it exits by printing the error and return a non-zero error code
 - "get"
   - The user invokes `kvs get mykey`
-  - `kvs` reads the entire log, one command at a time, recording the
-    affected key and file offset of the command to an in-memory _key -> log
+  - `kvs` reads the entire log, one command at a time, recording the 
+   affected key and file offset of the command to an in-memory _key -> log
     pointer_ map
   - It then checks the map for the log pointer
   - If it fails, it prints "Key not found", and exits with exit code 0
@@ -233,8 +272,12 @@ The log is a record of the transactions committed to the database. By
 "replaying" the records in the log on startup we reconstruct the previous state
 of the database.
 
-In this iteration you may store the value of the keys directly in memory.
-In a future iteration you will store only "log pointers" (file offsets) into the log.
+In this iteration you may store the value of the keys directly in memory (and
+thus never reading from the log after initial startup and log replay). In a
+future iteration you will store only "log pointers" (file offsets) into the log.
+
+
+# Part 3: Writing to the log
 
 You will start by implementing the "set" flow. There are a number of steps here.
 Most of them are straightforward to implement and you can verify you've done so
@@ -270,7 +313,7 @@ command. It may help to keep both in mind, or to implement them both
 simultaniously. It is your choice.
 
 
-## Part 3: Reading from the log
+## Part 4: Reading from the log
 
 Now it's time to implement "get". In this part, you don't need to store
 log pointers in the index, we will leave the work to the next part. Instead,
@@ -301,7 +344,7 @@ additional information to distinguish the length of each record. Maybe not.
 _Implement "get" now_.
 
 
-## Part 4: Storing log pointers in the index
+## Part 5: Storing log pointers in the index
 
 At this point most, if not all, of the test suite should pass. The changes
 introduced in the next steps are simple optimizations, necessary for fast
@@ -321,7 +364,7 @@ memory, now is the time to update your code to store log pointers instead,
 loading from disk on demand._
 
 
-## Part 5: Stateless vs. stateful `KvStore`
+## Part 6: Stateless vs. stateful `KvStore`
 
 Remember that our project is both a library and a command-line program.
 They have sligtly different requirements: the `kvs` CLI commits a single change
@@ -335,9 +378,7 @@ _Make your `KvStore` retain the index in memory so it doesn't need to
 re-evaluate it for every call to `get`._
 
 
-
-
-## Part 6: Compacting the log
+## Part 7: Compacting the log
 
 At this point the database works just fine, but the log grows indefinitely. That
 is appropriate for some databases, but not the one we're building &mdash; we
@@ -367,29 +408,21 @@ redundancy:
 
 Here's the basic algorithm you will use:
 
-TODO: Think about this. should the algorithm be specified? what _is_ a
-good heuristic to rebuild the log? always rebuild the entire log?
+<!-- TODO: Think about this. should the algorithm be specified? what _is_ a
+good heuristic to rebuild the log? always rebuild the entire log? -->
 
 _How_ you re-build the log is up to you. Consider questions like: what is the
 naive solution? How much memory do you need? What is the minimum amount of
 copying necessary to compact the log? Can the compaction be done in-place? How
 do you maintain data-integrity of compaction fails?
 
+So for we've been refering to "the log", but in actuallity it is common for a
+database to store many logs, in different files. You may find it easier to
+compact the log if you split your log across files.
+
 _Implement log compaction for your database._
 
-TODO: Think about the below paragraph, what the actual answers are and whether
-the questions make sense. sticnarf and brson had discussion here:
-
-- https://github.com/pingcap/talent-plan/pull/36#issuecomment-479773794
-
-With compaction, what is the amortized complexity (big O) of calling `set`? What
-is the worst case complexity of calling `set`? The worst case is the case with
-maximum write latency. Think about how you could reduce the worst-case latency
-of the compaction strategy you've implemented. You may find good opportunities
-to reconsider your compaction algorithm in future projects. For now though ...
-
-**Congratulations! You have written a fully-functional database. And it is quite
-good as-is.**
+Congratulations! You have written a fully-functional database.
 
 If you are curious, now is a good time to start comparing the performance of
 your key/value store to others, like [sled], [bitcask], [badger], or [RocksDB].
@@ -401,10 +434,7 @@ projects will give you opportunities to optimize.
 [badger]: https://github.com/dgraph-io/badger
 [RocksDB]: https://rocksdb.org/
 
-
-# Extension 1: Range queries
-
-(implement 'scan' to return a range of records)
+Nice coding, friend. Enjoy a nice break.
 
 
 <!--
