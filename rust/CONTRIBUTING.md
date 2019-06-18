@@ -22,11 +22,11 @@ tags may help you find something interesting.
 [TiKV Slack]: https://join.slack.com/t/tikv-wg/shared_invite/enQtNTUyODE4ODU2MzI0LTgzZDQ3NzZlNDkzMGIyYjU1MTA0NzIwMjFjODFiZjA0YjFmYmQyOTZiNzNkNzg1N2U1MDdlZTIxNTU5NWNhNjk
 
 
-## Developing a new section
+## Developing a new project
 
-Each section provides a similar project to previous sections, while expanding
-the scope and building off of learnings from previous sections. Each project
-lends itself to being extended by the next section's project.
+Each project provides expands the scope of the previous, and builds off of
+learnings from previous projects. Each project lends itself to being extended by
+the next section's project.
 
 When writing a project, look for steps where the design could be specified in
 multiple ways, where there are multiple solutions, where there is deeper
@@ -46,6 +46,10 @@ previous "building blocks" sections.
 
 Project text may include inline links to pages that offer explanatios of terms
 and concepts.
+
+Some subjects are revisited multiple times. In particular it is common for one
+project to introduce a subject with basic tasks, then the subsequent project to
+expand on that same subject with deeper tasks.
 
 
 ## Style notes
