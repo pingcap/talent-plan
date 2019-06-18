@@ -6,9 +6,9 @@ consensus algorithm. These labs are derived from the [lab2:raft][6824lab2] and
 in Rust. The following text material is also very influenced by the text
 material there.
 
-[6824lab2]:http://nil.csail.mit.edu/6.824/2017/labs/lab-raft.html
-[6824lab3]:http://nil.csail.mit.edu/6.824/2017/labs/lab-kvraft.html
-[6824]:http://nil.csail.mit.edu/6.824/2017/index.html
+[6824lab2]:http://nil.csail.mit.edu/6.824/2018/labs/lab-raft.html
+[6824lab3]:http://nil.csail.mit.edu/6.824/2018/labs/lab-kvraft.html
+[6824]:http://nil.csail.mit.edu/6.824/2018/index.html
 
 In these labs your will first implement the raft consensus algorithm in the
 lab2:raft, and then build a key/value service in the lab3:kvraft.
@@ -182,7 +182,7 @@ and top of page 8 (marked by a gray line). However, the paper do not have many
 details on this. You will need to fill in the gaps, perhaps with the help of
 [this 6.824 Raft lectures][optimize-hint].
 
-[optimize-hint]:http://nil.csail.mit.edu/6.824/2017/notes/l-raft2.txt
+[optimize-hint]:http://nil.csail.mit.edu/6.824/2018/notes/l-raft2.txt
 
 ## The lab3: KvRaft
 
