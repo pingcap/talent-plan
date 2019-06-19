@@ -5,5 +5,5 @@ for how to proceed.
 
 TODO :)
 
-[pre]: ./README.md#user-content-prerequisites
+[pre]: ../README.md#user-content-prerequisites
 
