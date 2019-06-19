@@ -84,6 +84,18 @@ subject matter and be interesting enough to justify the large detour.
 
 Internal hyperlinks are relative to the current directory, not absolute.
 
+For building blocks exercises, if the description spans multiple paragraphs,
+begin the description in a paragraph separate from the exercise name:
+
+```
+- **Exercise: Write a thread pool**.
+
+  A [thread pool] runs jobs (functions) on a set of reusable threads, which can
+  be more efficient than spawning a new thread for every job.
+
+  Create a simple thread pool with the following type signature:
+```
+
 
 ## Maintenace notes
 
