@@ -50,7 +50,7 @@ Read all the readings and perform all the exercises.
   covered in a grid of squares, like a chess board. Imagine you have a game
   character that every turn may move any number of squares in a single
   direction. Define a type, `Move` that represents a single move of that
-  charecter.
+  character.
 
   Derive the [`Debug`] trait so `Move` is easily printable with the `{:?}`
   format specifier.
