@@ -24,7 +24,7 @@ tags may help you find something interesting.
 
 ## Developing a new project
 
-Each project provides expands the scope of the previous, and builds off of
+Each project expands the scope of the previous, and builds off of
 learnings from previous projects. Each project lends itself to being extended by
 the next section's project.
 
