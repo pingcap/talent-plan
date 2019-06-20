@@ -44,7 +44,7 @@ on your own and submit pull requests. See [CONTRIBUTING.md] for details.<!-- See
 
 ## The goal of this course
 
-The goal of this course is to teach new Rust programmers how build real-world
+The goal of this course is to teach new Rust programmers how to build real-world
 [systems programs][sp], with all the desirable Rust characteristics, including
 high-performance, reliability, and easy concurrency; and to do so using the best
 practices that might not be evident to newcomers.
