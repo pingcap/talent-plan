@@ -277,7 +277,7 @@ thus never read from the log after initial startup and log replay). In a future
 iteration you will store only "log pointers" (file offsets) into the log.
 
 
-# Part 3: Writing to the log
+## Part 3: Writing to the log
 
 You will start by implementing the "set" flow. There are a number of steps here.
 Most of them are straightforward to implement and you can verify you've done so
