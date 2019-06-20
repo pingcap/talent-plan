@@ -55,7 +55,7 @@ Some terminology we will use in this course. It is the same as or inspired by
   serialized representation.
 - _log_ - An on-disk sequence of commands, in the order originally received and
   executed. Our database's on-disk format is almost entirely made up of logs. It
-  will be simple, but also surprisingly effecient.
+  will be simple, but also surprisingly efficient.
 - _log pointer_ - A file offset into the log. Sometimes we'll just call this a
   "file offset".
 - _log compaction_ - As writes are issued to the database they sometimes
@@ -64,7 +64,7 @@ Some terminology we will use in this course. It is the same as or inspired by
   in our database at least &mdash; is the process of reducing the size of the
   database by remove stale commands from the log.
 - _in-memory index_ (or _index_) - A map of keys to log pointers. When a read
-  request is issues, the in-memory index is searched for the appropriate log
+  request is issued, the in-memory index is searched for the appropriate log
   pointer, and when it is found the value is retrieved from the on-disk log. In
   our key/value store, like in bitcask, the index for the _entire database_ is
   stored in memory.
