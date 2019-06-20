@@ -36,9 +36,10 @@ Read all the readings and perform all the exercises. Also watch the video.
   exercise from the [rustlings] project. It is small enough that it can be
   completed on [play.rust-lang.org].
 
-- **Exercise: Write a thread pool**. A [thread pool] runs jobs (functions) on a
-  set of reusable threads, which can be more efficient than spawning a new
-  thread for every job.
+- **Exercise: Write a thread pool**.
+
+  A [thread pool] runs jobs (functions) on a set of reusable threads, which can
+  be more efficient than spawning a new thread for every job.
 
   Create a simple thread pool with the following type signature:
 
