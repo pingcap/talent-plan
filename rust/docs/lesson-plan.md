@@ -299,26 +299,26 @@ to know where to go next on that path? We've got [some ideas][n].
 
 <!-- building block links -->
 
-[b1]: building-blocks/bb-1.md
-[b2]: building-blocks/bb-2.md
-[b3]: building-blocks/bb-3.md
-[b4]: building-blocks/bb-4.md
-[b5]: building-blocks/bb-5.md
+[b1]: ../building-blocks/bb-1.md
+[b2]: ../building-blocks/bb-2.md
+[b3]: ../building-blocks/bb-3.md
+[b4]: ../building-blocks/bb-4.md
+[b5]: ../building-blocks/bb-5.md
 
 
 <!-- project links -->
 
-[p1]: projects/project-1/project.md
-[p2]: projects/project-2/project.md
-[p3]: projects/project-3/project.md
-[p4]: projects/project-4/project.md
-[p5]: projects/project-5/project.md
+[p1]: ../projects/project-1/project.md
+[p2]: ../projects/project-2/project.md
+[p3]: ../projects/project-3/project.md
+[p4]: ../projects/project-4/project.md
+[p5]: ../projects/project-5/project.md
 
 
 <!-- other links -->
 
-[CONTRIBUTING.md]: ./CONTRIBUTING.md
-[README.md]: ./README.md
+[CONTRIBUTING.md]: ../CONTRIBUTING.md
+[README.md]: ../README.md
 [Rust Discord]: https://discord.gg/rust-lang
 [Rust meetup]: https://www.meetup.com/topics/rust
 [StackOverflow]: https://stackoverflow.com/questions/tagged/rust
@@ -326,7 +326,7 @@ to know where to go next on that path? We've got [some ideas][n].
 [author]: https://github.com/brson/
 [brson]: https://github.com/brson/
 [kv]: https://en.wikipedia.org/wiki/Key-value_database
-[pre]: ./README.md#user-content-prerequisites
+[pre]: ../README.md#user-content-prerequisites
 [psd]: https://github.com/pingcap/talent-plan/tree/master/rust/projects
 [qq]: ./qq-qr.jpg
 [qq2]: ./qq2-qr.jpg

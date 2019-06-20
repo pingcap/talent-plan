@@ -153,14 +153,14 @@ discretion.
 [git]: https://git-scm.com/
 [kv]: https://en.wikipedia.org/wiki/Key-value_database
 [parallel programming]: todo
-[plan]: lesson-plan.md
-[post-project surveys]: lesson-plan.md#user-content-making-pna-rust-better
-[pre]: prerequisites.md
+[plan]: ./docs/lesson-plan.md
+[post-project surveys]: ./docs/lesson-plan.md#user-content-making-pna-rust-better
+[pre]: ./docs/prerequisites.md
 [programming a guessing game]: https://doc.rust-lang.org/stable/book/ch02-00-guessing-game-tutorial.html
 [rustfmt]: https://github.com/rust-lang/rustfmt/
 [serde]: https://github.com/serde-rs/serde
 [series of courses]: https://github.com/pingcap/talent-plan/
 [sp]: https://en.wikipedia.org/wiki/System_programming
-[the roadmap]: roadmap.md
+[the roadmap]: ./docs/roadmap.md
 [tokio]: https://github.com/tokio-rs/tokio
 [Rust]: https://www.rust-lang.org/
