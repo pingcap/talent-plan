@@ -45,6 +45,7 @@ fn init_logger() {
 
 fn init(num_clinet: usize) -> (Network, Vec<Client>, Arc<CommitHooks>) {
     init_logger();
+
     let mut clients = vec![];
     let rn = Network::new();
     let tso_server_name = "tso_server";

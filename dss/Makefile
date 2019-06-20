@@ -2,7 +2,7 @@ export RUSTFLAGS=-Dwarnings
 export RUST_TEST_THREADS=1
 export RUST_BACKTRACE=1
 
-LOG_LEVEL ?= labs6824=info
+LOG_LEVEL ?= raft=info,percolator=info
 
 check:
 	cargo fmt --all
@@ -25,7 +25,7 @@ test_3a: cargo_test_3a
 test_3b: cargo_test_3b
 
 cargo_test_%:
-	RUST_LOG=${LOG_LEVEL} cargo test --lib -- --nocapture --test $*
+	RUST_LOG=${LOG_LEVEL} cargo test -p raft -- --nocapture --test $*
 
 test_others:
 	RUST_LOG=${LOG_LEVEL} cargo test -p labrpc -p labcodec -- --nocapture

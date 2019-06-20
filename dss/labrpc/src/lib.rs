@@ -574,7 +574,7 @@ impl Future for ProcessRpc {
 
     fn poll(&mut self) -> Poll<Vec<u8>, Error> {
         let res = loop {
-            let mut next;
+            let next;
             debug!("polling {:?}", self);
             match self
                 .state
