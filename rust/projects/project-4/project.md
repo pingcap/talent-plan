@@ -413,7 +413,10 @@ can be written (probably… nobody has done it yet), but it may be challenging
 both to understand and to write efficiently. These sections do introduce some
 useful criterion features, but if it's too overwhelming it's ok to skip to [part
 8][next] (and file a bug about what didn't work for you). On the other hand, the
-difficulty here may present a good learning opportunity._
+difficulty here may present a good learning opportunity. Finally, implementing
+these benchmarks as described requires a way to shutdown `KvsServer`
+programmatically (i.e. without sending `SIGKILL` and letting the OS do it),
+which we have not previously discussed._
 
 [next]: #user-content-part-8-reduced-contention-shared-data-structures
 
