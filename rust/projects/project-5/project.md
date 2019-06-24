@@ -1,7 +1,7 @@
 # Project: Asynchrony
 
 **Task**: Create a multi-threaded, persistent key/value store server and client
-with asynchronous networking over a custom protocol.
+with _asynchronous_ networking over a custom protocol.
 
 **Goals**:
 

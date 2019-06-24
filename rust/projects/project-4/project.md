@@ -1,6 +1,6 @@
 # PNA Rust Project 4: Concurrency and parallelism
 
-**Task**: Create a multithreaded, persistent key/value store server and client
+**Task**: Create a _multi-threaded_, persistent key/value store server and client
 with synchronous networking over a custom protocol.
 
 **Goals**:

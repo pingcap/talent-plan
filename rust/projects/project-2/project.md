@@ -1,7 +1,7 @@
 # PNA Rust Project 2: Log-structured file I/O
 
-**Task**: Create a persistent key/value store that can be accessed from the
-command line.
+**Task**: Create a _persistent_ key/value store that _can be accessed from the
+command line_.
 
 **Goals**:
 
