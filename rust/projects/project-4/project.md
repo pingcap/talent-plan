@@ -86,6 +86,7 @@ You need the following dev-dependencies in your `Cargo.toml`:
 assert_cmd = "0.11"
 criterion = "0.2.11"
 crossbeam-utils = "0.6.5"
+panic-control = "0.1.4"
 predicates = "1.0.0"
 rand = "0.6.5"
 tempfile = "3.0.7"
