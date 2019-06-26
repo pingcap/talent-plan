@@ -1211,6 +1211,7 @@ Nice coding, friend. Enjoy a nice break.
 - crossbeam-skiplist
 - atomics
 - invariants
+- concurrent maps https://gitlab.nebulanet.cc/xacrimon/rs-hm-bench
 
 Some of the data types here have equivalent concurrent types:
 for example, a `u64` can be replaced with an `
