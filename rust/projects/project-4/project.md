@@ -872,9 +872,9 @@ It's better, since the readers never block each other, but you can do better
 than that still.
 
 
-## Part 8: Lock-free parallel programming
+## Part 8: Lock-free readers
 
-For this project you are challenged to create readers that never take a lock,
+for this project you are challenged to create readers that never take a lock,
 even with a concurrent writer. A read request can always be serviced, regardless
 of write requests. (Writers can still block on other writers for now &mdash;
 besides being a challenging parallel programming problem, the question of
@@ -895,6 +895,14 @@ You want to end up with
            +           +--------+
               --> read/write reqs over time -->
 ```
+
+If we can acheive that then our readers will be lock-free: even while a single
+reader is blocked waiting for data from the filesystems all types of other
+operations, reads and writes, can proceed. Unfortunately, this will still not be
+enough to guarantee that the system can always service read requests. Think
+about what would happen if there are `N` blocked write requests on our thread
+pool of size `N`. You'll have to solve that later. For now, you are focused
+on removing the locks from readers.
 
 Unlike `Mutex` and `RwLock`, there is no single wrapper type that we can apply
 to the entire arbitrary shared state to achieve the goal of reading and writing
