@@ -8,8 +8,7 @@ with synchronous networking over a custom protocol.
 - Write a simple thread pool
 - Use channels for cross-thread communication
 - Share data structures with locks
-- Perform compaction in a background thread
-- Share data structures without locks
+- Perform read operations without locks
 - Benchmark single-threaded vs multithreaded
 
 **Topics**: thread pools, channels, locks, lock-free data structures,
@@ -95,7 +94,61 @@ walkdir = "2.2.7"
 As with previous projects, add enough definitions that the test suite builds.
 
 
-## Part 1: multithreading
+## Background: blocking and multithreading
+
+Until now you have serviced all of your requests, both read and write (e.g.
+"get" and "set"), on a single thread. In other words, all the requests in your
+database are _serialized_. Using a digram we are going to repeat through this
+project, the flow of time looks like this:
+
+```
+    thread
+           +  +--------+--------+--------+--------+
+      T1   |  |   R1   |   R2   |   W1   |   W2   |
+           +  +--------+--------+--------+--------+
+
+              --> read/write reqs over time -->
+```
+
+Both read and write operations may require _blocking_. Blocking is when a thread
+stops execution while waiting for access to a resource, like data from a file,
+or a variable protected by a lock. While a thread is blocked on one task it
+can't make progress on another task. So in an I/O heavy system, any particular
+request might spend _most_ of its time just waiting on the operating system
+and memory control to move data to and from the disk:
+
+```
+          +---------+----------------------------+---------+
+      R1  | working | waiting for data ...       | working |
+          +---------+----------------------------+---------+
+
+          --> time -->
+```
+
+The simplest way to put the CPU back to work while one request is blocked is to
+service requests on multiple threads, so that ideally our requests are all
+processed concurrently, and &mdash; if we have enough CPUs &mdash; in parallel:
+
+```
+    thread
+           +  +--------+
+      T1   |  |   R1   |
+           |  +--------+
+      T2   |  |   R2   |
+           |  +--------+
+      T3   |  |   W1   |
+           |  +--------+
+      T4   |  |   W2   |
+           +  +--------+
+
+              --> read/write reqs over time -->
+```
+
+So that will be the focus of this project &mdash; to process requests in
+parallel.
+
+
+## Part 1: Multithreading
 
 Your first try at introducing concurrency is going to be the simplest: spawning
 a new thread per incoming connection, and responding to the request on that
@@ -163,7 +216,7 @@ some synchronization primitive.
 
 [heap]: https://stackoverflow.com/questions/79923/what-and-where-are-the-stack-and-heap
 
-So, _move the data inside your implementation of `KvsEngine`, `KvsStore` onto
+So, _move the data inside your implementation of `KvsEngine`, `KvStore` onto
 the heap using a thread-safe shared pointer type and protect it behind a lock of
 your choosing_.
 
@@ -411,14 +464,14 @@ duplicates of the first two.
 _Note: the next two sections describe a fairly complex set of benchmarks. They
 can be written (probably… nobody has done it yet), but it may be challenging
 both to understand and to write efficiently. These sections do introduce some
-useful criterion features, but if it's too overwhelming it's ok to skip to [part
-8][next] (and file a bug about what didn't work for you). On the other hand, the
-difficulty here may present a good learning opportunity. Finally, implementing
-these benchmarks as described requires a way to shutdown `KvsServer`
-programmatically (i.e. without sending `SIGKILL` and letting the OS do it),
-which we have not previously discussed._
+useful criterion features, but if it's too overwhelming it's ok to skip
+[forward] (and file a bug about what didn't work for you). On the other hand,
+the difficulty here may present a good learning opportunity. Finally,
+implementing these benchmarks as described requires a way to shutdown
+`KvsServer` programmatically (i.e. without sending `SIGKILL` and letting the OS
+do it), which we have not previously discussed._
 
-[next]: #user-content-part-8-reduced-contention-shared-data-structures
+[forward]: #user-content-background-the-limit-of-locks
 
 So as part of this you will need to make sure the `SledKvsEngine` implementation
 you wrote as part of the previous project works again in this multithreaded
@@ -654,64 +707,89 @@ sled]. Get used to reading other people's source code. That is where you will
 learn the most. -->
 
 
-## Extension 1: Comparing functions
+### Extension 1: Comparing functions
 
 Now you have identical benchmarks for three different thread pools, and you have
 run them and compared their performance yourself. Criterion has built-in support
 for comparing multiple implementations. Check out ["comparing functions"][cp] in
 the Criterion User Guide and modify your benchmarks so that criterion does the
-comparison itself.
+comparison itself. Check out those gorgeous graphs.
 
 [cp]: https://bheisler.github.io/criterion.rs/book/user_guide/comparing_functions.html
 
 
-## Part 8: Reduced-contention shared data structures
+## Background: The limits of locks
 
-Coming soon!
-
-<!--
 Earlier in this project, we suggested making your `KvsEngine` thread-safe by
-putting its internals behind a lock, on the heap. And in the previous section
-you benchmarked the multithreaded throughput of your engine vs. the
-`SledKvsEngine`. _Hopefully_, what you discovered is that your multithreaded
-implementation performed significantly worse than the `sled` multithreaded
-implementation (if not, well, either you are super-awesome or `sled` has some
-problems). One of reasons for this is that sled uses more sophisticated
-concurrency strategies than simply protecting its shared state behind a lock.
+putting its internals behind a lock, on the heap. You probably realized
+immediately that this wasn't going to improve throughput because it
+traded one type of blocking for another &mdash; instead of _maybe_ blocking
+on disk access, it is now _definitely_ blocking on mutex access.
 
-So for this part of the project, you are going to get a bit more sophisticated
-too. Protecting the entire state behind a lock is easy &mdash; the entire state
+So all we've achieved so far is this:
+
+```
+    thread
+           +  +--------+
+      T1   |  |   R1   |
+           |  +-----------------+
+      T2   |           |   R2   |
+           |           +-----------------+
+      T3   |                    |   W1   |
+           |                    +-----------------+
+      T4   |                             |   W2   |
+           +                             +--------+
+              --> read/write reqs over time -->
+```
+
+In the previous section you benchmarked the multithreaded throughput of your
+engine vs. the `SledKvsEngine`. Hopefully what you discovered is that your
+multithreaded implementation performed significantly worse than the `sled`
+multithreaded implementation (if not, well, either you are super-awesome or
+`sled` has some problems). Adding multithreading has so far resulted in
+performance that is strictly worse than the single-threaded implementation
+&mdash; now you've got the added work of context switching between threads, and
+the guaranteed blocking imposed by the mutex.
+
+So for this part of the project, you are going to get a bit more sophisticated.
+Protecting the entire state behind a lock is easy &mdash; the entire state
 is always read and written atomically because only one client at a time has
 access to the entire state. But that also means that two threads that want to
-access the shared state must wait on each other.
+access the shared state must wait on each other. In other words, when
+`KvsEngine` is protected by a mutex then there is very little actual concurrency
+in the server, despite being multithreaded.
 
 High-performance, scalable, parallel software tends to avoid locks and lock
 contention as much as possible. Rust makes sophisticated and high-performance
-concurrency patterns eaiser than most languages (because you don't need to worry
+concurrency patterns easier than most languages (because you don't need to worry
 about data races and crashes), but it _does not_ protect you from making logical
-mistakes that would result in incorrect results.
+mistakes that would result in incorrect behavior.
+
+So you've still got to do some hard thinking about concurrency. Fortunately
+there are many sophisticated parallel-programming tools in the Rust crate
+ecosystem, so your task is usually just to understand what they are and how to
+put them together, not to understand how to write complex lock-free data
+structures of your own.
 
 Let's look at some progressively more sophisticated examples. We'll take an
-example single-threaded `KvStore` and review concerns to consider as it becomes
-thread-safe. (So there are some strong hints here about possible solutions to
-previous projects 😊).
+example single-threaded `KvStore` and consider how to make it thread-safe.
 
 Here's an example single-threaded `KvStore` like you might have created in
-earlier projects (this is the same data structure in the course example
+earlier projects (this is a simplified version of the one in the course example
 project):
 
 ```rust
 pub struct KvStore {
-    // directory for the log and other data
+    /// Directory for the log and other data
     path: PathBuf,
-    // map generation number to the file reader
-    readers: HashMap<u64, BufReaderWithPos<File>>,
-    // writer of the current log
+    /// The log reader
+    reader: BufReaderWithPos<File>,
+    /// The log writer
     writer: BufWriterWithPos<File>,
-    current_gen: u64,
+    /// The in-memory index from key to log pointer
     index: BTreeMap<String, CommandPos>,
-    // the number of bytes representing "stale" commands that could be
-    // deleted during a compaction
+    /// The number of bytes representing "stale" commands that could be
+    /// deleted during a compaction
     uncompacted: u64,
 }
 ```
@@ -720,37 +798,112 @@ And here's the simple multithreaded version, protecting everything with a lock.
 Hopefully what you've already written for this project looks something like this:
 
 ```rust
+#[derive(Clone)]
 pub struct KvStore(Arc<Mutex<SharedKvStore>>);
 
-struct SharedKvStore {
-    // directory for the log and other data
+#[derive(Clone)]
+pub struct SharedKvStore {
+    /// Directory for the log and other data
     path: PathBuf,
-    // map generation number to the file reader
-    readers: HashMap<u64, BufReaderWithPos<File>>,
-    // writer of the current log
+    /// The log reader
+    reader: BufReaderWithPos<File>,
+    /// The log writer
     writer: BufWriterWithPos<File>,
-    current_gen: u64,
+    /// The in-memory index from key to log pointer
     index: BTreeMap<String, CommandPos>,
-    // the number of bytes representing "stale" commands that could be
-    // deleted during a compaction
+    /// The number of bytes representing "stale" commands that could be
+    /// deleted during a compaction
     uncompacted: u64,
 }
-
-impl Clone for KvStore { ... }
 ```
 
-This `Arc<Mutex<T>>` solution is trivial, correct, and common: the `KvStore` can
-be cloned to create multple handles to the shared `Arc`, which protects the
-`SharedKvStore` from obvious bugs with a `Mutex`. This is a perfectly reasonable
-solution for many cases. But in this case that mutex will be a source of
-_contention_ under heavy load: any thread that wants to work with `KvStore`
-needs to wait for the `Mutex` to be unlocked by another thread.
+This `Arc<Mutex<T>>` solution is trivial, correct, and common:
+
+- The [`Arc`] puts the value on the heap so it can be shared between threads,
+  and provides a `clone` method to create a "handle" to it for each thread.
+- The [`Mutex`] provides a way to regain write access to the value without having
+  an existing `&mut` reference.
+
+[`Arc`]: https://doc.rust-lang.org/std/sync/struct.Arc.html
+[`Mutex`]: https://doc.rust-lang.org/std/sync/struct.Mutex.html
+
+This is a perfectly reasonable solution for many cases. But in this case that
+mutex will be a source of _contention_ under load: the `Mutex` doesn't only
+serialize write access to `SharedKvStore`, but read access as well. Any thread
+that wants to work with `KvStore` needs to wait for the `Mutex` to be unlocked
+by another thread. Any requests will block any other concurrent request.
 
 What we _really_ want is to not have to take locks, or &mdash; if locks are
-necessary &mdash; for them to rarely contend with other threads. That means that
-we need to consider how each one of the fields of `SharedKvStore` is used, and
-pick the right synchronization scheme to allow all threads to make as much
-progress, while still maintaining logical consistency of the data.
+necessary &mdash; for them to rarely contend with other threads.
+
+The next step up in sophistication from a `Mutex` is the [`RwLock`], the
+"reader-writer lock". This is another common type of lock that every programmer
+of parallel software must know. The improvement that a reader-writer lock makes
+over a mutex is that it allows _either_ any number of readers, _or_ a single
+writer. So in Rust terms, a `RwLock` will hand out any number of `&` pointers
+simultaneously, or a single `&mut` pointer. Readers still block on writers
+and writers still block on readers and other writers.
+
+[`RwLock`]: https://doc.rust-lang.org/std/sync/struct.RwLock.html
+
+In our database that means that all read requests can be satisfied concurrently,
+but when a single write request comes in, all other activity in the system stops
+and waits for it. Implementing this is basically as simple as swapping the
+`Mutex` for `RwLock`.
+
+And, considering our multi-threading diagram again, the resulting process
+flow looks like:
+
+```
+    thread
+           +  +--------+
+      T1   |  |   R1   |
+           |  +--------+
+      T2   |  |   R2   |
+           |  +-----------------+
+      T3   |           |   W1   |
+           |           +-----------------+
+      T4   |                    |   W2   |
+           +                    +--------+
+              --> read/write reqs over time -->
+```
+
+It's better, since the readers never block each other, but you can do better
+than that still.
+
+
+## Part 8: Lock-free parallel programming
+
+For this project you are challenged to create readers that never take a lock,
+even with a concurrent writer. A read request can always be serviced, regardless
+of write requests. (Writers can still block on other writers for now &mdash;
+besides being a challenging parallel programming problem, the question of
+whether it even makes sense to write in parallel is a difficult one to answer).
+
+You want to end up with
+
+```
+    thread
+           +  +--------+
+      T1   |  |   R1   |
+           |  +--------+
+      T2   |  |   R2   |
+           |  +--------+
+      T3   |  |   W1   |
+           |  +-----------------+
+      T4   |           |   W2   |
+           +           +--------+
+              --> read/write reqs over time -->
+```
+
+Unlike `Mutex` and `RwLock`, there is no single wrapper type that we can apply
+to the entire arbitrary shared state to achieve the goal of reading and writing
+concurrently (at least, not while also being performant).
+
+That means that we need to consider how each one of the fields of
+`SharedKvStore` is used, and pick the right synchronization scheme to allow all
+threads to make as much progress as we can, while still maintaining logical
+consistency of the data.
 
 This is where the difficult reasoning with multithreading really begins. If you
 remove that big lock, Rust is still going to protect you from [_data races_],
@@ -759,81 +912,285 @@ fields necessary to maintain the invariants of your data store.
 
 [_data races_]: https://blog.regehr.org/archives/490
 
-So before thinking about the solution, let's think about our use-cases. We need
-to:
+So before thinking about the solution, let's think about our requirements. We
+need to:
 
-- Read from the index and from the disk, on multiple threads
-- Write to disk, while maintaining the index and other values, on multiple threads
-- Periodically compact our on-disk data, again while maintaining the index and
-  other values, on one thread at a time, but potentially any thread
+- Read from the index and from the disk, on multiple threads at a time;
+- Write commands to disk, while maintaining the index;
+- Read in parallel with writing, thus
+- In general, to guarantee that readers will always see a consistent state while
+  reading in parallel with a writer, which means,
+  - Maintaining an invariant that log pointers in the index always point to a
+    valid command in the log,
+  - Maintaining appropriant invariants for other bookkeeping, like the
+    `uncompacted` variable in the following example;
+- Periodically compact our on-disk data, again while maintaining invariants for
+  readers.
 
-And we want as much of these to run concurrently as possible without blocking the
-others.
+The rest of this section is background on a variety of subjects that will be
+helpful to achieve the above, but that is the entire goal for the remaining
+project: modify `KvStore` to perform reads concurrently with writes.
 
 
 ### Explaining our example data structure
 
 In order to talk about this concretely, we're going to need an example of the
 data we're trying to protect and the invariants we're trying to maintain. So
-again, here's an example of a `KvStore` implementatino and its fields.
+here's an example of a `KvStore` implementation and its fields.
 
 ```rust
 pub struct KvStore {
-    // directory for the log and other data
+    /// Directory for the log and other data
     path: PathBuf,
-    // map generation number to the file reader
-    readers: HashMap<u64, BufReaderWithPos<File>>,
-    // writer of the current log
+    /// The log reader
+    reader: BufReaderWithPos<File>,
+    /// The log writer
     writer: BufWriterWithPos<File>,
-    current_gen: u64,
+    /// The in-memory index from key to log pointer
     index: BTreeMap<String, CommandPos>,
-    // the number of bytes representing "stale" commands that could be
-    // deleted during a compaction
+    /// The number of bytes representing "stale" commands that could be
+    /// deleted during a compaction
     uncompacted: u64,
 }
 ```
 
-The most important thing to understand about the algorithm this data structure
-supports is that it keeps a _generational_ set of logs. That is, it maintains
-many log files, each one a new "generation". A generation is just a
-monotonically increasing index, so we know that the full log is the first
-entry in the earliest-generation log, all the way through the last entry in the
-latest-generation log. Log file names contain their generation numbers as an
-easy scheme for identification. During compaction, old generations' logs are
-merged into a new generation, and yet a further new generation created to
-continue writing.
+This is a simplified version of the example for this project.
 
-With that understanding, the purpose of the fields should be fairly clear:
+The purpose of the fields should be fairly clear:
 
 `path: PathBuf` is just the path to the directory where logs are stored. It
 never changes &mdash; it is immutable, and immutable types are `Sync` in Rust,
 so it doesn't even need any protection at all. Every thread can read it at once
 through a shared reference.
 
-`readers: HashMap<u64, BufReaderWithPos<File>>` maintains the mapping of
-generation numbers to open file handles. These handles are for reading only, but
-of course file handles in Rust require mutable access to modify. This map only
-ever changes when generations are added or removed from it.
+`readers: HashMap<u64, BufReaderWithPos<File>>` is the read handle to the
+current log file. It needs to change to a new log file after compaction.
 
-`writer: BufWriterWithPos<File>` is the handle to the current-gen file, the
-current gen being stored in `current_gen: u64`. So any write needs mutable
+`writer: BufWriterWithPos<File>` is the write handle to the current log file.
+So any write needs mutable
 access to `writer`, and the compaction process needs to change the `writer` and
 the `current_gen`.
 
-`index: BTreeMap<String, CommandPos>` is the in-memory index of every key
-in the database to it's location in one of the index files. It is read
-from every reading thread, and written from every writing thread. It is
-_not_ though written by the compaction process, at least in the example
+`index: BTreeMap<String, CommandPos>` is the in-memory index of every key in the
+database to its location in the index file. It is read from every reading
+thread, and written from every writing thread, potentially including during
+compaction.
 
 `uncompacted: u64` simply counts the number of "stale" commands in the logs that
-have been superceded by subsequent commands, to know when to trigger compaction.
+have been superceded by subsequent write commands, to know when to trigger
+compaction.
 
 In previous projects we didn't have to worry much about the interaction between
 writing, reading, and compaction producing inconsistent results, since they all
 happened on the same thread. Now if you are not careful with your data structure
 selection and their usage, it will be easy to corrupt the state of your database.
 
--->
+
+### Strategies for breaking up locks
+
+The key to advanced parallel programming is to know the tools available and when
+to use them. Here are some techniques we found useful while implementing this
+project, some of which you will need as well. They are discussed in the
+context of the example data structure presented above.
+
+
+#### Understand and maintain sequential consistency
+
+(Note that "sequential consistency" has a precise meaning, but here we're just
+talking generally about ensuring that things that need to happen in a specific
+sequence do so).
+
+Reasoning about parallel programs is mostly about understanding the
+"happens-before" relationships in your code. In this thread, what changes to
+shared data structures do I need to see before others? What changes to shared
+data structures do I need to expose to other threads before others? How do I
+ensure that?
+
+In single-threaded code reasoning about what happens before any particular line
+of code is trivial &mdash; if the code is written to happen before, then it
+happens before, if not, it happens after. But this isn't actually true at all,
+even in single-threaded code: both the CPU and the compiler will reorder code to
+make it run faster, the CPU operating on machine code, and the compiler
+operating on its internal representation prior to generating the machine code.
+In reality the actual code executed happens in a different order than you wrote
+it to execute, and it only appears to run the way you wrote it because both the
+CPU and compiler track _data dependencies_ and don't reorder any operations that
+depend on another.
+
+In multi-threaded code the compiler and CPU will _still_ reorder code under the
+same assumptions as single-threaded code, and your code will break entirely
+unless you tell the compiler via synchronized types and operations that it must
+not allow reordering.
+
+Any operation that must occur before or after another must be exlicitly arranged
+arranged to do so with synchronized types or operations, whether they be locks,
+atomics or otherwise.
+
+In our example it's clear that the write to the file and the write to the index
+must be seen to occur in a specific order &mdash; what would happen if the index
+was updated before the file? Likewise, our example contains another bit of
+state, `uncompacted`. What's the impact of miscalculating the uncompacted size?
+It may not be so bad if the value of `uncompacted` can be seen to change before
+the data is committed to file, but it's a decision that has to be made for each
+value that is synchronized independently.
+
+
+#### Identify immutable values
+
+You've probably read a lot about immutability in Rust, and about how immutable
+values can be shared trivially between theads (they are `Sync`). Immutable
+values are the best for concurrency &mdash; just throw them behind an `Arc` and
+don't think about them again.
+
+In our example, `PathBuf` is immutable.
+
+
+#### Duplicate values instead of sharing
+
+Cloning sometimes has a bad reputation in Rust, particularly cloning types with
+arbitrary size, like `String`, and `Vec`. But cloning is often perfectly
+reasonable: it can be quite difficult to avoid clones in some situations, and
+CPUs are _very good_ at copying buffers of memory. Furthermore, considering our
+use case, the number of state copies needed to support the server is bounded by
+the number of threads in the threadpool.
+
+In our example, again `PathBuf` is easily clonable.
+
+Less obviously though, consider how to share access to files across threads. The
+[`File`] type requires mutable access for both reads and writes. So to share it
+across threads would require a lock that grants that mutable access. What is a
+`File` though? It's not actually a file &mdash; it's just a handle to the
+physical resource on disk, and it's fine to have multiple handles to the same
+file open at once. Note the API for `File` though &mdash; it doesn't implement
+`Clone`, and while it does have this enticing [`try_clone`] method, its
+semantics have some complex implications for multi-threaded applications.
+
+[`File`]: https://doc.rust-lang.org/std/fs/struct.File.html
+[`try_clone`]: https://doc.rust-lang.org/std/fs/struct.File.html#method.try_clone
+
+
+#### Break up data structures by role
+
+In our use case we have two clear roles: readers, and writers (and maybe a third
+for compactors). The logical separation of readers and writers into their own
+concurrent types is a common in Rust. Readers have their own data set to work
+with, and writers their own, and that provides a good opportunity for
+encapsulation, with all read operations beloning to one type and all write
+operations another.
+
+Making this distinction will further make it very obvious which resources are
+accessed by both, since the reader and writer will both carry shared handles to
+those resources.
+
+
+#### Use specialized concurrent data structures
+
+Just knowing what tools are available and in which scenarios to use them may be
+the most difficult part of parallel programming. Beyond the basic lock types
+tought to everybody in school, synchronized data types become increasingly
+specialized.
+
+In this project, since the in-memory index is some type of associative data
+structure (a.k.a. a "map"), like a tree or hash table, it's natural to ask
+whether there exist concurrent associative data structures.
+
+There are, and using them is key to completing this project.
+
+But how can you know that? The first step is ask whether concurrent maps exist.
+You could do this in `#beginners` on the [Rust Discord], but in this case
+searching "concurrent map" on the web will definitely give the answer.
+
+That's the easy part, finding the right concurrent map _in Rust_ is harder. A
+good first step is to learch [libs.rs]. libs.rs is like crates.io but where
+crates.io contains all published libraries, libs.rs is curated to contain only
+libraries that are well-regarded by ... well, somebody. So if it's on libs.rs
+then that's one indication that the library is usable, another is the download
+count on [crates.io] &mdash; in general, more downloaded crates are more tested
+than less downloaded crates. The download count can be seen as a rough proxy for
+the number of people who "vouch" for the crate. And finally, asking in chat
+is always a good idea.
+
+[Rust Discord]: https://doc.rust-lang.org/std/fs/struct.File.html#method.try_clone
+[libs.rs]: https://libs.rs
+[crates.io]: https://crates.io
+
+
+#### Postpone cleanup until later
+
+Like cloning, garbage collection is often frowned upon in Rust &mdash; avoiding
+GC is almost the entire reason Rust exists. But it's no secret that, actually,
+garbage collection can't be avoided, "garbage collection" and "memory
+reclaimation" are practically synonymous, and every language uses a mixture of
+garbage collection strategies. One one end of the GC spectrum, in languages with
+no automatic memory management, like C, the garbage collection is left entirely
+up to the programmer, e.g. via `malloc` and `free`. On the other end are garbage
+collected languages, like Java, where all memory is collected by a single
+general-purpose garbage collector.
+
+In practice though, neither is all memory management and reclaimation in C done
+with `malloc`/`free`, nor is all memory management in Java done with the GC.
+Just as a trivial example, it is common for high-performance applications in
+both to rely on specialized [arenas], in which allocations can both be reused as
+well as deallocated in large batches, to optimize their memory access patterns.
+
+[arenas]: https://www.quora.com/In-C++-what-is-a-memory-arena
+
+Likewise in Rust, not all memory is freed deterministically. Trivial examples
+are in the [`Rc`] and [`Arc`] types that implement [resource counting], a simple
+kind of GC.
+
+[`Rc`]: https://doc.rust-lang.org/std/rc/struct.Rc.html
+[`Arc`]: https://doc.rust-lang.org/std/sync/struct.Arc.html
+[reference counting]: https://en.wikipedia.org/wiki/Reference_counting
+
+One of the greatest benefits of global garbage collectors is that they make many
+lock-free data structures possible. Many of the lock-free data structures
+described in academic literature rely on the GC for their operation. The need to
+adapt lock-free algorithms to not rely on a GC is the original motivation for
+the [`crossbeam`] library and its [`epoch`] type.
+
+[`crossbeam`]: https://github.com/crossbeam-rs/crossbeam
+[`epoch`]: https://docs.rs/crossbeam/0.7.1/crossbeam/epoch/index.html
+
+All this is to say that garbage collection comes in many forms, and its basic
+strategy of delaying the cleanup of resources until some future time is powerful
+in many scenarios.
+
+When you can't figure out how to perform some concurrent work _right now_, it
+can be useful to ask "can I just do this later?"
+
+
+#### Share flags and counters with atomics
+
+Under the hood, most concurrent data structures are implemented using [atomic
+operations], or "atomics". Atomics operate on a single cell of memory, usually
+between 8 and 128 bytes, commonly word size (the same number of bytes as a
+pointer, and as the Rust `usize` type). If two threads use atomics correctly
+then the result of a write in one thread is visible immediately to a read in the
+other thread. In addition to making reads or writes immediately visible, atomic
+operations also constrain how the compiler and CPU may reorder instructions, in
+Rust via the [`Ordering`] flag.
+
+[atomic operations]: https://preshing.com/20130618/atomic-vs-non-atomic-operations/
+[`atomic`]: https://doc.rust-lang.org/std/sync/atomic/
+[`Ordering`]: https://doc.rust-lang.org/std/sync/atomic/enum.Ordering.html
+
+When moving from the course-grained parallelism of locks to more fine-grain
+parallelism, its often necessary to augment off-the-shelf concurrent data
+structures with atomics.
+
+
+### Implement lock-free readers
+
+That's a lot of background. Hopefully there is a lot there to think about and
+guide you in the right direction. Now it's your turn:
+
+_Modify `KvStore` to perform reads concurrently with writes._
+
+And afterward…
+
+Nice coding, friend. Enjoy a nice break.
+
 
 <!--
 
@@ -865,8 +1222,6 @@ TODO: just do a read-write benchmark in the earlier section,
 TODO: make sure benchmark section always mentions to assert the results
 -->
 
-Nice coding, friend. Enjoy a nice break.
-
 
 <!--
 ---
@@ -892,6 +1247,7 @@ Nice coding, friend. Enjoy a nice break.
 - something that explains Arc<Mutex>
 - something about the distinction between interior and
   exterior mutability, bonus if it includes parallelism
+- concurrent map comparison https://gitlab.nebulanet.cc/xacrimon/rs-hm-bench
 
 ## TODOs
 
@@ -900,5 +1256,9 @@ Nice coding, friend. Enjoy a nice break.
 - is there some new kind of measurement we can do
   for thread pools in addition to criterion benchmarks?
 - panic handling for threads in the threadpool
+
+- In `KvStore(Arc<SharedKvStore>)` example discuss patterns for accessing types,
+  particular not to be tempted to use `Deref`.
+- mention condvars somewhere
 
 -->
