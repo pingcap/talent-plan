@@ -70,7 +70,6 @@ code reordering
 https://en.wikipedia.org/wiki/Concurrent_data_structure
 https://preshing.com/20120625/memory-ordering-at-compile-time/
 https://www.cl.cam.ac.uk/~jp622/the_problem_of_programming_language_concurrency_semantics.pdf
-https://mtak-blog.github.io/are-we-lock-free-yet
 
 -->
 
