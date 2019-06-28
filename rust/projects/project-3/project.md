@@ -1,7 +1,7 @@
 # PNA Rust Project 3: Synchronous client-server networking
 
-**Task**: Create a single-threaded, persistent key/value store server and client
-with synchronous networking over a custom protocol.
+**Task**: Create a _single-threaded_, persistent key/value store _server and client
+with synchronous networking over a custom protocol_.
 
 **Goals**:
 
