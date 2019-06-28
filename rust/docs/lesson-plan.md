@@ -128,7 +128,7 @@ Here are the resources you should consider turning to first:
   there may be a delay due to time zones and other factors. Both English and
   Chinese languages are welcome here.
 
-- The #beginners channel on the official [Rust Discord]. You are almost
+- The `#beginners` channel on the official [Rust Discord]. You are almost
   guaranteed to get some answer here, and if not, don't hesitate to ask again.
   The people who hang out here are there specifically to help. Because of time
   zone differences it may take time for somebody to respond. Only English will
@@ -272,8 +272,7 @@ with synchronous networking over a custom protocol.
 - Write a simple thread pool
 - Use channels for cross-thread communication
 - Share data structures with locks
-- Perform compaction in a background thread
-- Share data structures without locks
+- Perform read operations without locks
 - Benchmark single-threaded vs multithreaded
 
 **Topics**: thread pools, channels, locks, lock-free data structures,

@@ -252,9 +252,10 @@ _Go ahead and add the appropriate dev-deps to your manifest._
 Try again to run the tests with `cargo test`. What happens? Why?
 
 Hopefully those _previous_ errors are gone. Now the errors are all about the
-test cases not being able to find all the code it expects in your own code. So
-now your task is to outline all the types, methods, etc. necessary to make the
-tests build.
+test cases not being able to find all the code it expects in your own code.
+
+_So now your task is to outline all the types, methods, etc. necessary to make
+the tests build._
 
 During this course you will read the test cases a lot. The test cases tell you
 exactly what is expected of your code. If the text and the tests don't agree,

@@ -106,3 +106,9 @@ begin the description in a paragraph separate from the exercise name:
 Keep the project summary (the `**Task**`, `**Goals**`, etc. text) synced between
 plan.md and the project description.
 
+New documentation files that are not part of a project or building-blocks, and
+not part of standard top-level project files go in `docs/` to keep the GitHub
+directory listing clean, and keep the rendered README above "the fold".
+
+Miscellaneous files that are not part of the user-visible projcet live in
+`docs/etc`.
