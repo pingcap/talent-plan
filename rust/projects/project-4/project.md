@@ -98,7 +98,7 @@ As with previous projects, add enough definitions that the test suite builds.
 
 Until now you have serviced all of your requests, both read and write (e.g.
 "get" and "set"), on a single thread. In other words, all the requests in your
-database are _serialized_. Using a digram we are going to repeat through this
+database are _serialized_. Using a diagram we are going to repeat through this
 project, the flow of time looks like this:
 
 ```
