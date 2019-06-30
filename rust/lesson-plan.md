@@ -75,23 +75,9 @@ the last.
 
 The projects live in the [`projects` subdirectory][psd], each in their own
 directories, and consist of a project description in `project.md`, and a Cargo
-project containing a complete example solution, and the project test suite. Each
+project containing the project framework and test suite. Each
 project comes with a test suite, and the project should not be considered
 finished until it passes with `cargo test`.
-
-**You should not read the example code for any project until completing the
-project yourself**. You are encouraged though to learn from and apply techniques
-they contain to your own projects retroactively. Keep in mind though that the
-example projects are not the only way &mdash; or even the best way &mdash; to
-solve the problems. Trust yourself and your own creativity.
-
-> RE plagiarism (this is mostly relevant to students being evaluated on their
-coursework): The line between applying techniques learned by code-reading and
-copying code outright can be hard to identify. But as a professional you have
-ethical responsibilites, and only you can know if you are upholding them. For
-those not being evaluated for their coursework, simply copying from the example
-code will only hurt your experience; for those who are being evaluated, your
-instructors and evaluators are expecting you to use your own skills.
 
 You will recieve further instruction about setting up the source code and test
 suite, as well as project specifications, as you progress through the individual
