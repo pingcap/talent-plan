@@ -16,6 +16,19 @@ to command-line arguments.
 
 **Extensions**: the `structopt` crate.
 
+- [Introduction](#user-conetent-introduction)
+- [Project spec](#user-conetent-project-spec)
+- [Installation](#user-conetent-installation)
+- [Project setup](#user-conetent-project-setup)
+- [Part 1: Make the tests compile](#user-conetent-part-1-make-the-tests-compile)
+  - [Aside: Testing tips](#user-conetent-aside-testing-tips)
+- [Part 2: Accept command line arguments](#user-conetent-part-2-accept-command-line-arguments)
+- [Part 3: Cargo environment variables](#user-conetent-part-3-cargo-environment-variables)
+- [Part 4: Store values in memory](#user-conetent-part-4-store-values-in-memory)
+- [Part 5: Documentation](#user-conetent-part-5-documentation)
+- [Part 6: Ensure good style with `clippy` and `rustfmt`](#user-conetent-part-6-ensure-good-style-with-clippy-and-rustfmt)
+- [Extension 1: `structopt`](#user-conetent-extension-1-structopt)
+
 
 ## Introduction
 
@@ -313,7 +326,7 @@ test cli_invalid_subcommand ... FAILED
 You'll make those pass throughout the rest of this project.
 
 
-## Aside: Testing tips
+### Aside: Testing tips
 
 If you look again at the output from `cargo test` you'll see something
 interesting:

@@ -16,6 +16,19 @@ with _asynchronous_ networking over a custom protocol.
 
 **Extensions**: tokio-fs.
 
+- [Introduction](#user-conetent-introduction)
+- [Project spec](#user-conetent-project-spec)
+- [Project setup](#user-conetent-project-setup)
+- [Background: Thinking in futures, in Rust](#user-conetent-background-thinking-in-futures,-in-rust)
+- [Part 1: Introducing tokio to the client](#user-conetent-part-1-introducing-tokio-to-the-client)
+- [Part 2: Converting `KvsClient` to boxed futures](#user-conetent-part-2-converting-kvsclient-to-boxed-futures)
+- [Part 3: `KvsClient` with explicit future types](#user-conetent-part-3-kvsclient-with-explicit-future-types)
+- [Part 4: `KvsClient` with anonymous future types](#user-conetent-part-4-kvsclient-with-anonymous-future-types)
+- [Part 5: Making `ThreadPool` sharable](#user-conetent-part-5-making-threadpool-sharable)
+- [Part 6: Converting `KvsEngine` to futures](#user-conetent-part-6-converting-kvsengine-to-futures)
+- [Part 7: Driving `KvsEngine` with tokio](#user-conetent-part-7-driving-kvsengine-with-tokio)
+- [Extension 1: Converting to tokio-fs](#user-conetent-extension-1-converting-to-tokio-fs)
+
 
 ## Introduction
 
@@ -146,25 +159,25 @@ TODO @sticnarf - see if you can write test cases that are agnostic to the
 concrete future types, so they work with all the below strategies.
 
 
-## Part 1: Converting `KvsClient` to boxed futures
+## Part 2: Converting `KvsClient` to boxed futures
 
 the path of least resistence for future types
 
 
-## Part 2: `KvsClient` with explicit future types
+## Part 3: `KvsClient` with explicit future types
 
 just to have the experience of seeing how untenable it is
 
 
-## Part 3: `KvsClient` with anonymous future types
+## Part 4: `KvsClient` with anonymous future types
 
 the final solution
 
 
-## Part 4: Making `ThreadPool` sharable
+## Part 5: Making `ThreadPool` sharable
 
 
-## Part 5: Converting `KvsEngine` to futures
+## Part 6: Converting `KvsEngine` to futures
 
 for the server we're going to do the opposite of what we did in the client, and
 give `KvsEngine` an async interface. this will show that futures and the
@@ -172,7 +185,7 @@ underlying runtime are independent, and just general provide a spectrum of
 experience.
 
 
-## Part 6: Driving `KvsEngine` with tokio
+## Part 7: Driving `KvsEngine` with tokio
 
 note that even though we have ourselves have written very little asynchronous
 code, that tokio itself is distributing asynchronous work across num_cpus
