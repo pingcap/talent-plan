@@ -8,10 +8,6 @@ impl KvStore {
     /// Opens a `KvStore` with the given path.
     ///
     /// This will create a new directory if the given one does not exist.
-    ///
-    /// # Errors
-    ///
-    /// It propagates I/O or deserialization errors during the log replay.
     pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
         unimplemented!()
     }

@@ -21,6 +21,6 @@ pub trait KvsEngine: Clone + Send + 'static {
     ///
     /// # Errors
     ///
-    /// It returns `KvsError::KeyNotFound` if the given key is not found.
+    /// Returns a `KvsError` if the given key is not found.
     fn remove(&self, key: String) -> Box<Future<Item = (), Error = KvsError> + Send>;
 }

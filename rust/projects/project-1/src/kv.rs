@@ -20,7 +20,7 @@ impl KvStore {
         unimplemented!()
     }
 
-    /// Remove a given key.
+    /// Removes a given key.
     pub fn remove(&mut self, key: String) {
         unimplemented!()
     }

@@ -8,10 +8,6 @@ impl KvStore {
     /// Opens a `KvStore` with the given path.
     ///
     /// This will create a new directory if the given one does not exist.
-    ///
-    /// # Errors
-    ///
-    /// It propagates I/O or deserialization errors during the log replay.
     pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
         unimplemented!()
     }
@@ -19,10 +15,6 @@ impl KvStore {
     /// Sets the value of a string key to a string.
     ///
     /// If the key already exists, the previous value will be overwritten.
-    ///
-    /// # Errors
-    ///
-    /// It propagates I/O or serialization errors during writing the log.
     pub fn set(&mut self, key: String, value: String) -> Result<()> {
         unimplemented!()
     }
@@ -38,9 +30,7 @@ impl KvStore {
     ///
     /// # Errors
     ///
-    /// It returns `KvsError::KeyNotFound` if the given key is not found.
-    ///
-    /// It propagates I/O or serialization errors during writing the log.
+    /// Returns a `KvsError` if the given key is not found.
     pub fn remove(&mut self, key: String) -> Result<()> {
         unimplemented!()
     }

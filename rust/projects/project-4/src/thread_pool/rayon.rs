@@ -1,5 +1,5 @@
 use super::ThreadPool;
-use crate::{KvsError, Result};
+use crate::Result;
 
 /// Wrapper of rayon::ThreadPool
 pub struct RayonThreadPool;
