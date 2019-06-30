@@ -16,18 +16,18 @@ with _asynchronous_ networking over a custom protocol.
 
 **Extensions**: tokio-fs.
 
-- [Introduction](#user-conetent-introduction)
-- [Project spec](#user-conetent-project-spec)
-- [Project setup](#user-conetent-project-setup)
-- [Background: Thinking in futures, in Rust](#user-conetent-background-thinking-in-futures,-in-rust)
-- [Part 1: Introducing tokio to the client](#user-conetent-part-1-introducing-tokio-to-the-client)
-- [Part 2: Converting `KvsClient` to boxed futures](#user-conetent-part-2-converting-kvsclient-to-boxed-futures)
-- [Part 3: `KvsClient` with explicit future types](#user-conetent-part-3-kvsclient-with-explicit-future-types)
-- [Part 4: `KvsClient` with anonymous future types](#user-conetent-part-4-kvsclient-with-anonymous-future-types)
-- [Part 5: Making `ThreadPool` sharable](#user-conetent-part-5-making-threadpool-sharable)
-- [Part 6: Converting `KvsEngine` to futures](#user-conetent-part-6-converting-kvsengine-to-futures)
-- [Part 7: Driving `KvsEngine` with tokio](#user-conetent-part-7-driving-kvsengine-with-tokio)
-- [Extension 1: Converting to tokio-fs](#user-conetent-extension-1-converting-to-tokio-fs)
+- [Introduction](#user-content-introduction)
+- [Project spec](#user-content-project-spec)
+- [Project setup](#user-content-project-setup)
+- [Background: Thinking in futures, in Rust](#user-content-background-thinking-in-futures,-in-rust)
+- [Part 1: Introducing tokio to the client](#user-content-part-1-introducing-tokio-to-the-client)
+- [Part 2: Converting `KvsClient` to boxed futures](#user-content-part-2-converting-kvsclient-to-boxed-futures)
+- [Part 3: `KvsClient` with explicit future types](#user-content-part-3-kvsclient-with-explicit-future-types)
+- [Part 4: `KvsClient` with anonymous future types](#user-content-part-4-kvsclient-with-anonymous-future-types)
+- [Part 5: Making `ThreadPool` sharable](#user-content-part-5-making-threadpool-sharable)
+- [Part 6: Converting `KvsEngine` to futures](#user-content-part-6-converting-kvsengine-to-futures)
+- [Part 7: Driving `KvsEngine` with tokio](#user-content-part-7-driving-kvsengine-with-tokio)
+- [Extension 1: Converting to tokio-fs](#user-content-extension-1-converting-to-tokio-fs)
 
 
 ## Introduction
