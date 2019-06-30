@@ -1,9 +1,7 @@
 pub use self::kvs::KvStore;
-pub use self::sled::SledKvsEngine;
 use crate::Result;
 
 mod kvs;
-mod sled;
 
 /// Trait for a key value storage engine.
 pub trait KvsEngine: Clone + Send + 'static {
