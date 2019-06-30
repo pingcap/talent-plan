@@ -91,6 +91,11 @@ the projects taking more time. If you are spending much less time than that, or
 are spending more time, don't worry: these are just bad estimates, and
 everybody's experience is different.
 
+There once was an example solution in this repository but it is removed from
+master now to prevent students accessing the solution by mistake. You can still
+look through the solution from a [history commit][sol]. But we highly recommend you
+**not read the example code for any project until completing the project
+yourself.**
 
 ## Getting help
 
@@ -315,3 +320,4 @@ to know where to go next on that path? We've got [some ideas][n].
 [spr]: https://github.com/pingcap/talent-plan/pulls
 [users forum]: https://users.rust-lang.org/
 [n]: ./what-next.md
+[sol]: https://github.com/pingcap/talent-plan/tree/92233b32b92fb73fb82310f9f0352ff8b86057b9/rust/projects
