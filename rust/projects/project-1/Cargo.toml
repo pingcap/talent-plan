@@ -1,7 +1,7 @@
 [package]
 name = "kvs"
 version = "0.1.0"
-authors = ["Brian Anderson <andersrb@gmail.com>"]
+authors = ["Yilin Chen <sticnarf@gmail.com>"]
 description = "A key-value store"
 edition = "2018"
 
@@ -9,5 +9,4 @@ edition = "2018"
 
 [dev-dependencies]
 assert_cmd = "0.11.0"
-float-cmp = "0.4.0"
 predicates = "1.0.0"

@@ -1,7 +1,7 @@
 # Project: Asynchrony
 
 **Task**: Create a multi-threaded, persistent key/value store server and client
-with asynchronous networking over a custom protocol.
+with _asynchronous_ networking over a custom protocol.
 
 **Goals**:
 
@@ -101,7 +101,6 @@ You need the following dev-dependencies in your `Cargo.toml`:
 assert_cmd = "0.11"
 criterion = "0.2.11"
 crossbeam-utils = "0.6.5"
-float-cmp = "=0.4.0" # FIXME: https://github.com/assert-rs/predicates-rs/issues/78
 predicates = "1.0.0"
 rand = "0.6.5"
 tempfile = "3.0.7"

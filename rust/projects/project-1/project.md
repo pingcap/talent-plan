@@ -164,7 +164,7 @@ clean directory), or manually. You'll probably also want to initialize a git
 repository in the same directory.
 
 Finally, the `tests` directory is copied from the course materials. In this case,
-copy from the course repository the file `rust/project/project-1/tests`
+copy from the course repository the file `rust/projects/project-1/tests`
 into your own repository, as `tests`.
 
 At this point you should be able to run the program with `cargo run`.
@@ -179,13 +179,13 @@ You are set up for this project and ready to start hacking.
 You've been provided with a suite of unit tests in `tests/tests.rs`. Open it up
 and take a look.
 
-Try to run the tests with `cargo test`. What happens? Why?
+_Try to run the tests with `cargo test`._ What happens? Why?
 
 Your first task for this project is to make the tests _compile_. Fun!
 
 If your project is like mine you probably saw a huge spew of build errors. Look
 at the first few. In general, when you see a bunch of errors, the first are the
-most important &mdash; rustc will keep trying to compile even after hitting
+most important &mdash; `rustc` will keep trying to compile even after hitting
 errors, so errors can cascade, the later ones being pretty meaningless. Your
 first few errors probably look like:
 
@@ -216,7 +216,6 @@ For this project your `Cargo.toml` file needs to contain these lines:
 ```toml
 [dev-dependencies]
 assert_cmd = "0.11.0"
-float-cmp = "=0.4.0" # FIXME: https://github.com/assert-rs/predicates-rs/issues/78
 predicates = "1.0.0"
 ```
 
@@ -253,9 +252,10 @@ _Go ahead and add the appropriate dev-deps to your manifest._
 Try again to run the tests with `cargo test`. What happens? Why?
 
 Hopefully those _previous_ errors are gone. Now the errors are all about the
-test cases not being able to find all the code it expects in your own code. So
-now your task is to outline all the types, methods, etc. necessary to make the
-tests build.
+test cases not being able to find all the code it expects in your own code.
+
+_So now your task is to outline all the types, methods, etc. necessary to make
+the tests build._
 
 During this course you will read the test cases a lot. The test cases tell you
 exactly what is expected of your code. If the text and the tests don't agree,
@@ -266,7 +266,7 @@ to reading test cases.
 And, bonus &mdash; test cases are often the poorest-written code in any project,
 sloppy and undocumented.
 
-Again, ry to run the tests with `cargo test`. What happens? Why?
+Again, try to run the tests with `cargo test`. What happens? Why?
 
 In `src/lib.rs` write the type and method definitions necessary to make `cargo
 test --no-run` complete successfully. Don't write any method bodies yet &mdash;
@@ -374,7 +374,7 @@ with command line arguments, and with changes to the manifest.
 Here are the relevant command line flags:
 
 - `cargo test --lib` &mdash; test just the tests inside the library
-- `cargo test --doc &mdash; test the doc tests in the library
+- `cargo test --doc` &mdash; test the doc tests in the library
 - `cargo test --bins` &mdash; test all the bins in the project
 - `cargo test --bin foo` &mdash; test just the `foo` bin
 - `cargo test --doc` &mdash; test the libraries doc tests
@@ -577,12 +577,14 @@ described below.
 [`rustfmt`]: https://github.com/rust-lang/rustfmt
 
 Both tools are included in the Rust toolchain, but not installed by default.
-They can be installed with the following commands:
+They can be installed with the following [`rustup`] commands:
 
 ```
 rustup component add clippy
 rustup component add rustfmt
 ```
+
+[`rustup`]: https://github.com/rust-lang/rustup.rs/blob/master/README.md
 
 _Do that now._
 
@@ -594,8 +596,11 @@ previous commit with `git commit --amend`. Or just commit them as their own
 formatting commit &mdash; it's common to rust both `clippy` and `rustfmt` after
 a series of commits, e.g. before submitting a pull request.
 
-_Run `clippy` against your project and make any suggested changes. Run `rustfmt`
-against yur project and commit any changes it makes._
+_Run `cargo clippy` against your project and make any suggested changes. Run
+`cargo fmt` against yur project and commit any changes it makes._
+
+It's worth reading the [`rustup`], [`clippy`], and [`rustfmt`] documentation, as
+these are tools you will be using frequently.
 
 Congratulations, you are done with your first project! If you like you
 may complete the remaining "extensions". They are optional.
@@ -606,6 +611,16 @@ Nice coding, friend. Enjoy a nice break.
 
 
 ---
+
+
+<!--
+
+TODO ## Aside: exploring Rust toolchain components
+
+rust component list
+rust component list | rg -v std # opportunity to introduce rg
+
+-->
 
 
 ## Extension 1: `structopt`

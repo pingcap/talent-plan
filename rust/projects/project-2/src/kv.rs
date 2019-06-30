@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::{KvsError, Result};
+use crate::Result;
 
 pub struct KvStore;
 

@@ -1,5 +1,3 @@
-use std::thread;
-
 use super::ThreadPool;
 use crate::Result;
 

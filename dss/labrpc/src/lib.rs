@@ -574,7 +574,7 @@ impl Future for ProcessRpc {
 
     fn poll(&mut self) -> Poll<Vec<u8>, Error> {
         let res = loop {
-            let mut next;
+            let next;
             debug!("polling {:?}", self);
             match self
                 .state
@@ -622,7 +622,10 @@ impl Future for ProcessRpc {
                             // DeleteServer() before superseding the Persister.
                             let server = self.server.as_ref().unwrap();
                             let res = server.dispatch(fq_name, &req).select(ServerDead {
-                                interval: Interval::new(time::Duration::from_millis(100)),
+                                interval: Interval::new_at(
+                                    time::Instant::now(),
+                                    time::Duration::from_millis(100),
+                                ),
                                 net: self.network.clone(),
                                 client_name: self.rpc.client_name.clone(),
                                 server_name: server.core.name.clone(),
@@ -657,7 +660,15 @@ impl Future for ProcessRpc {
                     long_reordering,
                 } => {
                     let resp = try_ready!(res.poll());
-                    if *drop_reply {
+                    let server = self.server.as_ref().unwrap();
+                    let is_server_dead = self.network.is_server_dead(
+                        &self.rpc.client_name,
+                        &server.core.name,
+                        server.core.id,
+                    );
+                    if is_server_dead {
+                        break Err(Error::Stopped);
+                    } else if *drop_reply {
                         //  drop the reply, return as if timeout.
                         break Err(Error::Timeout);
                     } else if let Some(reordering) = long_reordering {

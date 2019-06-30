@@ -1,3 +1,0 @@
-# PNA Rust Prerequisites
-
-TODO
