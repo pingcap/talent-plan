@@ -60,7 +60,7 @@ project ended).
 [git tag]: https://git-scm.com/book/en/v2/Git-Basics-Tagging
 
 Because building an entire database from scratch while also learning all the
-concepts involved is a daunting task, each project is proceeded by a "building
+concepts involved is a daunting task, each project is preceded by a "building
 blocks" section, where individual concepts are explored individually. These
 building blocks will consist of external readings, external programming
 problems, and other single-subject content.
