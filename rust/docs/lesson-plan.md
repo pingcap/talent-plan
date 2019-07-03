@@ -100,7 +100,7 @@ expecting you to use your own skills.
 
 -->
 
-You will recieve further instruction about setting up the source code and test
+You will receive further instruction about setting up the source code and test
 suite, as well as project specifications, as you progress through the individual
 projects.
 
@@ -146,9 +146,9 @@ Here are the resources you should consider turning to first:
 These resources may also be helpful:
 
 - The official [users forum]. Apply the "help" tag to your post. Questions
-  usually recieve an answer here, but the responses can be limited.
+  usually receive an answer here, but the responses can be limited.
 
-- [StackOverflow]. Apply the "rust" tag. You may or may not recieve a satisfying
+- [StackOverflow]. Apply the "rust" tag. You may or may not receive a satisfying
   answer.
 
 You are also welcome to email the primary author of this course, [Brian
