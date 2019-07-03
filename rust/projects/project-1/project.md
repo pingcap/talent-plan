@@ -558,7 +558,7 @@ Doc comments contain examples, and those examples can be tested with `cargo test
 
 _Add `#![deny(missing_docs)]` to the top of `src/lib.rs` to enforce that all
 public items have doc comments. Then add doc comments to the types and methods
-in your library. Follow the [documentatine guidelines][gdc]. Give each an
+in your library. Follow the [documentation guidelines][gdc]. Give each an
 example and make sure they pass `cargo test --doc`._
 
 [gdc]: https://rust-lang-nursery.github.io/api-guidelines/documentation.html
