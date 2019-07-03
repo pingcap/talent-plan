@@ -15,6 +15,15 @@ with synchronous networking over a custom protocol_.
 
 <!-- TODO **Extensions**: shutdown on signal. -->
 
+- [Introduction](#user-content-introduction)
+- [Project spec](#user-content-project-spec)
+- [Project setup](#user-content-project-setup)
+- [Part 1: Command line parsing](#user-content-part-1-command-line-parsing)
+- [Part 2: Logging](#user-content-part-2-logging)
+- [Part 3: Client-server networking setup](#user-content-part-3-client-server-networking-setup)
+- [Part 4: Implementing commands across the network](#user-content-part-4-implementing-commands-across-the-network)
+- [Part 5: Pluggable storage engines](#user-content-part-5-pluggable-storage-engines)
+- [Part 6: Benchmarking](#user-content-part-6-benchmarking)
 
 ## Introduction
 

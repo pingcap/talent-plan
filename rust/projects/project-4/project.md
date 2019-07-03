@@ -14,6 +14,33 @@ with synchronous networking over a custom protocol.
 **Topics**: thread pools, channels, locks, lock-free data structures,
   atomics, parameterized benchmarking.
 
+- [Introduction](#user-content-introduction)
+- [Project spec](#user-content-project-spec)
+- [Project setup](#user-content-project-setup)
+- [Background: blocking and multithreading](#user-content-background-blocking-and-multithreading)
+- [Part 1: Multithreading](#user-content-part-1-multithreading)
+- [Part 2: Creating a shared `KvsEngine`](#user-content-part-2-creating-a-shared-kvsengine)
+- [Part 3: Adding multithreading to `KvServer`](#user-content-part-3-adding-multithreading-to-kvserver)
+- [Part 4: Creating a real thread pool](#user-content-part-4-creating-a-real-thread-pool)
+  - [So how do you build a thread pool?](#user-content-so-how-do-you-build-a-thread-pool)
+- [Part 5: Abstracted thread pools](#user-content-part-5-abstracted-thread-pools)
+- [Part 6: Evaluating your thread pool](#user-content-part-6-evaluating-your-thread-pool)
+  - [Ok, now to the first two benchmarks](#user-content-ok-now-to-the-first-two-benchmarks)
+- [Part 7: Evaluating other thread pools and engines](#user-content-part-7-evaluating-other-thread-pools-and-engines)
+  - [Extension 1: Comparing functions](#user-content-extension-1-comparing-functions)
+  - [Background: The limits of locks](#user-content-background-the-limits-of-locks)
+- [Part 8: Lock-free readers](#user-content-part-8-lock-free-readers)
+  - [Explaining our example data structure](#user-content-explaining-our-example-data-structure)
+  - [Strategies for breaking up locks](#user-content-strategies-for-breaking-up-locks)
+    - [Understand and maintain sequential consistency](#user-content-understand-and-maintain-sequential-consistency)
+    - [Identify immutable values](#user-content-identify-immutable-values)
+    - [Duplicate values instead of sharing](#user-content-duplicate-values-instead-of-sharing)
+    - [Break up data structures by role](#user-content-break-up-data-structures-by-role)
+    - [Use specialized concurrent data structures](#user-content-use-specialized-concurrent-data-structures)
+    - [Postpone cleanup until later](#user-content-postpone-cleanup-until-later)
+    - [Share flags and counters with atomics](#user-content-share-flags-and-counters-with-atomics)
+  - [Implement lock-free readers](#user-content-implement-lock-free-readers)
+
 
 ## Introduction
 
@@ -718,7 +745,7 @@ comparison itself. Check out those gorgeous graphs.
 [cp]: https://bheisler.github.io/criterion.rs/book/user_guide/comparing_functions.html
 
 
-## Background: The limits of locks
+### Background: The limits of locks
 
 Earlier in this project, we suggested making your `KvsEngine` thread-safe by
 putting its internals behind a lock, on the heap. You probably realized
