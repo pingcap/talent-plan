@@ -377,7 +377,6 @@ Here are the relevant command line flags:
 - `cargo test --doc` &mdash; test the doc tests in the library
 - `cargo test --bins` &mdash; test all the bins in the project
 - `cargo test --bin foo` &mdash; test just the `foo` bin
-- `cargo test --doc` &mdash; test the libraries doc tests
 - `cargo test --test foo` &mdash; test the tests in test file `foo`
 
 These are convenient to quickly hide test spew, but if a project doesn't contain
