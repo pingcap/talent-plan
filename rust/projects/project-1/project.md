@@ -597,7 +597,7 @@ formatting commit &mdash; it's common to rust both `clippy` and `rustfmt` after
 a series of commits, e.g. before submitting a pull request.
 
 _Run `cargo clippy` against your project and make any suggested changes. Run
-`cargo fmt` against yur project and commit any changes it makes._
+`cargo fmt` against your project and commit any changes it makes._
 
 It's worth reading the [`rustup`], [`clippy`], and [`rustfmt`] documentation, as
 these are tools you will be using frequently.
