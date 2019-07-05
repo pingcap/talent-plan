@@ -15,6 +15,15 @@ with synchronous networking over a custom protocol_.
 
 <!-- TODO **Extensions**: shutdown on signal. -->
 
+- [Introduction](#user-content-introduction)
+- [Project spec](#user-content-project-spec)
+- [Project setup](#user-content-project-setup)
+- [Part 1: Command line parsing](#user-content-part-1-command-line-parsing)
+- [Part 2: Logging](#user-content-part-2-logging)
+- [Part 3: Client-server networking setup](#user-content-part-3-client-server-networking-setup)
+- [Part 4: Implementing commands across the network](#user-content-part-4-implementing-commands-across-the-network)
+- [Part 5: Pluggable storage engines](#user-content-part-5-pluggable-storage-engines)
+- [Part 6: Benchmarking](#user-content-part-6-benchmarking)
 
 ## Introduction
 
@@ -184,7 +193,7 @@ _Stub out the `kvs-server` command line handling._
 ## Part 2: Logging
 
 Production server applications tend to have robust and configurable logging. So
-now we're going to add logging to `kvs-client`, and as we continue will look
+now we're going to add logging to `kvs-server`, and as we continue will look
 for useful information to log. During development it is common to use logging
 at the `debug!` and `trace!` levels for "println debugging".
 
@@ -235,7 +244,7 @@ high-performance database.
 
 Thank about your manual testing workflow. Now that there are two executables to
 deal with, you'll need a way to run them both at the same time. If you are like
-many, you will use two terminals, running `cargo run --bin kvs-client` in
+many, you will use two terminals, running `cargo run --bin kvs-server` in
 one, where it runs until you press CTRL-D, and `cargo run --bin kvs-client`
 in the other.
 
@@ -322,7 +331,7 @@ tests are building. _Now is the time to fill them in._ Break down your
 refactoring into an intentional sequence of changes, and make sure the project
 continues to build and pass previously-passing tests before continuing.
 
-As one final step, you need to consider what happens when `kvs-client` is
+As one final step, you need to consider what happens when `kvs-server` is
 started with one engine, is killed, then restarted with a different engine. This
 case can only result in an error, and you need to figure out how to detect the
 case to report the error. The test `cli_wrong_engine` reflects this scenario.

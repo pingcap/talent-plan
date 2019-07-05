@@ -16,6 +16,19 @@ to command-line arguments.
 
 **Extensions**: the `structopt` crate.
 
+- [Introduction](#user-content-introduction)
+- [Project spec](#user-content-project-spec)
+- [Installation](#user-content-installation)
+- [Project setup](#user-content-project-setup)
+- [Part 1: Make the tests compile](#user-content-part-1-make-the-tests-compile)
+  - [Aside: Testing tips](#user-content-aside-testing-tips)
+- [Part 2: Accept command line arguments](#user-content-part-2-accept-command-line-arguments)
+- [Part 3: Cargo environment variables](#user-content-part-3-cargo-environment-variables)
+- [Part 4: Store values in memory](#user-content-part-4-store-values-in-memory)
+- [Part 5: Documentation](#user-content-part-5-documentation)
+- [Part 6: Ensure good style with `clippy` and `rustfmt`](#user-content-part-6-ensure-good-style-with-clippy-and-rustfmt)
+- [Extension 1: `structopt`](#user-content-extension-1-structopt)
+
 
 ## Introduction
 
@@ -313,7 +326,7 @@ test cli_invalid_subcommand ... FAILED
 You'll make those pass throughout the rest of this project.
 
 
-## Aside: Testing tips
+### Aside: Testing tips
 
 If you look again at the output from `cargo test` you'll see something
 interesting:
@@ -377,7 +390,6 @@ Here are the relevant command line flags:
 - `cargo test --doc` &mdash; test the doc tests in the library
 - `cargo test --bins` &mdash; test all the bins in the project
 - `cargo test --bin foo` &mdash; test just the `foo` bin
-- `cargo test --doc` &mdash; test the libraries doc tests
 - `cargo test --test foo` &mdash; test the tests in test file `foo`
 
 These are convenient to quickly hide test spew, but if a project doesn't contain
@@ -558,7 +570,7 @@ Doc comments contain examples, and those examples can be tested with `cargo test
 
 _Add `#![deny(missing_docs)]` to the top of `src/lib.rs` to enforce that all
 public items have doc comments. Then add doc comments to the types and methods
-in your library. Follow the [documentatine guidelines][gdc]. Give each an
+in your library. Follow the [documentation guidelines][gdc]. Give each an
 example and make sure they pass `cargo test --doc`._
 
 [gdc]: https://rust-lang-nursery.github.io/api-guidelines/documentation.html
@@ -597,7 +609,7 @@ formatting commit &mdash; it's common to rust both `clippy` and `rustfmt` after
 a series of commits, e.g. before submitting a pull request.
 
 _Run `cargo clippy` against your project and make any suggested changes. Run
-`cargo fmt` against yur project and commit any changes it makes._
+`cargo fmt` against your project and commit any changes it makes._
 
 It's worth reading the [`rustup`], [`clippy`], and [`rustfmt`] documentation, as
 these are tools you will be using frequently.

@@ -60,7 +60,7 @@ project ended).
 [git tag]: https://git-scm.com/book/en/v2/Git-Basics-Tagging
 
 Because building an entire database from scratch while also learning all the
-concepts involved is a daunting task, each project is proceeded by a "building
+concepts involved is a daunting task, each project is preceded by a "building
 blocks" section, where individual concepts are explored individually. These
 building blocks will consist of external readings, external programming
 problems, and other single-subject content.
@@ -132,9 +132,9 @@ Here are the resources you should consider turning to first:
 These resources may also be helpful:
 
 - The official [users forum]. Apply the "help" tag to your post. Questions
-  usually recieve an answer here, but the responses can be limited.
+  usually receive an answer here, but the responses can be limited.
 
-- [StackOverflow]. Apply the "rust" tag. You may or may not recieve a satisfying
+- [StackOverflow]. Apply the "rust" tag. You may or may not receive a satisfying
   answer.
 
 You are also welcome to email the primary author of this course, [Brian

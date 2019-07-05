@@ -15,6 +15,18 @@ command line_.
 **Topics**: log-structured file I/O, bitcask, the `failure` crate, `Read` /
 `Write` traits, the `serde` crate.
 
+- [Introduction](#user-content-introduction)
+- [Terminology](#user-content-terminology)
+- [Project spec](#user-content-project-spec)
+- [Project setup](#user-content-project-setup)
+- [Part 1: Error handling](#user-content-part-1-error-handling)
+- [Part 2: How the log behaves](#user-content-part-2-how-the-log-behaves)
+- [Part 3: Writing to the log](#user-content-part-3-writing-to-the-log)
+- [Part 4: Reading from the log](#user-content-part-4-reading-from-the-log)
+- [Part 5: Storing log pointers in the index](#user-content-part-5-storing-log-pointers-in-the-index)
+- [Part 6: Stateless vs. stateful `KvStore`](#user-content-part-6-stateless-vs-stateful-kvstore)
+- [Part 7: Compacting the log](#user-content-part-7-compacting-the-log)
+
 
 ## Introduction
 

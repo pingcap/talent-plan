@@ -25,14 +25,16 @@ for details.
   that incrementally develop a single Rust project from the ground up into a
   high-performance, networked, parallel and asynchronous key/value store. Along
   the way various real-world and practical Rust development subject matter are
-  explored and discussed. Knowledge of the subject matter can be considered a
-  prerequisite to Distributed Systems in Rust.
+  explored and discussed.
 
 - **[Distributed Systems in Rust][dss]**. Adapted from the [MIT 6.824]
   distributed systems coursework, this course focuses on implementing important
-  distributed algorithms, including the [Raft] consensus algorithm.
+  distributed algorithms, including the [Raft] consensus algorithm, and the
+  [Percolator] distributed transaction protocol.
 
-- **[Distributed Systems in Go][go]**. Distributed systems algorithms in Go.
+- **[Distributed Systems in Go][go]**. A course on implementing algorithms
+  necessary in distributed databases, including map reduce, and parallel query
+  optimization.
 
 [rust]: ./rust/
 [dss]: ./dss/
@@ -40,6 +42,7 @@ for details.
 
 [MIT 6.824]: http://nil.csail.mit.edu/6.824/2017/index.html
 [Raft]: https://raft.github.io/
+[Percolator]: https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36726.pdf
 
 ## License
 
