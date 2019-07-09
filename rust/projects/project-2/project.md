@@ -358,7 +358,7 @@ _Implement "get" now_.
 
 ## Part 5: Storing log pointers in the index
 
-At this point most, if not all, of the test suite should pass. The changes
+At this point most, if not all (besides the compaction test), other test suite should all pass. The changes
 introduced in the next steps are simple optimizations, necessary for fast
 performance and reduced storage. As you implement them, pay attention to what
 exactly they are optimizing for.
