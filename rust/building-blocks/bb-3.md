@@ -28,7 +28,7 @@ Read all the readings and perform all the exercises.
 
 - **Exercise: Write a Redis ping-pong client and server using `std::io`**. Write
   a simple client and server that speaks the Redis protocol, with the client
-  issing [PING] commands and the server responding appropriately. Use the
+  issuing [PING] commands and the server responding appropriately. Use the
   [`std::io`] APIs to read and write bytes directly. Does your client work with
   an actual Redis server?
 
