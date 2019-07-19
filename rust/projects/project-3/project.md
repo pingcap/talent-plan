@@ -242,7 +242,7 @@ commands one at a time. In the future we will re-visit this decision multiple
 times on our journey toward an asynchronous, multi-threaded, and
 high-performance database.
 
-Thank about your manual testing workflow. Now that there are two executables to
+Think about your manual testing workflow. Now that there are two executables to
 deal with, you'll need a way to run them both at the same time. If you are like
 many, you will use two terminals, running `cargo run --bin kvs-server` in
 one, where it runs until you press CTRL-D, and `cargo run --bin kvs-client`
