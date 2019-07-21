@@ -334,7 +334,7 @@ and value in the memory. Then read from the memory.
 
 Should you read all records in the log into memory at once and then replay
 them into your map type; or should you read them one at a time while
-replaying the into your map? Should you read into a buffer before deserializing
+replaying them into your map? Should you read into a buffer before deserializing
 or deserialize from a file stream? Think about the memory usage of your approach.
 Think about the way reading from I/O streams interacts with the kernel.
 
