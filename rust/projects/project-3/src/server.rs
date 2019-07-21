@@ -1,4 +1,4 @@
-use crate::common::{GetResponse, Request, SetResponse};
+use crate::common::{GetResponse, RemoveResponse, Request, SetResponse};
 use crate::{KvsEngine, Result};
 use serde_json::Deserializer;
 use std::io::{BufReader, BufWriter, Write};
@@ -59,8 +59,8 @@ impl<E: KvsEngine> KvsServer<E> {
                     Err(e) => SetResponse::Err(format!("{}", e)),
                 }),
                 Request::Remove { key } => send_resp!(match self.engine.remove(key) {
-                    Ok(_) => SetResponse::Ok(()),
-                    Err(e) => SetResponse::Err(format!("{}", e)),
+                    Ok(_) => RemoveResponse::Ok(()),
+                    Err(e) => RemoveResponse::Err(format!("{}", e)),
                 }),
             };
         }

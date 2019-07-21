@@ -1,4 +1,4 @@
-use crate::common::{GetResponse, Request, SetResponse};
+use crate::common::{GetResponse, RemoveResponse, Request, SetResponse};
 use crate::thread_pool::ThreadPool;
 use crate::{KvsEngine, Result};
 use serde_json::Deserializer;
@@ -63,8 +63,8 @@ fn serve<E: KvsEngine>(engine: E, tcp: TcpStream) -> Result<()> {
                 Err(e) => SetResponse::Err(format!("{}", e)),
             }),
             Request::Remove { key } => send_resp!(match engine.remove(key) {
-                Ok(_) => SetResponse::Ok(()),
-                Err(e) => SetResponse::Err(format!("{}", e)),
+                Ok(_) => RemoveResponse::Ok(()),
+                Err(e) => RemoveResponse::Err(format!("{}", e)),
             }),
         };
     }
