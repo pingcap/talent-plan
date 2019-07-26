@@ -322,7 +322,7 @@ enum type to represent each command. `serde` just works perfectly with enums.
 You may implement the "set" and "rm" commands now, focusing on the `set` / `rm`
 test cases, or you can proceed to the next section to read about the "get"
 command. It may help to keep both in mind, or to implement them both
-simultaniously. It is your choice.
+simultaneously. It is your choice.
 
 
 ## Part 4: Reading from the log
