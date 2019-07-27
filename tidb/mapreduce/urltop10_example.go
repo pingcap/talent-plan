@@ -48,7 +48,7 @@ func ExampleURLCountReduce(key string, values []string) string {
 	return fmt.Sprintf("%s %s\n", key, strconv.Itoa(len(values)))
 }
 
-// ExampleURLTop10Map is the map function in the first round
+// ExampleURLTop10Map is the map function in the second round
 func ExampleURLTop10Map(filename string, contents string) []KeyValue {
 	lines := strings.Split(contents, "\n")
 	kvs := make([]KeyValue, 0, len(lines))
