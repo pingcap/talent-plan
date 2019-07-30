@@ -105,6 +105,7 @@ in the README.
 - https://manishearth.github.io/blog/2015/05/17/the-problem-with-shared-mutability/
 - https://www.youtube.com/watch?v=9_3krAQtD2k (futures async await)
 - https://shipilev.net/blog/2014/java-scala-divided-we-fail/
+- https://www.internalpointers.com/post/lock-free-multithreading-atomic-operations
 
 ## Exercise sources
 
