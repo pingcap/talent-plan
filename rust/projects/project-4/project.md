@@ -1248,7 +1248,7 @@ type as you can_.
 
 There are no new test cases to complete here, but some of the earlier ones will
 stress this new data structure in challenging ways, your previously-written
-benchmamrks will stress this implementation hard.
+benchmarks will stress this implementation hard.
 
 
 ## Part 9: Benchmarking lock-free data structures
