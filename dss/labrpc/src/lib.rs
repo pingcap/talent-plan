@@ -218,7 +218,7 @@ impl Client {
             hooks: self.hooks.clone(),
         };
 
-        // Sends requets and waits responses.
+        // Sends requests and waits responses.
         if self.sender.unbounded_send(rpc).is_err() {
             return Box::new(future::result(Err(Error::Stopped)));
         }
@@ -360,7 +360,7 @@ impl Network {
         debug!(
             "client {} is {}",
             client_name,
-            if enabled { "enabled" } else { "disbaled" }
+            if enabled { "enabled" } else { "disabled" }
         );
         let mut eps = self.core.endpoints.lock().unwrap();
         eps.enabled.insert(client_name.to_owned(), enabled);
