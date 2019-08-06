@@ -443,8 +443,7 @@ Random numbers can be generated with the [`rand`] crate.
 
 [`rand`]: https://docs.rs/crate/rand/
 
-Once you have your benchmamrks, run them with `cargo bench --release`. Note
-the `--release` argument &mdash; unoptimized benchmarking is mostly useless!
+Once you have your benchmamrks, run them with `cargo bench`.
 
 _Write the above benchmarks, and compare the results between `kvs` and `sled`._
 
