@@ -58,7 +58,7 @@ func ExampleURLTop10Map(filename string, contents string) []KeyValue {
 	return kvs
 }
 
-// ExampleURLTop10Reduce is the reduce function in the second reound
+// ExampleURLTop10Reduce is the reduce function in the second round
 func ExampleURLTop10Reduce(key string, values []string) string {
 	cnts := make(map[string]int, len(values))
 	for _, v := range values {
