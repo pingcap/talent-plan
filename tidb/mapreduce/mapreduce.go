@@ -109,6 +109,9 @@ func (c *MRCluster) worker() {
 				}
 			} else {
 				// YOUR CODE HERE :)
+				// hint: don't encode results returned by ReduceF, and just output
+				// them into the destination file directly so that users can get
+				// results formatted as what they want.
 				panic("YOUR CODE HERE")
 			}
 			t.wg.Done()
