@@ -52,7 +52,10 @@ func buildHashTable(data [][]string, offset []int) (hashtable *mvmap.MVMap) {
 	valBuffer := make([]byte, 8)
 	hashtable = mvmap.NewMVMap()
 	for i, row := range data {
-		for _, off := range offset {
+		for j, off := range offset {
+			if j > 0 {
+				keyBuffer = append(keyBuffer, '_')
+			}
 			keyBuffer = append(keyBuffer, []byte(row[off])...)
 		}
 		*(*int64)(unsafe.Pointer(&valBuffer[0])) = int64(i)
@@ -65,7 +68,10 @@ func buildHashTable(data [][]string, offset []int) (hashtable *mvmap.MVMap) {
 func probe(hashtable *mvmap.MVMap, row []string, offset []int) (rowIDs []int64) {
 	var keyHash []byte
 	var vals [][]byte
-	for _, off := range offset {
+	for i, off := range offset {
+		if i > 0 {
+			keyHash = append(keyHash, '_')
+		}
 		keyHash = append(keyHash, []byte(row[off])...)
 	}
 	vals = hashtable.Get(keyHash, vals)
