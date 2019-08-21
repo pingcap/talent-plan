@@ -187,6 +187,7 @@ impl KvStore {
             self.readers.remove(&stale_gen);
             fs::remove_file(log_path(&self.path, stale_gen))?;
         }
+        self.uncompacted = 0;
 
         Ok(())
     }
@@ -325,7 +326,9 @@ impl<R: Read + Seek> BufReaderWithPos<R> {
 
 impl<R: Read + Seek> Read for BufReaderWithPos<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.reader.read(buf)
+        let len = self.reader.read(buf)?;
+        self.pos += len as u64;
+        Ok(len)
     }
 }
 
