@@ -158,7 +158,7 @@ fn concurrent_set() -> Result<()> {
 
     // concurrent set in 8 threads
     let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 8)?;
-    let runtime = Runtime::new()?;
+    let runtime = Runtime::new().unwrap();
     let executor = runtime.executor();
     runtime.block_on_all(future::lazy(move || {
         for i in 0..10000 {
@@ -195,7 +195,7 @@ fn concurrent_get() -> Result<()> {
             .unwrap();
     }
 
-    let runtime = Runtime::new()?;
+    let runtime = Runtime::new().unwrap();
     let executor = runtime.executor();
     runtime.block_on_all(future::lazy(move || {
         for thread_id in 0..100 {
@@ -216,7 +216,7 @@ fn concurrent_get() -> Result<()> {
 
     // reload from disk and test again
     let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 8)?;
-    let runtime = Runtime::new()?;
+    let runtime = Runtime::new().unwrap();
     let executor = runtime.executor();
     runtime.block_on_all(future::lazy(move || {
         for thread_id in 0..100 {

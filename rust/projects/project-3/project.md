@@ -242,7 +242,7 @@ commands one at a time. In the future we will re-visit this decision multiple
 times on our journey toward an asynchronous, multi-threaded, and
 high-performance database.
 
-Think about your manual testing workflow. Now that there are two executables to
+Thank about your manual testing workflow. Now that there are two executables to
 deal with, you'll need a way to run them both at the same time. If you are like
 many, you will use two terminals, running `cargo run --bin kvs-server` in
 one, where it runs until you press CTRL-D, and `cargo run --bin kvs-client`
@@ -443,7 +443,8 @@ Random numbers can be generated with the [`rand`] crate.
 
 [`rand`]: https://docs.rs/crate/rand/
 
-Once you have your benchmarks, run them with `cargo bench`.
+Once you have your benchmamrks, run them with `cargo bench --release`. Note
+the `--release` argument &mdash; unoptimized benchmarking is mostly useless!
 
 _Write the above benchmarks, and compare the results between `kvs` and `sled`._
 

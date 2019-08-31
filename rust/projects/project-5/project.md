@@ -118,7 +118,6 @@ predicates = "1.0.0"
 rand = "0.6.5"
 tempfile = "3.0.7"
 walkdir = "2.2.7"
-panic-control = "0.1.4"
 ```
 
 Unlike with previous projects, don't bother to fill in enough type definitions

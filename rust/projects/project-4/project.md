@@ -116,7 +116,6 @@ predicates = "1.0.0"
 rand = "0.6.5"
 tempfile = "3.0.7"
 walkdir = "2.2.7"
-panic-control = "0.1.4"
 ```
 
 As with previous projects, add enough definitions that the test suite builds.
@@ -628,7 +627,8 @@ Call this benchmark `read_queued_kvstore` (or whatever).
 
 **Whew. That was a lot of work**.
 
-So you can run this set of criterion benchmarks as usual with `cargo bench`.
+So you can run this set of criterion benchmarks as usual with `cargo bench
+--release`.
 
 <!-- TODO show example results -->
 
@@ -1248,7 +1248,7 @@ type as you can_.
 
 There are no new test cases to complete here, but some of the earlier ones will
 stress this new data structure in challenging ways, your previously-written
-benchmarks will stress this implementation hard.
+benchmamrks will stress this implementation hard.
 
 
 ## Part 9: Benchmarking lock-free data structures

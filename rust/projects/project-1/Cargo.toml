@@ -6,7 +6,6 @@ description = "A key-value store"
 edition = "2018"
 
 [dependencies]
-clap = "2.32.0"
 
 [dev-dependencies]
 assert_cmd = "0.11.0"

@@ -322,7 +322,7 @@ enum type to represent each command. `serde` just works perfectly with enums.
 You may implement the "set" and "rm" commands now, focusing on the `set` / `rm`
 test cases, or you can proceed to the next section to read about the "get"
 command. It may help to keep both in mind, or to implement them both
-simultaneously. It is your choice.
+simultaniously. It is your choice.
 
 
 ## Part 4: Reading from the log
@@ -334,7 +334,7 @@ and value in the memory. Then read from the memory.
 
 Should you read all records in the log into memory at once and then replay
 them into your map type; or should you read them one at a time while
-replaying them into your map? Should you read into a buffer before deserializing
+replaying the into your map? Should you read into a buffer before deserializing
 or deserialize from a file stream? Think about the memory usage of your approach.
 Think about the way reading from I/O streams interacts with the kernel.
 
@@ -358,7 +358,7 @@ _Implement "get" now_.
 
 ## Part 5: Storing log pointers in the index
 
-At this point most, if not all (besides the compaction test), other test suite should all pass. The changes
+At this point most, if not all, of the test suite should pass. The changes
 introduced in the next steps are simple optimizations, necessary for fast
 performance and reduced storage. As you implement them, pay attention to what
 exactly they are optimizing for.

@@ -6,14 +6,6 @@ description = "A key-value store"
 edition = "2018"
 
 [dependencies]
-clap = "2.33.0"
-structopt = "0.2.15"
-failure = "0.1.5"
-serde = { version = "1.0.89", features = ["derive"] }
-serde_json = "1.0.39"
-log = "0.4.6"
-env_logger = "0.6.1"
-sled = "0.22.1"
 
 [dev-dependencies]
 assert_cmd = "0.11"
