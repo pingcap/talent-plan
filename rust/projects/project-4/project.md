@@ -1156,7 +1156,7 @@ Like cloning, garbage collection is often frowned upon in Rust &mdash; avoiding
 GC is almost the entire reason Rust exists. But it's no secret that, actually,
 garbage collection can't be avoided, "garbage collection" and "memory
 reclaimation" are practically synonymous, and every language uses a mixture of
-garbage collection strategies. One one end of the GC spectrum, in languages with
+garbage collection strategies. On one end of the GC spectrum, in languages with
 no automatic memory management, like C, the garbage collection is left entirely
 up to the programmer, e.g. via `malloc` and `free`. On the other end are garbage
 collected languages, like Java, where all memory is collected by a single
