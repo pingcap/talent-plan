@@ -1,7 +1,7 @@
+use std::sync::mpsc::{sync_channel, Receiver};
 use std::sync::Arc;
 
 use futures::sync::mpsc::UnboundedSender;
-use futures::Future;
 use labrpc::RpcFuture;
 
 #[cfg(test)]
@@ -130,12 +130,16 @@ impl Raft {
     /// the handler function on the server side does not return.  Thus there
     /// is no need to implement your own timeouts around this method.
     ///
-    /// look at the comments in ../labrpc/src/mod.rs for more details.
-    fn send_request_vote(&self, server: usize, args: &RequestVoteArgs) -> Result<RequestVoteReply> {
-        let peer = &self.peers[server];
+    /// look at the comments in ../labrpc/src/lib.rs for more details.
+    fn send_request_vote(
+        &self,
+        server: usize,
+        args: &RequestVoteArgs,
+    ) -> Receiver<Result<RequestVoteReply>> {
         // Your code here if you want the rpc becomes async.
         // Example:
         // ```
+        // let peer = &self.peers[server];
         // let (tx, rx) = channel();
         // peer.spawn(
         //     peer.request_vote(&args)
@@ -145,9 +149,10 @@ impl Raft {
         //             Ok(())
         //         }),
         // );
-        // rx.wait() ...
+        // rx
         // ```
-        peer.request_vote(&args).map_err(Error::Rpc).wait()
+        let (tx, rx) = sync_channel::<Result<RequestVoteReply>>(1);
+        crate::your_code_here((server, args, tx, rx))
     }
 
     fn start<M>(&self, command: &M) -> Result<(u64, u64)>
@@ -270,6 +275,8 @@ impl Node {
 
 impl RaftService for Node {
     // example RequestVote RPC handler.
+    //
+    // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
     fn request_vote(&self, args: RequestVoteArgs) -> RpcFuture<RequestVoteReply> {
         // Your code here (2A, 2B).
         crate::your_code_here(args)

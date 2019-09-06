@@ -89,11 +89,13 @@ impl Node {
 }
 
 impl KvService for Node {
+    // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
     fn get(&self, arg: GetRequest) -> RpcFuture<GetReply> {
         // Your code here.
         crate::your_code_here(arg)
     }
 
+    // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
     fn put_append(&self, arg: PutAppendRequest) -> RpcFuture<PutAppendReply> {
         // Your code here.
         crate::your_code_here(arg)
