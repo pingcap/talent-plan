@@ -1,4 +1,4 @@
-use super::service::*;
+use crate::proto::kvraftpb::*;
 use crate::raft;
 
 use futures::sync::mpsc::unbounded;
@@ -14,7 +14,7 @@ pub struct KvServer {
 
 impl KvServer {
     pub fn new(
-        servers: Vec<raft::service::RaftClient>,
+        servers: Vec<crate::proto::raftpb::RaftClient>,
         me: usize,
         persister: Box<dyn raft::persister::Persister>,
         maxraftstate: Option<usize>,
