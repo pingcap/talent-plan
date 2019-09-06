@@ -24,11 +24,16 @@ impl KvServer {
         let (tx, apply_ch) = unbounded();
         let rf = raft::Raft::new(servers, me, persister, tx);
 
-        KvServer {
-            me,
-            maxraftstate,
-            rf: raft::Node::new(rf),
-        }
+        crate::your_code_here((rf, maxraftstate, apply_ch))
+    }
+}
+
+impl KvServer {
+    /// Only for suppressing deadcode warnings.
+    #[doc(hidden)]
+    pub fn __suppress_deadcode(&mut self) {
+        let _ = &self.me;
+        let _ = &self.maxraftstate;
     }
 }
 
@@ -54,7 +59,7 @@ pub struct Node {
 impl Node {
     pub fn new(kv: KvServer) -> Node {
         // Your code here.
-        Node {}
+        crate::your_code_here(kv);
     }
 
     /// the tester calls Kill() when a KVServer instance won't
@@ -86,11 +91,11 @@ impl Node {
 impl KvService for Node {
     fn get(&self, arg: GetRequest) -> RpcFuture<GetReply> {
         // Your code here.
-        unimplemented!()
+        crate::your_code_here(arg)
     }
 
     fn put_append(&self, arg: PutAppendRequest) -> RpcFuture<PutAppendReply> {
         // Your code here.
-        unimplemented!()
+        crate::your_code_here(arg)
     }
 }

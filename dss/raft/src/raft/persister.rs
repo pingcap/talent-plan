@@ -44,6 +44,7 @@ impl<T: ?Sized + Sync + Persister> Persister for Arc<T> {
     }
 }
 
+#[derive(Default)]
 pub struct SimplePersister {
     states: Mutex<(
         Vec<u8>, // raft state

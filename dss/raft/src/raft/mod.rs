@@ -81,7 +81,7 @@ impl Raft {
         // initialize from state persisted before a crash
         rf.restore(&raft_state);
 
-        rf
+        crate::your_code_here((rf, apply_ch))
     }
 
     /// save Raft's persistent state to stable storage,
@@ -169,6 +169,20 @@ impl Raft {
     }
 }
 
+impl Raft {
+    /// Only for suppressing deadcode warnings.
+    #[doc(hidden)]
+    pub fn __suppress_deadcode(&mut self) {
+        let _ = self.start(&0);
+        let _ = self.send_request_vote(0, &Default::default());
+        self.persist();
+        let _ = &self.state;
+        let _ = &self.me;
+        let _ = &self.persister;
+        let _ = &self.peers;
+    }
+}
+
 // Choose concurrency paradigm.
 //
 // You can either drive the raft state machine by the rpc framework,
@@ -192,7 +206,7 @@ impl Node {
     /// Create a new raft service.
     pub fn new(raft: Raft) -> Node {
         // Your code here.
-        Node {}
+        crate::your_code_here(raft)
     }
 
     /// the service using Raft (e.g. a k/v server) wants to start
@@ -214,7 +228,7 @@ impl Node {
         // Your code here.
         // Example:
         // self.raft.start(command)
-        unimplemented!()
+        crate::your_code_here(command)
     }
 
     /// The current term of this peer.
@@ -222,7 +236,7 @@ impl Node {
         // Your code here.
         // Example:
         // self.raft.term
-        unimplemented!()
+        crate::your_code_here(())
     }
 
     /// Whether this peer believes it is the leader.
@@ -230,7 +244,7 @@ impl Node {
         // Your code here.
         // Example:
         // self.raft.leader_id == self.id
-        unimplemented!()
+        crate::your_code_here(())
     }
 
     /// The current state of this peer.
@@ -258,6 +272,6 @@ impl RaftService for Node {
     // example RequestVote RPC handler.
     fn request_vote(&self, args: RequestVoteArgs) -> RpcFuture<RequestVoteReply> {
         // Your code here (2A, 2B).
-        unimplemented!()
+        crate::your_code_here(args)
     }
 }

@@ -230,16 +230,6 @@ impl Config {
         }
     }
 
-    pub fn disconnect_client(&self, ck: &client::Clerk, from: &[usize]) {
-        debug!("DisconnectClient {:?} from {:?}", ck, from);
-        let clerks = self.clerks.lock().unwrap();
-        let endnames = &clerks[&ck.name];
-        for j in from {
-            let s = &endnames[*j];
-            self.net.enable(s, false);
-        }
-    }
-
     /// Shutdown a server by isolating it
     pub fn shutdown_server(&self, i: usize) {
         let mut servers = self.servers.lock().unwrap();
