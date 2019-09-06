@@ -9,7 +9,7 @@ enum Op {
 
 pub struct Clerk {
     pub name: String,
-    servers: Vec<KvClient>,
+    pub servers: Vec<KvClient>,
     // You will have to modify this struct.
 }
 
@@ -22,7 +22,8 @@ impl fmt::Debug for Clerk {
 impl Clerk {
     pub fn new(name: String, servers: Vec<KvClient>) -> Clerk {
         // You'll have to add code here.
-        Clerk { name, servers }
+        // Clerk { name, servers }
+        crate::your_code_here((name, servers))
     }
 
     /// fetch the current value for a key.

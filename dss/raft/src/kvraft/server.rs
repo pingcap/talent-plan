@@ -33,6 +33,15 @@ impl KvServer {
     }
 }
 
+impl KvServer {
+    /// Only for suppressing deadcode warnings.
+    #[doc(hidden)]
+    pub fn __suppress_deadcode(&mut self) {
+        let _ = &self.me;
+        let _ = &self.maxraftstate;
+    }
+}
+
 // Choose concurrency paradigm.
 //
 // You can either drive the kv server by the rpc framework,

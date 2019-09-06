@@ -170,6 +170,20 @@ impl Raft {
     }
 }
 
+impl Raft {
+    /// Only for suppressing deadcode warnings.
+    #[doc(hidden)]
+    pub fn __suppress_deadcode(&mut self) {
+        let _ = self.start(&0);
+        let _ = self.send_request_vote(0, &Default::default());
+        self.persist();
+        let _ = &self.state;
+        let _ = &self.me;
+        let _ = &self.persister;
+        let _ = &self.peers;
+    }
+}
+
 // Choose concurrency paradigm.
 //
 // You can either drive the raft state machine by the rpc framework,
