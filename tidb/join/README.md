@@ -37,7 +37,7 @@ We provide a sample as `join_example.go: JoinExample` which performs a simple ha
 
 - (30%) Pass all test cases.
 - (20%) Perform better than `join_example.go:JoinExample`.
-- (35%) Have a document to describe your idea and record the process of performance optimization with `pprof`
+- (35%) Have a document to describe your idea and record the process of performance optimization with `pprof`.
 - (15%) Keep a good code style.
 
 Note:

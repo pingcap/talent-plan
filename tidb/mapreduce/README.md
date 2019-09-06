@@ -34,7 +34,7 @@ Each test cases has **different data distribution** and you should take it into 
 
 * (40%) Performs better than `urltop10_example`.
 * (20%) Pass all test cases.
-* (30%) Have a document to describe your idea and record the process of performance optimization (both the framework and your own code) with `pprof`
+* (30%) Have a document to describe your idea and record the process of performance optimization (both the framework and your own code) with `pprof`.
 * (10%) Have a good code style.
 
 NOTE: **go 1.12 is required**

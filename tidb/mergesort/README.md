@@ -9,7 +9,7 @@ array.
 Requirements and rating principles:
 * (30%) Pass the unit test.
 * (20%) Performs better than `sort.Slice()`.
-* (40%) Have a document to describe your idea and record the process of performance optimization with `pprof`
+* (40%) Have a document to describe your idea and record the process of performance optimization with `pprof`.
 * (10%) Have a good code style.
 
 NOTE: **go 1.12 is required**
