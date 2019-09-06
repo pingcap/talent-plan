@@ -25,11 +25,6 @@ impl KvServer {
         let rf = raft::Raft::new(servers, me, persister, tx);
 
         crate::your_code_here((rf, maxraftstate, apply_ch))
-        // KvServer {
-        //     me,
-        //     maxraftstate,
-        //     rf: raft::Node::new(rf),
-        // }
     }
 }
 

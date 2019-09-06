@@ -82,7 +82,6 @@ impl Raft {
         rf.restore(&raft_state);
 
         crate::your_code_here((rf, apply_ch))
-        // rf
     }
 
     /// save Raft's persistent state to stable storage,
@@ -208,7 +207,6 @@ impl Node {
     pub fn new(raft: Raft) -> Node {
         // Your code here.
         crate::your_code_here(raft)
-        // Node {}
     }
 
     /// the service using Raft (e.g. a k/v server) wants to start
