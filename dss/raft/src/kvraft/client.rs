@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::service;
+use crate::proto::kvraftpb::*;
 
 enum Op {
     Put(String, String),
@@ -9,7 +9,7 @@ enum Op {
 
 pub struct Clerk {
     pub name: String,
-    servers: Vec<service::KvClient>,
+    servers: Vec<KvClient>,
     // You will have to modify this struct.
 }
 
@@ -20,7 +20,7 @@ impl fmt::Debug for Clerk {
 }
 
 impl Clerk {
-    pub fn new(name: String, servers: Vec<service::KvClient>) -> Clerk {
+    pub fn new(name: String, servers: Vec<KvClient>) -> Clerk {
         // You'll have to add code here.
         Clerk { name, servers }
     }

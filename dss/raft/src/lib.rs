@@ -11,4 +11,5 @@ extern crate log;
 extern crate prost_derive;
 
 mod kvraft;
+mod proto;
 mod raft;

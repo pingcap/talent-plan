@@ -24,11 +24,11 @@ test_3a: cargo_test_3a
 
 test_3b: cargo_test_3b
 
-cargo_test_%:
+cargo_test_%: check
 	RUST_LOG=${LOG_LEVEL} cargo test -p raft -- --nocapture --test $*
 
-test_others:
+test_others: check
 	RUST_LOG=${LOG_LEVEL} cargo test -p labrpc -p labcodec -- --nocapture
 
-test_percolator:
+test_percolator: check
 	RUST_LOG=${LOG_LEVEL} cargo test -p percolator -- --nocapture

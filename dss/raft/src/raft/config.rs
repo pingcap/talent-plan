@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use futures::{sync::mpsc::unbounded, Future, Stream};
 use labrpc;
 
+use crate::proto::raftpb::*;
 use crate::raft;
 use crate::raft::persister::*;
 use rand::Rng;
@@ -368,7 +369,7 @@ impl Config {
         let mut clients = Vec::with_capacity(self.n);
         for (j, name) in self.endnames[i].iter().enumerate() {
             let cli = self.net.create_client(name.to_string());
-            let client = raft::service::RaftClient::new(cli);
+            let client = RaftClient::new(cli);
             clients.push(client);
             self.net.connect(name, &format!("{}", j));
         }

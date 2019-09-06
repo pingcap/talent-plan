@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package raftpb;
+
+// Example RequestVote RPC arguments structure.
+message RequestVoteArgs {
+    // Your data here (2A, 2B).
+}
+
+// Example RequestVote RPC reply structure.
+message RequestVoteReply {
+    // Your data here (2A).
+}

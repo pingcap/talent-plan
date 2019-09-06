@@ -2,20 +2,18 @@ use std::sync::Arc;
 
 use futures::sync::mpsc::UnboundedSender;
 use futures::Future;
-use labcodec;
 use labrpc::RpcFuture;
 
 #[cfg(test)]
 pub mod config;
 pub mod errors;
 pub mod persister;
-pub mod service;
 #[cfg(test)]
 mod tests;
 
 use self::errors::*;
 use self::persister::*;
-use self::service::*;
+use crate::proto::raftpb::*;
 
 pub struct ApplyMsg {
     pub command_valid: bool,
