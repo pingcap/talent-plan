@@ -59,7 +59,7 @@ where
     let mut cas = Vec::with_capacity(ncli);
     for cli in 0..ncli {
         let (tx, rx) = oneshot::channel();
-        cas.push(rx.map(move |e| {
+        cas.push(rx.map(move |_| {
             debug!("spawn_clients_and_wait: client {} is done", cli);
         }));
 
@@ -113,11 +113,12 @@ fn check_clnt_appends(clnt: usize, v: String, count: usize) {
 
 // check that all known appends are present in a value,
 // and are in order for each concurrent client.
+#[allow(clippy::needless_range_loop)]
 fn check_concurrent_appends(v: String, counts: &[usize]) {
     let nclients = counts.len();
     for i in 0..nclients {
         let mut lastoff = None;
-        for (j, count) in counts.iter().enumerate() {
+        for j in 0..counts[i] {
             let wanted = format!("x {} {} y", i, j);
             if let Some(off) = v.find(&wanted) {
                 let off1 = v.rfind(&wanted).unwrap();
@@ -225,7 +226,7 @@ fn generic_test(
     let done_clients = Arc::new(AtomicUsize::new(0));
     let mut clnt_txs = vec![];
     let mut clnt_rxs = vec![];
-    for i in 0..nclients {
+    for _ in 0..nclients {
         let (tx, rx) = mpsc::channel();
         clnt_txs.push(tx);
         clnt_rxs.push(rx);
@@ -395,7 +396,7 @@ fn generic_test_linearizability(
     let done_clients = Arc::new(AtomicUsize::new(0));
     let mut clnt_txs = vec![];
     let mut clnt_rxs = vec![];
-    for i in 0..nclients {
+    for _ in 0..nclients {
         let (tx, rx) = mpsc::channel();
         clnt_txs.push(tx);
         clnt_rxs.push(rx);
@@ -521,7 +522,7 @@ fn generic_test_linearizability(
         }
 
         // wait for clients.
-        for (i, clnt_rx) in clnt_rxs.iter().enumerate() {
+        for clnt_rx in &clnt_rxs {
             clnt_rx.recv().unwrap();
         }
 
@@ -847,7 +848,7 @@ fn test_snapshot_size_3b() {
 
     cfg.begin("Test: snapshot size is reasonable (3B)");
 
-    for i in 0..200 {
+    for _ in 0..200 {
         put(&cfg, &ck, "x", "0");
         check(&cfg, &ck, "x", "0");
         put(&cfg, &ck, "x", "1");
