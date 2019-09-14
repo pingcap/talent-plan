@@ -301,7 +301,7 @@ Now you are going to add a second storage engine.
 
 There are multiple reasons to do so:
 
-- Different workloads require difference performance characteristics. Some
+- Different workloads require different performance characteristics. Some
   storage engines may work better than other based on the workload.
 
 - It creates a familiar framework for comparing different backends.
