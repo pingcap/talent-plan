@@ -159,7 +159,7 @@ compacts it into a new log, removing redundant entries to reclaim disk space.
 
 ## Project setup
 
-Continuing from your previous project, delete your privous `tests` directory and
+Continuing from your previous project, delete your previous `tests` directory and
 copy this project's `tests` directory into its place. This project should
 contain a library named `kvs`, and two executables, `kvs-server` and
 `kvs-client`. <!-- TODO explain how to reconcile the two bins with the existing
