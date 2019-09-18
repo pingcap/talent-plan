@@ -130,6 +130,11 @@ methods:
   Remove a given key.
   Return an error if the key does not exist or is not removed successfully.
 
+- `KvStore::open(path: impl Into<PathBuf>) -> Result<KvStore>`
+
+  Open the KvStore at a given path.
+  Return the KvStore.
+
 When setting a key to a value, `kvs` writes the `set` command to disk in a
 sequential log, then stores the log pointer (file offset) of that command in the
 in-memory index from key to pointer. When removing a key, similarly, `kvs`
