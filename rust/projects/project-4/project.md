@@ -382,10 +382,10 @@ any type that implements `Send` + `'static`).
 Messages in Rust are typically represented as enums, with variants for each
 possible message that can be sent, like:
 
-```
+```rust
 enum ThreadPoolMessage {
-    RunJob(Box<FnOnce + Send + 'static>),
-	Shutdown,
+    RunJob(Box<dyn FnOnce() + Send + 'static>),
+    Shutdown,
 }
 ```
 
