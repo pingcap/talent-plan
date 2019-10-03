@@ -165,7 +165,7 @@ restores persistent state to `Persister`, like in `Raft::persist` and
 `Raft::restore` using `labcodec`. You also need to determine what and when to
 persist, and call `Raft::restore` in `Raft::new`.
 
-To run all the test in this lab, run `make test_2b`. You can try to pass the
+To run all the test in this lab, run `make test_2c`. You can try to pass the
 `test_persist1_2c` test first.
 
 Here are some hints on this part:
