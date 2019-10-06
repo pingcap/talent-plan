@@ -101,7 +101,7 @@ curl https://sh.rustup.rs -sSf | sh
 
 (If you are running Windows then follow the instructions on rustup.rs. Note
 though that you will face more challenges than others during this course, as it
-was developed on Unix. In general, Rust development on Windows is as less
+was developed on Unix. In general, Rust development on Windows is a less
 polished experience than on Unix).
 
 Verify that the toolchain works by typing `rustc -V`. If that doesn't work, log
