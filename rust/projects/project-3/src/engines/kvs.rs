@@ -331,7 +331,9 @@ impl<R: Read + Seek> BufReaderWithPos<R> {
 
 impl<R: Read + Seek> Read for BufReaderWithPos<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.reader.read(buf)
+        let len = self.reader.read(buf)?;
+        self.pos += len as u64;
+        Ok(len)
     }
 }
 
