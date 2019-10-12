@@ -58,7 +58,7 @@ Read all the readings and perform all the exercises. Also watch the video.
   The [`threadpool`][tp1] crate and Rayon's [`ThreadPool`][tp2] may provide inspiration.
 
 - **[Reading: Lock-free vs wait-free concurrency][lf]**. It seems like everybody
-  wants there code to be "lock-free". What's that mean?
+  wants their code to be "lock-free". What's that mean?
 
 <!--
 
