@@ -10,7 +10,7 @@ material there.
 [6824lab3]:http://nil.csail.mit.edu/6.824/2018/labs/lab-kvraft.html
 [6824]:http://nil.csail.mit.edu/6.824/2018/index.html
 
-In these labs your will first implement the raft consensus algorithm in the
+In these labs you will first implement the raft consensus algorithm in the
 lab2:raft, and then build a key/value service in the lab3:kvraft.
 
 Raft is a consensus algorithm that is designed to be easy to understand.You can
