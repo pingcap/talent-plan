@@ -321,7 +321,7 @@ to know where to go next on that path? We've got [some ideas][n].
 [Rust Discord]: https://discord.gg/rust-lang
 [Rust meetup]: https://www.meetup.com/topics/rust
 [StackOverflow]: https://stackoverflow.com/questions/tagged/rust
-[TiKV Slack]: https://join.slack.com/t/tikv-wg/shared_invite/enQtNTUyODE4ODU2MzI0LTgzZDQ3NzZlNDkzMGIyYjU1MTA0NzIwMjFjODFiZjA0YjFmYmQyOTZiNzNkNzg1N2U1MDdlZTIxNTU5NWNhNjk
+[TiKV Slack]: https://join.slack.com/t/tikv-wg/shared_invite/enQtNTUyODE4ODU2MzI0LWVlMWMzMDkyNWE5ZjY1ODAzMWUwZGVhNGNhYTc3MzJhYWE0Y2FjYjliYzY1OWJlYTc4OWVjZWM1NDkwN2QxNDE
 [author]: https://github.com/brson/
 [brson]: https://github.com/brson/
 [kv]: https://en.wikipedia.org/wiki/Key-value_database
