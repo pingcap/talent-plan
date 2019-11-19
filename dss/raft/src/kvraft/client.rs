@@ -31,7 +31,7 @@ impl Clerk {
     /// keeps trying forever in the face of all other errors.
     //
     // you can send an RPC with code like this:
-    // let reply = self.servers[i].get(args).unwrap();
+    // if let Some(reply) = self.servers[i].get(args).wait() { /* do something */ }
     pub fn get(&self, key: String) -> String {
         // You will have to modify this function.
         crate::your_code_here(key)

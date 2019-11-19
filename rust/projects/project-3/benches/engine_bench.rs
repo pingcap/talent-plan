@@ -15,9 +15,9 @@ fn set_bench(c: &mut Criterion) {
             b.iter_batched(
                 || {
                     let temp_dir = TempDir::new().unwrap();
-                    KvStore::open(temp_dir.path()).unwrap()
+                    (KvStore::open(temp_dir.path()).unwrap(), temp_dir)
                 },
-                |mut store| {
+                |(mut store, _temp_dir)| {
                     for i in 1..(1 << 12) {
                         store.set(format!("key{}", i), "value".to_string()).unwrap();
                     }
@@ -31,9 +31,9 @@ fn set_bench(c: &mut Criterion) {
         b.iter_batched(
             || {
                 let temp_dir = TempDir::new().unwrap();
-                SledKvsEngine::new(Db::start_default(&temp_dir).unwrap())
+                (SledKvsEngine::new(Db::start_default(&temp_dir).unwrap()), temp_dir)
             },
-            |mut db| {
+            |(mut db, _temp_dir)| {
                 for i in 1..(1 << 12) {
                     db.set(format!("key{}", i), "value".to_string()).unwrap();
                 }
