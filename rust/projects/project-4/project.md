@@ -384,7 +384,7 @@ possible message that can be sent, like:
 
 ```rust
 enum ThreadPoolMessage {
-    RunJob(Box<FnOnce + Send + 'static>),
+    RunJob(Box<dyn FnOnce() + Send + 'static>),
     Shutdown,
 }
 ```
