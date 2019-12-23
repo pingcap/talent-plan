@@ -10,7 +10,7 @@ material there.
 [6824lab3]:http://nil.csail.mit.edu/6.824/2018/labs/lab-kvraft.html
 [6824]:http://nil.csail.mit.edu/6.824/2018/index.html
 
-In these labs your will first implement the raft consensus algorithm in the
+In these labs you will first implement the raft consensus algorithm in the
 lab2:raft, and then build a key/value service in the lab3:kvraft.
 
 Raft is a consensus algorithm that is designed to be easy to understand.You can
@@ -46,8 +46,8 @@ To run just a single test, run `make cargo_test_<insert test name here>`.
 
 ### The code structure
 
-All your codes in this lab should be in the `src/raft/service.rs` and
-`src/raft/mod.rs`.
+All your codes in this lab should be in the `src/proto/mod.rs`,
+`src/proto/raft.proto` and `src/raft/mod.rs`.
 
 The `src/raft/mod.rs` file should contains your main implementation of Raft.
 The tester (and your key/value server in lab3) will call methods in this file
@@ -66,7 +66,7 @@ should send a `ApplyMsg` to the channel for each newly committed log entry.
 Your implements should use the provided `labrpc` crate to exchange RPCs. The
 `labrpc` use channels to simulate sockets internally. This makes it easy to test
 your code under challenging network conditions. Your definition of the RPCs
-should in `src/raft/service.rs` and you should implement the RPC server in
+should in `src/proto/mod.rs` and you should implement the RPC server in
 `impl RaftService for Node`. A set of RPC clients (`peers`) is pass into
 `Raft::new` for you to send RPCs to other nodes.
 
@@ -165,7 +165,7 @@ restores persistent state to `Persister`, like in `Raft::persist` and
 `Raft::restore` using `labcodec`. You also need to determine what and when to
 persist, and call `Raft::restore` in `Raft::new`.
 
-To run all the test in this lab, run `make test_2b`. You can try to pass the
+To run all the test in this lab, run `make test_2c`. You can try to pass the
 `test_persist1_2c` test first.
 
 Here are some hints on this part:
@@ -195,7 +195,7 @@ To run just a single test, run `make cargo_test_<insert test name here>`.
 
 ### The code structure
 
-All your codes in this lab should be in the `src/kvraft/service.rs`,
+All your codes in this lab should be in the `src/proto/mod.rs`, `src/proto/kvraft.proto`,
 `src/kvraft/server.rs` and `src/kvraft/client.rs`. The file name explains what
 they are. Also, you need to modify the files you touched in lab2:raft.
 

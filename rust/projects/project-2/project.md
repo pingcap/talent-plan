@@ -223,7 +223,7 @@ suite to compile (`cargo test --no-run`).
 
 _Note: Error-handling practices in Rust are still evolving. This course
 currently uses the [`failure`] crate to make defining error types easier. While
-`failure` has a good design, it's use is [arguably not a best practice][nbp]. It
+`failure` has a good design, its use is [arguably not a best practice][nbp]. It
 may not continue to be viewed favorably by Rust experts. Future iterations
 of the course will likely not use `failure`. In the meantime, it is fine, and
 presents an opportunity to learn more of the history and nuance of Rust error
