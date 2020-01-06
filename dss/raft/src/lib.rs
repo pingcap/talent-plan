@@ -1,4 +1,6 @@
 #![feature(integer_atomics)]
+#![feature(box_syntax)]
+#![feature(todo_macro)]
 #![deny(clippy::all)]
 
 #[allow(unused_imports)]

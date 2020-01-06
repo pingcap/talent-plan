@@ -1,20 +1,23 @@
 pub mod raftpb {
+    pub use self::raft::{
+        add_service as add_raft_service, Client as RaftClient, Service as RaftService,
+    };
+
     include!(concat!(env!("OUT_DIR"), "/raftpb.rs"));
 
     labrpc::service! {
         service raft {
             rpc request_vote(RequestVoteArgs) returns (RequestVoteReply);
-
+            rpc append_entries(AppendEntriesArgs) returns (AppendEntriesReply);
             // Your code here if more rpc desired.
             // rpc xxx(yyy) returns (zzz)
         }
     }
-    pub use self::raft::{
-        add_service as add_raft_service, Client as RaftClient, Service as RaftService,
-    };
 }
 
 pub mod kvraftpb {
+    pub use self::kv::{add_service as add_kv_service, Client as KvClient, Service as KvService};
+
     include!(concat!(env!("OUT_DIR"), "/kvraftpb.rs"));
 
     labrpc::service! {
@@ -26,5 +29,4 @@ pub mod kvraftpb {
             // rpc xxx(yyy) returns (zzz)
         }
     }
-    pub use self::kv::{add_service as add_kv_service, Client as KvClient, Service as KvService};
 }
