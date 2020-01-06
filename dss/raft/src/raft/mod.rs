@@ -11,6 +11,7 @@ use labrpc::RpcFuture;
 
 use crate::proto::raftpb::*;
 use crate::raft::RaftRole::{CANDIDATE, FOLLOWER, LEADER};
+use crate::raft::TimerMsg::Stop;
 
 use self::errors::*;
 use self::persister::*;
@@ -46,7 +47,7 @@ impl State {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Copy)]
+#[derive(Clone, Eq, PartialEq, Copy, Debug)]
 enum RaftRole {
     LEADER = 0,
     CANDIDATE = 1,
@@ -164,14 +165,16 @@ impl Raft {
         peer.spawn(
             peer.request_vote(&args)
                 .map_err(|e| {
-                    error!("send_request_vote: rpc error {:?} meet.", e);
+                    warn!("send_request_vote: network(rpc) error {:?}.", e);
                     Error::Rpc(e)
                 })
                 .then(move |res| {
-                    info!("send_request_vote: result <<{:?}>> get.", &res);
+                    let result_ok = res.is_ok();
                     let result = tx.send(res);
                     if let Err(e) = result {
-                        warn!("send_request_vote: result of RPC is unused. since: {:?}", e);
+                        if result_ok {
+                            warn!("send_request_vote: result of RPC is unused. since: {:?}", e);
+                        }
                     }
                     Ok(())
                 }),
@@ -290,6 +293,7 @@ impl Raft {
             let mut guard = raft.lock().unwrap();
             guard.current_role = CANDIDATE;
             guard.term += 1;
+            let term_at_start = guard.term;
             let me = guard.me;
             info!("NO{} started a new election of term {}.", me, guard.term);
             guard.voted_for = Some(me);
@@ -306,18 +310,20 @@ impl Raft {
                 vote_count += result
                     .map(|reply| if reply.vote_granted { 1 } else { 0 })
                     .unwrap_or(0);
-                info!("NO{}: vote_count = {}", me, vote_count);
                 if vote_count > peer_count / 2 {
-                    info!("NO{} has enough votes!", me);
+                    info!("NO{} has enough votes at term {}!", me, term_at_start);
                     break;
                 }
             }
 
             let mut guard = raft.lock().unwrap();
-            if vote_count > peer_count / 2 && guard.current_role == CANDIDATE {
+            if vote_count > peer_count / 2
+                && guard.term == term_at_start
+                && guard.current_role == CANDIDATE
+            {
                 guard.current_role = LEADER;
                 guard.stop_election_timer();
-                info!("NO{} is now the leader!", me);
+                info!("NO{} is now the leader of term {}.", me, term_at_start);
                 drop(guard);
                 Raft::transform_to_leader(raft);
             }
@@ -356,28 +362,26 @@ impl Raft {
         }
     }
 
-    fn send_to_election_timer(&self, message: TimerMsg) {
-        let reset_result = self
-            .election_timer
+    fn try_send_to_election_timer(&self, message: TimerMsg) -> bool {
+        self.election_timer
             .as_ref()
-            .unwrap_or_else(|| {
-                panic!(
-                    "NO{} Trying to operate election timer on a raft peer that isn't bind to a node.",
-                    self.me
-                )
-            })
-            .send(message);
-        if reset_result.is_err() {
-            warn!(
-                "NO{} Trying to operate election timer on a raft peer with closing timer.",
-                self.me
+            .map(|sx| sx.send(message))
+            .map(|result| result.map(|_| true).unwrap_or(false))
+            .unwrap_or(false)
+    }
+
+    fn send_to_election_timer(&self, message: TimerMsg) {
+        if !self.try_send_to_election_timer(message) {
+            info!(
+                "NO{} send_to_election_timer({:?}): failed try.",
+                self.me, message
             );
         }
     }
 
     fn reset_election_timer(&self) {
         if self.current_role == LEADER {
-            panic!(
+            warn!(
                 "NO{} Trying to reset election timer on a leader node.",
                 self.me
             );
@@ -396,15 +400,18 @@ impl Raft {
     }
 
     fn update_term(&mut self, new_term: u64) {
-        if new_term < self.term {
-            panic!(
-                "NO{} is set to a lower term, which probably is an error.",
-                self.me
-            );
-        }
+        assert!(
+            self.term <= new_term,
+            "NO{}(currentTerm = {}) is set to a lower term({}), which is probably an error.",
+            self.me,
+            self.term,
+            new_term
+        );
         if new_term != self.term {
             info!("NO{} is now set to term {}", self.me, new_term);
             self.voted_for = None;
+            // NOTE: 这行来自于 Raft 可视化中的实践，我似乎没有在 paper 中找到相关部分。
+            self.reset_election_timer();
         }
         self.term = new_term;
     }
@@ -412,11 +419,7 @@ impl Raft {
     fn transform_to_follower(raft: Arc<Mutex<Raft>>) {
         let (sx, rx) = sync_channel::<TimerMsg>(1);
         let mut guard = raft.lock().unwrap();
-        if let Some(sx) = guard.election_timer.take() {
-            if sx.send(TimerMsg::Stop).is_ok() {
-                warn!("Some path to follower didn't stop the last term's election timer.");
-            }
-        }
+        guard.try_send_to_election_timer(Stop);
         guard.election_timer = Some(sx.clone());
         guard.current_role = FOLLOWER;
         std::thread::spawn({
@@ -437,17 +440,12 @@ impl Raft {
         });
     }
 
-    fn update_and_check_grant(&mut self, term: u64, candidate_id: u64) -> bool {
-        if self.term < term {
-            self.update_term(term);
-            if self.voted_for.is_none() || self.voted_for == Some(candidate_id as usize) {
-                return true;
-            }
-        }
-        false
+    fn check_grant(&mut self, candidate_id: u64) -> bool {
+        self.voted_for.is_none() || self.voted_for == Some(candidate_id as usize)
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Copy)]
 enum TimerMsg {
     Reset,
     Stop,
@@ -457,7 +455,7 @@ impl Node {
     /// Create a new raft service.
     pub fn new(raft: Raft) -> Node {
         // Your code here.
-        // TODO: 为恢复到不同状态的节点配置不同的初始化函数。
+        // TODO: 为恢复到不同状态的节点配置不同的初始化函数。(2C)
         info!("new node NO「{}」started.", raft.me);
         let raft = Arc::new(Mutex::new(raft));
         Raft::transform_to_follower(raft.clone());
@@ -531,6 +529,24 @@ impl Node {
         info!("NO{} is dead.", guard.me);
         // Your code here, if desired.
     }
+
+    fn check_term(&self, new_term: u64) {
+        if new_term >= self.term() {
+            let mut guard = self.raft.lock().unwrap();
+            let leader_to_follower = guard.current_role == LEADER && new_term > guard.term;
+            let candidate_to_follower = guard.current_role == CANDIDATE;
+            guard.update_term(new_term);
+            if leader_to_follower || candidate_to_follower {
+                info!("NO{}(currentTerm = {}, state = {:?}), get RPC(term = {}), he eventually has known, he is a follower now.",
+                      guard.me,
+                      guard.term,
+                      guard.current_role,
+                      new_term);
+                drop(guard);
+                Raft::transform_to_follower(self.raft.clone());
+            }
+        }
+    }
 }
 
 impl RaftService for Node {
@@ -538,15 +554,17 @@ impl RaftService for Node {
     //
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
     fn request_vote(&self, args: RequestVoteArgs) -> RpcFuture<RequestVoteReply> {
-        // TODO: 给他换上一个线程池。
+        // TODO: 给他换上一个线程池。（？？？）
         let (sx, rx) = futures::sync::oneshot::channel::<RequestVoteReply>();
         let raft = self.raft.clone();
+        let myself = self.clone();
         std::thread::spawn(move || {
-            let mut guard = raft.lock().unwrap();
-            info!("request_vote({:?})", args);
+            myself.check_term(args.term);
 
-            // TODO: 投票规则到底是什么？！
-            let granted = guard.update_and_check_grant(args.term, args.candidate_id);
+            let mut guard = raft.lock().unwrap();
+            debug!("request_vote({:?})", args);
+            // TODO: 修改投票规则，使用最后的命令而非简单地比较 term（2B）。
+            let granted = guard.check_grant(args.candidate_id);
 
             info!(
                 "NO{} grant to NO{}? = {:?}",
@@ -564,16 +582,7 @@ impl RaftService for Node {
         let (sx, rx) = futures::sync::oneshot::channel::<AppendEntriesReply>();
         let myself = self.clone();
         std::thread::spawn(move || {
-            if req.term >= myself.term() {
-                let mut guard = myself.raft.lock().unwrap();
-                guard.update_term(req.term);
-                if guard.current_role != FOLLOWER {
-                    info!("NO{} got append_entries from other with at-least-equals-to term, he eventually has known, he is a follower now.", guard.me);
-                    guard.stop_election_timer();
-                    drop(guard);
-                    Raft::transform_to_follower(myself.raft.clone());
-                }
-            }
+            myself.check_term(req.term);
             myself.reset_timer();
             sx.send(AppendEntriesReply {
                 term: myself.term(),
