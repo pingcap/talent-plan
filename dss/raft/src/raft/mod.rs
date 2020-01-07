@@ -237,7 +237,6 @@ impl Raft {
         let _ = &self.persister;
         let _ = &self.peers;
         let _ = &self.apply_ch;
-        let _ = TimerMsg::Reset;
     }
 }
 
@@ -258,22 +257,38 @@ impl Raft {
 #[derive(Clone)]
 pub struct Node {
     raft: Arc<Mutex<Raft>>,
+    rpc_execution_pool: Arc<rayon::ThreadPool>,
 }
 
-// TODO: 解决这里的线程泄漏问题。（当不再有新消息发送的时候，轮询仍旧会继续。）
+// 有没有比轮询更加好的办法呢？（似乎 Go 语言的 Select 在规模变大之后使用的也是轮询）
 fn select<T: Send + 'static>(channels: impl Iterator<Item=Receiver<T>>) -> Receiver<T> {
+    use std::sync::mpsc::TryRecvError::*;
     let (sx, rx) = channel();
     let channels: Vec<Receiver<T>> = channels.collect();
+    let mut is_available = vec![true; channels.len()];
+    let mut available_count = channels.len();
     std::thread::spawn(move || loop {
-        for ch in channels.iter() {
-            if let Ok(data) = ch.try_recv() {
-                if let Err(_e) = sx.send(data) {
-                    debug!("select: select receiver is closed.");
-                    return;
+        if available_count == 0 {
+            return;
+        }
+        for (i, ch) in channels.iter().enumerate() {
+            if is_available[i] {
+                match ch.try_recv() {
+                    Ok(data) => {
+                        if let Err(_e) = sx.send(data) {
+                            debug!("select: select receiver is closed.");
+                            return;
+                        }
+                    }
+                    Err(Disconnected) => {
+                        is_available[i] = false;
+                        available_count -= 1;
+                    }
+                    Err(Empty) => {}
                 }
             }
-            sleep(Duration::from_millis(8))
         }
+        sleep(Duration::from_millis(8))
     });
     rx
 }
@@ -318,7 +333,9 @@ impl Raft {
 
             let mut guard = raft.lock().unwrap();
             if vote_count > peer_count / 2
+                // ensure that we didn't start another term of election...
                 && guard.term == term_at_start
+                // ensure that there isn't a leader...
                 && guard.current_role == CANDIDATE
             {
                 guard.current_role = LEADER;
@@ -410,8 +427,6 @@ impl Raft {
         if new_term != self.term {
             info!("NO{} is now set to term {}", self.me, new_term);
             self.voted_for = None;
-            // NOTE: 这行来自于 Raft 可视化中的实践，我似乎没有在 paper 中找到相关部分。
-            self.reset_election_timer();
         }
         self.term = new_term;
     }
@@ -457,9 +472,18 @@ impl Node {
         // Your code here.
         // TODO: 为恢复到不同状态的节点配置不同的初始化函数。(2C)
         info!("new node NO「{}」started.", raft.me);
+        let pool = rayon::ThreadPoolBuilder::new()
+            // Assume that every peer sends rpc to me.
+            .num_threads(raft.peers.len() - 1)
+            .thread_name(|i| format!("rpc executor({})", i))
+            .build()
+            .unwrap_or_else(|e| panic!("fetal: failed to build thread pool: {}", e));
         let raft = Arc::new(Mutex::new(raft));
         Raft::transform_to_follower(raft.clone());
-        Node { raft: raft.clone() }
+        Node {
+            raft: raft.clone(),
+            rpc_execution_pool: Arc::new(pool),
+        }
     }
 
     /// the service using Raft (e.g. a k/v server) wants to start
@@ -525,9 +549,12 @@ impl Node {
     /// a VIRTUAL crash in tester, so take care of background
     /// threads you generated with this Raft Node.
     pub fn kill(&self) {
-        let guard = self.raft.lock().unwrap();
+        let mut guard = self.raft.lock().unwrap();
+        // stop leader timer.
+        guard.current_role = FOLLOWER;
+        // stop follower timer.
+        guard.try_send_to_election_timer(Stop);
         info!("NO{} is dead.", guard.me);
-        // Your code here, if desired.
     }
 
     fn check_term(&self, new_term: u64) {
@@ -554,26 +581,33 @@ impl RaftService for Node {
     //
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
     fn request_vote(&self, args: RequestVoteArgs) -> RpcFuture<RequestVoteReply> {
-        // TODO: 给他换上一个线程池。（？？？）
         let (sx, rx) = futures::sync::oneshot::channel::<RequestVoteReply>();
         let raft = self.raft.clone();
         let myself = self.clone();
-        std::thread::spawn(move || {
+        self.rpc_execution_pool.spawn(move || {
             myself.check_term(args.term);
-
             let mut guard = raft.lock().unwrap();
             debug!("request_vote({:?})", args);
             // TODO: 修改投票规则，使用最后的命令而非简单地比较 term（2B）。
+            // TODO：This is buggy. fix it.
             let granted = guard.check_grant(args.candidate_id);
-
             info!(
                 "NO{} grant to NO{}? = {:?}",
                 guard.me, args.candidate_id, granted
             );
+            if granted {
+                guard.reset_election_timer()
+            }
             sx.send(RequestVoteReply {
                 term: guard.term,
                 vote_granted: granted,
             })
+                .unwrap_or_else(|args| {
+                    warn!(
+                        "RPC channel exception, RPC request_vote({:?}) won't be replied.",
+                        args
+                    )
+                });
         });
         box rx.map_err(|e| panic!("request vote: failed to execute: {}", e))
     }
@@ -581,13 +615,21 @@ impl RaftService for Node {
     fn append_entries(&self, req: AppendEntriesArgs) -> RpcFuture<AppendEntriesReply> {
         let (sx, rx) = futures::sync::oneshot::channel::<AppendEntriesReply>();
         let myself = self.clone();
-        std::thread::spawn(move || {
+        self.rpc_execution_pool.spawn(move || {
             myself.check_term(req.term);
-            myself.reset_timer();
+            if req.term >= myself.term() {
+                myself.reset_timer();
+            }
             sx.send(AppendEntriesReply {
                 term: myself.term(),
                 success: true,
             })
+                .unwrap_or_else(|req| {
+                    warn!(
+                        "RPC channel exception, RPC append_entries({:?}) won't be replied.",
+                        req
+                    )
+                });
         });
         box rx.map_err(|e| panic!("request vote: failed to execute: {}", e))
     }
