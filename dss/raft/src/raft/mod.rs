@@ -254,19 +254,28 @@ impl Raft {
     }
 
     fn self_info(&self) -> String {
-        format!("[(`{}`@term{}), {:?}]", self.me, self.term, self.current_role)
+        format!(
+            "[(`{}`@term{}), {:?}]",
+            self.me, self.term, self.current_role
+        )
     }
 
-    fn start<M>(&self, command: &M) -> Result<(u64, u64)>
+    fn make_log(&self, data: Vec<u8>) -> LogEntry {
+        LogEntry::new(data, self.term)
+    }
+
+    fn start<M>(&mut self, command: &M) -> Result<(u64, u64)>
     where
         M: labcodec::Message,
     {
-        let index = self.last_log_index() + 1;
-        let term = self.term;
         let is_leader = self.current_role == LEADER;
         let mut buf = vec![];
         info!("{} get command: {:?}", self.self_info(), command);
         labcodec::encode(command, &mut buf).map_err(Error::Encode)?;
+        let entry = self.make_log(buf);
+        self.log.push(entry);
+        let index = self.last_log_index();
+        let term = self.term;
         if is_leader {
             Ok((index, term))
         } else {
@@ -289,6 +298,7 @@ impl Raft {
 
         // user added.
         let _ = &self.apply_ch;
+        let _ = self.last_applied;
         let _ = &self.make_empty_append_entries();
     }
 }
@@ -364,6 +374,7 @@ impl Raft {
         }
     }
 
+    // TODO：有没有什么办法呢让这个函数短一些呐？
     fn transform_to_candidate(raft: Arc<Mutex<Self>>) {
         std::thread::spawn(move || {
             let mut guard = raft.lock().unwrap();
@@ -448,6 +459,8 @@ impl Raft {
         }
     }
 
+    // TODO: 在转换到 Leader 的时候应该发送空 AppendEntries。
+    // TODO：因此……将 SendAppendEntries 的逻辑抽离吧！
     fn transform_to_leader(raft: Arc<Mutex<Raft>>) {
         let mut guard = raft.lock().unwrap();
         guard.try_send_to_election_timer(Stop);
@@ -638,7 +651,7 @@ impl Node {
         // Your code here.
         // Example:
         // self.raft.start(command)
-        let guard = self.raft.lock().unwrap();
+        let mut guard = self.raft.lock().unwrap();
         guard.start(command)
     }
 
@@ -694,6 +707,18 @@ impl Node {
     fn check_term(&self, new_term: u64) -> bool {
         Raft::check_term(self.raft.clone(), new_term)
     }
+
+    /// This function will be executed in a real thread, don't worry even it blocks.
+    fn do_append_entries(&self, args: &AppendEntriesArgs) -> AppendEntriesReply {
+        self.check_term(args.term);
+        if args.term >= self.term() {
+            self.reset_timer()
+        }
+        AppendEntriesReply {
+            term: self.term(),
+            success: true,
+        }
+    }
 }
 
 impl RaftService for Node {
@@ -736,14 +761,7 @@ impl RaftService for Node {
         let (sx, rx) = futures::sync::oneshot::channel::<AppendEntriesReply>();
         let myself = self.clone();
         self.rpc_execution_pool.spawn(move || {
-            myself.check_term(req.term);
-            if req.term >= myself.term() {
-                myself.reset_timer();
-            }
-            sx.send(AppendEntriesReply {
-                term: myself.term(),
-                success: true,
-            })
+            sx.send(myself.do_append_entries(&req))
                 .unwrap_or_else(|req| {
                     warn!(
                         "RPC channel exception, RPC append_entries({:?}) won't be replied.",
