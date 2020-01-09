@@ -18,6 +18,11 @@ message RequestVoteReply {
 
 message AppendEntriesArgs {
     uint64 term = 1;
+    uint64 leaderId = 2;
+    uint64 prevLogIndex = 3;
+    uint64 prevLogTerm = 4;
+    repeated bytes entries = 5;
+    uint64 leaderCommit = 6;
 }
 
 message AppendEntriesReply {
