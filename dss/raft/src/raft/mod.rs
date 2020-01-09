@@ -11,7 +11,7 @@ use rand::Rng;
 use labrpc::RpcFuture;
 
 use crate::proto::raftpb::*;
-use crate::raft::RaftRole::{CANDIDATE, FOLLOWER, LEADER};
+use crate::raft::RaftRole::{Candidate, Follower, Leader};
 use crate::raft::TimerMsg::Stop;
 
 use self::errors::*;
@@ -23,6 +23,8 @@ pub mod errors;
 pub mod persister;
 #[cfg(test)]
 mod tests;
+
+static PLACE_HOLDER: [u8; 4] = [0xcau8, 0xfeu8, 0xbau8, 0xbeu8];
 
 pub struct ApplyMsg {
     pub command_valid: bool,
@@ -50,9 +52,9 @@ impl State {
 
 #[derive(Clone, Eq, PartialEq, Copy, Debug)]
 enum RaftRole {
-    LEADER = 0,
-    CANDIDATE = 1,
-    FOLLOWER = 2,
+    Leader = 0,
+    Candidate = 1,
+    Follower = 2,
 }
 
 // A single Raft peer.
@@ -84,7 +86,7 @@ pub struct Raft {
     leader_state: Option<LeaderState>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct LogEntry {
     data: Vec<u8>,
     term: u64,
@@ -134,16 +136,11 @@ impl Raft {
             me,
             state: Arc::default(),
             apply_ch,
-            current_role: FOLLOWER,
+            current_role: Follower,
             term: 0,
             voted_for: None,
             election_timer: None,
-            log: vec![LogEntry::new(
-                "Since Raft requires log index begin from 1, there is a placeholder."
-                    .bytes()
-                    .collect(),
-                0,
-            )],
+            log: vec![LogEntry::new(Vec::from(&PLACE_HOLDER[..]), 0)],
             commit_index: 0,
             last_applied: 0,
             leader_state: None,
@@ -264,23 +261,32 @@ impl Raft {
         LogEntry::new(data, self.term)
     }
 
+    fn log_info(&self) -> String {
+        format!("{:?}", self.log.iter().map(|e| e.term).collect::<Vec<_>>())
+    }
+
     fn start<M>(&mut self, command: &M) -> Result<(u64, u64)>
     where
         M: labcodec::Message,
     {
-        let is_leader = self.current_role == LEADER;
+        let is_leader = self.current_role == Leader;
+        if !is_leader {
+            return Err(Error::NotLeader);
+        }
+
         let mut buf = vec![];
-        info!("{} get command: {:?}", self.self_info(), command);
+        info!(
+            "{} get command: {:?}(logs = {:?})",
+            self.self_info(),
+            command,
+            self.log_info()
+        );
         labcodec::encode(command, &mut buf).map_err(Error::Encode)?;
         let entry = self.make_log(buf);
         self.log.push(entry);
         let index = self.last_log_index();
         let term = self.term;
-        if is_leader {
-            Ok((index, term))
-        } else {
-            Err(Error::NotLeader)
-        }
+        Ok((index, term))
     }
 }
 
@@ -356,7 +362,66 @@ fn select<T: Send + 'static>(channels: impl Iterator<Item=Receiver<T>>) -> Recei
     rx
 }
 
+impl Into<LogEntry> for append_entries_args::Entry {
+    fn into(self) -> LogEntry {
+        LogEntry::new(self.command, self.term)
+    }
+}
+
+impl Into<append_entries_args::Entry> for LogEntry {
+    fn into(self) -> append_entries_args::Entry {
+        append_entries_args::Entry {
+            command: self.data,
+            term: self.term,
+        }
+    }
+}
+
+fn mid<T: Ord>(items: &mut [T]) -> &T {
+    items.sort();
+    let mid = (items.len() - 1) / 2;
+    &items[mid]
+}
+
 impl Raft {
+    fn next_commit_index(&self) -> u64 {
+        if self.current_role != Leader {
+            panic!("fetal: try to fetch leader state on non-leader node");
+        }
+        let leader_state = self
+            .leader_state
+            .as_ref()
+            .expect("fetal: leader node does'nt has leader state.");
+        let mut valid_state = leader_state.match_index.clone();
+        valid_state.remove(self.me);
+        *mid(valid_state.as_mut_slice())
+    }
+
+    fn make_apply_message(&self, index: u64) -> ApplyMsg {
+        let log = &self.log[index as usize];
+        ApplyMsg {
+            command_valid: true,
+            command: log.data.clone(),
+            command_index: index,
+        }
+    }
+
+    fn commit_log_until(&mut self, next: u64) {
+        for i in (self.commit_index + 1)..=next {
+            self.apply_ch
+                .unbounded_send(self.make_apply_message(i))
+                .expect("fetal: failed to send to apply ch.");
+        }
+        self.commit_index = next;
+    }
+
+    fn commit_logs(&mut self) {
+        let next = self.next_commit_index();
+        if next > self.commit_index {
+            self.commit_log_until(next);
+        }
+    }
+
     fn last_log_index(&self) -> u64 {
         self.log.len() as u64 - 1
     }
@@ -378,7 +443,7 @@ impl Raft {
     fn transform_to_candidate(raft: Arc<Mutex<Self>>) {
         std::thread::spawn(move || {
             let mut guard = raft.lock().unwrap();
-            guard.current_role = CANDIDATE;
+            guard.current_role = Candidate;
             guard.term += 1;
             let term_at_start = guard.term;
             let me = guard.me;
@@ -417,9 +482,9 @@ impl Raft {
                 // ensure that we didn't start another term of election...
                 && guard.term == term_at_start
                 // ensure that there isn't a leader...
-                && guard.current_role == CANDIDATE
+                && guard.current_role == Candidate
             {
-                guard.current_role = LEADER;
+                guard.current_role = Leader;
                 guard.stop_election_timer();
                 info!("NO{} is now the leader of term {}.", me, term_at_start);
                 drop(guard);
@@ -452,8 +517,8 @@ impl Raft {
             prev_log_term: self.log[next_index - 1].term,
             entries: self.log[next_index..]
                 .iter()
-                .map(|x| &x.data)
                 .cloned()
+                .map(Into::into)
                 .collect(),
             leader_commit: self.commit_index,
         }
@@ -461,36 +526,78 @@ impl Raft {
 
     // TODO: 在转换到 Leader 的时候应该发送空 AppendEntries。
     // TODO：因此……将 SendAppendEntries 的逻辑抽离吧！
-    fn transform_to_leader(raft: Arc<Mutex<Raft>>) {
-        let mut guard = raft.lock().unwrap();
+    fn transform_to_leader(raft_lock: Arc<Mutex<Raft>>) {
+        let mut guard = raft_lock.lock().unwrap();
         guard.try_send_to_election_timer(Stop);
         guard.leader_state = Some(LeaderState::from_raft(guard.deref()));
         drop(guard);
         loop {
-            let guard = raft.lock().unwrap();
-            if guard.current_role != LEADER {
+            let mut raft = raft_lock.lock().unwrap();
+            if raft.current_role != Leader {
                 break;
             }
-            let peer_len = guard.peers.len();
-            let me = guard.me;
-            drop(guard);
+            let peer_len = raft.peers.len();
+            let me = raft.me;
+            raft.commit_logs();
+
+            info!(
+                "{}: leader_state = {:?}",
+                raft.self_info(),
+                raft.leader_state
+            );
+            drop(raft);
+            // TODO: 使用 rayon 来完成并行发送请求！
             (0..peer_len).filter(|i| *i != me).for_each(|i| {
-                let raft = raft.clone();
+                let raft_lock = raft_lock.clone();
                 std::thread::spawn(move || {
-                    let guard = raft.lock().unwrap();
-                    let result = guard.send_append_entries(i, &guard.make_append_entries_for(i));
-                    match result.recv_timeout(Duration::from_millis(100)) {
-                        Err(e) => debug!(
-                            "NO{} failed to receive append_entries result to NO{} because: {}",
-                            me, i, e
+                    let raft = raft_lock.lock().unwrap();
+                    let request = raft.make_append_entries_for(i);
+                    let result = raft.send_append_entries(i, &request);
+                    let self_info = raft.self_info();
+                    drop(raft);
+                    // TODO: 实现 Leader 收到回应之后的状态转换。
+                    match result.recv_timeout(Duration::from_millis(1000)) {
+                        Err(_e) => debug!(
+                            "{} failed to receive append_entries result to NO{} because timeout.",
+                            self_info, i
                         ),
-                        Ok(info) => debug!("append_entries success! get return value: {:?}", info),
+                        Ok(Err(e)) => {
+                            warn!(
+                                "{} Failed to get result of append_entries, because: {}",
+                                self_info, e
+                            );
+                        }
+                        Ok(Ok(info)) => {
+                            let mut raft = raft_lock.lock().unwrap();
+                            let raft_info = raft.self_info();
+                            info!(
+                                "[{}] append_entries({:?}) => {:?}",
+                                raft_info, request, info
+                            );
+                            if raft.current_role != Leader {
+                                return;
+                            }
+                            let leader_state = raft.leader_state.as_mut().unwrap_or_else(|| {
+                                panic!(
+                                    "{} fetal: Handling append_entries without leader_state.",
+                                    raft_info
+                                )
+                            });
+                            if info.success {
+                                let matching =
+                                    request.prev_log_index + request.entries.len() as u64;
+                                leader_state.match_index[i] = matching;
+                                leader_state.next_index[i] = matching + 1;
+                            } else {
+                                leader_state.next_index[i] -= 1;
+                            }
+                        }
                     };
                 });
             });
             sleep(Duration::from_millis(100));
         }
-        let mut guard = raft.lock().unwrap();
+        let mut guard = raft_lock.lock().unwrap();
         guard.leader_state = None;
     }
 
@@ -512,7 +619,7 @@ impl Raft {
     }
 
     fn reset_election_timer(&self) {
-        if self.current_role == LEADER {
+        if self.current_role == Leader {
             warn!(
                 "NO{} Trying to reset election timer on a leader node.",
                 self.me
@@ -551,7 +658,7 @@ impl Raft {
         let mut guard = raft.lock().unwrap();
         guard.try_send_to_election_timer(Stop);
         guard.election_timer = Some(sx.clone());
-        guard.current_role = FOLLOWER;
+        guard.current_role = Follower;
         std::thread::spawn({
             let raft = raft.clone();
             move || loop {
@@ -562,7 +669,7 @@ impl Raft {
                     }
                     Ok(TimerMsg::Reset) => debug!("Reset election timeout!"),
                     Ok(TimerMsg::Stop) => {
-                        info!("stop signal received, the timer will stop.");
+                        debug!("stop signal received, the timer will stop.");
                         return;
                     }
                 }
@@ -588,8 +695,8 @@ impl Raft {
         let mut guard = raft.lock().unwrap();
         if new_term >= guard.term {
             let old_term = guard.term;
-            let leader_to_follower = guard.current_role == LEADER && new_term > old_term;
-            let candidate_to_follower = guard.current_role == CANDIDATE;
+            let leader_to_follower = guard.current_role == Leader && new_term > old_term;
+            let candidate_to_follower = guard.current_role == Candidate;
             guard.update_term(new_term);
             if leader_to_follower || candidate_to_follower {
                 info!("NO{}(currentTerm = {}, state = {:?}), get RPC(term = {}), he eventually has known, he is a follower now.",
@@ -603,6 +710,17 @@ impl Raft {
             }
         }
         false
+    }
+
+    fn check_and_trunc_log(&mut self, base: usize, entries: &[LogEntry]) -> usize {
+        for (offset, remote) in entries.iter().enumerate() {
+            let local = self.log.get(base + offset);
+            if local.is_none() || local.unwrap().term != remote.term {
+                self.log.truncate(base + offset);
+                return offset;
+            }
+        }
+        entries.len()
     }
 }
 
@@ -670,7 +788,7 @@ impl Node {
         // Example:
         // self.raft.leader_id == self.id
         let guard = self.raft.lock().unwrap();
-        guard.current_role == LEADER
+        guard.current_role == Leader
     }
 
     /// The current state of this peer.
@@ -697,7 +815,7 @@ impl Node {
     pub fn kill(&self) {
         let mut guard = self.raft.lock().unwrap();
         // stop leader timer.
-        guard.current_role = FOLLOWER;
+        guard.current_role = Follower;
         // stop follower timer.
         guard.try_send_to_election_timer(Stop);
         info!("NO{} is dead.", guard.me);
@@ -709,14 +827,54 @@ impl Node {
     }
 
     /// This function will be executed in a real thread, don't worry even it blocks.
-    fn do_append_entries(&self, args: &AppendEntriesArgs) -> AppendEntriesReply {
+    fn do_append_entries_judge(&self, mut args: AppendEntriesArgs) -> bool {
+        // pre-handle: check term.
         self.check_term(args.term);
-        if args.term >= self.term() {
-            self.reset_timer()
+
+        // 1. Reply false if term < currentTerm.
+        if args.term < self.term() {
+            return false;
         }
+
+        // this message is sent by a valid leader, reset election timer.
+        self.reset_timer();
+
+        // 2. Reply false if log doesn't match.
+        let mut raft = self.raft.lock().unwrap();
+        let entry = raft.log.get(args.prev_log_index as usize);
+        let term_matches = entry.map(|e| e.term == args.prev_log_term).unwrap_or(false);
+        if !term_matches {
+            return false;
+        }
+
+        // 3. Test matching. If conflict, truncate the log.
+        let base = args.prev_log_index as usize + 1;
+        let entries: Vec<LogEntry> = std::mem::replace(&mut args.entries, vec![])
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        let new_log_starts_at = raft.check_and_trunc_log(base, &entries);
+
+        // 4. Append any new entries.
+        for entry in entries.into_iter().skip(new_log_starts_at) {
+            raft.log.push(entry)
+        }
+
+        // 5. Set commit index.
+        if args.leader_commit > raft.commit_index {
+            let next = Ord::min(args.leader_commit, raft.last_log_index());
+            raft.commit_log_until(next);
+        }
+
+        true
+    }
+
+    /// This function will be executed in a real thread, don't worry even it blocks.
+    fn do_append_entries(&self, args: AppendEntriesArgs) -> AppendEntriesReply {
+        let success = self.do_append_entries_judge(args);
         AppendEntriesReply {
             term: self.term(),
-            success: true,
+            success,
         }
     }
 }
@@ -733,13 +891,14 @@ impl RaftService for Node {
             myself.check_term(args.term);
             let mut guard = raft.lock().unwrap();
             debug!("request_vote({:?})", args);
-            // TODO: 修改投票规则，使用最后的命令而非简单地比较 term（2B）。
-            // TODO：This is buggy. fix it.
             let granted = guard.check_grant(&args);
             info!(
-                "NO{} grant to NO{}({:?})? = {:?}",
-                guard.me, args.candidate_id, args, granted
+                "{} grant to RV({:?})? = {}",
+                guard.self_info(),
+                args,
+                granted
             );
+            // TODO: 这儿似乎有一些风险，如果发生活锁，那么请来看看这里。
             if granted {
                 guard.reset_election_timer()
             }
@@ -761,7 +920,7 @@ impl RaftService for Node {
         let (sx, rx) = futures::sync::oneshot::channel::<AppendEntriesReply>();
         let myself = self.clone();
         self.rpc_execution_pool.spawn(move || {
-            sx.send(myself.do_append_entries(&req))
+            sx.send(myself.do_append_entries(req))
                 .unwrap_or_else(|req| {
                     warn!(
                         "RPC channel exception, RPC append_entries({:?}) won't be replied.",

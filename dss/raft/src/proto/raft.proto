@@ -21,7 +21,11 @@ message AppendEntriesArgs {
     uint64 leaderId = 2;
     uint64 prevLogIndex = 3;
     uint64 prevLogTerm = 4;
-    repeated bytes entries = 5;
+    message Entry {
+        bytes command = 1;
+        uint64 term = 2;
+    }
+    repeated Entry entries = 5;
     uint64 leaderCommit = 6;
 }
 
