@@ -379,6 +379,7 @@ impl Into<append_entries_args::Entry> for LogEntry {
 
 fn mid<T: Ord>(items: &mut [T]) -> &T {
     items.sort();
+    items.reverse();
     let mid = (items.len() - 1) / 2;
     &items[mid]
 }
