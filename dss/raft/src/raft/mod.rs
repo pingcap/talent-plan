@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Receiver, sync_channel, SyncSender};
@@ -377,9 +378,12 @@ impl Into<append_entries_args::Entry> for LogEntry {
     }
 }
 
+fn reverse_order<T: Ord>(a: &T, b: &T) -> Ordering {
+    b.cmp(a)
+}
+
 fn mid<T: Ord>(items: &mut [T]) -> &T {
-    items.sort();
-    items.reverse();
+    items.sort_by(reverse_order);
     let mid = (items.len() - 1) / 2;
     &items[mid]
 }
