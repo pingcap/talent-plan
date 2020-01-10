@@ -507,6 +507,40 @@ impl Raft {
         });
     }
 
+    fn handle_append_entries(
+        &mut self,
+        request: &AppendEntriesArgs,
+        response: &AppendEntriesReply,
+        follower: usize,
+    ) {
+        let raft_info = self.self_info();
+        info!(
+            "[{}] append_entries({:?}) => {:?}",
+            raft_info, request, response
+        );
+        if self.current_role != Leader {
+            return;
+        }
+        let leader_state = self.leader_state.as_mut().unwrap_or_else(|| {
+            panic!(
+                "{} fetal: Handling append_entries without leader_state.",
+                raft_info
+            )
+        });
+        if response.success {
+            let matching = request.prev_log_index + request.entries.len() as u64;
+            // 防止返回乱序……
+            let new_match_index = Ord::max(matching, leader_state.match_index[follower]);
+            leader_state.match_index[follower] = new_match_index;
+            leader_state.next_index[follower] = new_match_index + 1;
+        } else {
+            leader_state.next_index[follower] = leader_state.next_index[follower]
+                .checked_sub(12)
+                .map(|x| if x == 0 { 1 } else { x })
+                .unwrap_or(1);
+        }
+    }
+
     fn make_empty_append_entries(&self) -> AppendEntriesArgs {
         AppendEntriesArgs {
             term: self.term,
@@ -553,66 +587,39 @@ impl Raft {
             let peer_len = raft.peers.len();
             let me = raft.me;
             raft.leader_commit_logs();
+            let raft_info = raft.self_info();
 
-            info!(
-                "{}: leader_state = {:?}",
-                raft.self_info(),
-                raft.leader_state
-            );
-            (0..peer_len).filter(|i| *i != me).for_each(|i| {
-                let raft_lock = raft_lock.clone();
-                raft.leader_execution_pool.spawn(move || {
-                    let raft = raft_lock.lock().unwrap();
-                    if raft.current_role != Leader {
-                        return;
-                    }
+            info!("{}: leader_state = {:?}", raft_info, raft.leader_state);
+            (0..peer_len)
+                .filter(|i| *i != me)
+                .map(|i| {
                     let request = raft.make_append_entries_for(i);
-                    let result = raft.send_append_entries(i, &request);
-                    let self_info = raft.self_info();
-                    drop(raft);
-                    // TODO: 实现 Leader 收到回应之后的状态转换。
-                    match result.recv_timeout(Duration::from_millis(200)) {
-                        Err(_e) => debug!(
-                            "{} failed to receive append_entries result to NO{} because timeout.",
-                            self_info, i
+                    let response = raft.send_append_entries(i, &request);
+                    (i, request, response)
+                })
+                .for_each(|(i, request, result)| {
+                    let raft_lock = raft_lock.clone();
+                    let raft_info = raft_info.clone();
+                    raft.leader_execution_pool.spawn(move || {
+                        // TODO: 实现 Leader 收到回应之后的状态转换。
+                        match result.recv_timeout(Duration::from_millis(200)) {
+                            Err(_e) => debug!(
+                                "{} failed to receive append_entries result to NO{} because timeout.",
+                                raft_info, i
                         ),
-                        Ok(Err(e)) => {
-                            warn!(
-                                "{} Failed to get result of append_entries, because: {}",
-                                self_info, e
-                            );
-                        }
-                        Ok(Ok(info)) => {
-                            let mut raft = raft_lock.lock().unwrap();
-                            let raft_info = raft.self_info();
-                            info!(
-                                "[{}] append_entries({:?}) => {:?}",
-                                raft_info, request, info
-                            );
-                            if raft.current_role != Leader {
-                                return;
+                            Ok(Err(e)) => {
+                                warn!(
+                                    "{} Failed to get result of append_entries, because: {}",
+                                    raft_info, e
+                                );
                             }
-                            let leader_state = raft.leader_state.as_mut().unwrap_or_else(|| {
-                                panic!(
-                                    "{} fetal: Handling append_entries without leader_state.",
-                                    raft_info
-                                )
-                            });
-                            if info.success {
-                                let matching =
-                                    request.prev_log_index + request.entries.len() as u64;
-                                leader_state.match_index[i] = matching;
-                                leader_state.next_index[i] = matching + 1;
-                            } else {
-                                leader_state.next_index[i] = leader_state.next_index[i]
-                                    .checked_sub(12)
-                                    .map(|x| if x == 0 { 1 } else { x })
-                                    .unwrap_or(1);
+                            Ok(Ok(info)) => {
+                                let mut raft = raft_lock.lock().unwrap();
+                                raft.handle_append_entries(&request, &info, i);
                             }
-                        }
-                    };
+                        };
+                    });
                 });
-            });
             drop(raft);
             sleep(Duration::from_millis(100));
         }
