@@ -10,6 +10,7 @@ use futures::sync::mpsc::UnboundedSender;
 use rand::Rng;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 
+use labcodec::{decode, encode};
 use labrpc::RpcFuture;
 
 use crate::proto::raftpb::*;
@@ -148,8 +149,8 @@ pub struct Raft {
 
 #[derive(Clone, Debug)]
 struct LogEntry {
-    data: Vec<u8>,
-    term: u64,
+    pub data: Vec<u8>,
+    pub term: u64,
 }
 
 impl LogEntry {
@@ -169,6 +170,16 @@ impl LeaderState {
         LeaderState {
             next_index: vec![raft.last_log_index() + 1; raft.peers.len()],
             match_index: vec![0; raft.peers.len()],
+        }
+    }
+}
+
+impl PersistedStatus {
+    fn by_raft(raft: &Raft) -> Self {
+        PersistedStatus {
+            current_term: raft.term,
+            voted_for: raft.voted_for.iter().map(|x| *x as u64).collect(),
+            logs: raft.log.iter().cloned().map(Into::into).collect(),
         }
     }
 }
@@ -229,14 +240,29 @@ impl Raft {
         // labcodec::encode(&self.xxx, &mut data).unwrap();
         // labcodec::encode(&self.yyy, &mut data).unwrap();
         // self.persister.save_raft_state(data);
+        let persisted = PersistedStatus::by_raft(self);
+        let mut buf = vec![];
+        encode(&persisted, &mut buf).unwrap();
+        self.persister.save_raft_state(buf);
     }
 
     /// restore previously persisted state.
     fn restore(&mut self, data: &[u8]) {
         if data.is_empty() {
-            // bootstrap without any state?
+            info!("{} bootstrap without any state!", self.self_info());
             return;
         }
+        match decode::<PersistedStatus>(data) {
+            Ok(state) => {
+                info!("{} restored to: {:?}", self.self_info(), state);
+                self.term = state.current_term;
+                self.log = state.logs.into_iter().map(Into::into).collect();
+                self.voted_for = state.voted_for.first().map(|x| *x as usize);
+            }
+            Err(e) => {
+                panic!("Failed to decode: {:?}", e);
+            }
+        };
         // Your code here (2C).
         // Example:
         // match labcodec::decode(data) {
@@ -352,6 +378,8 @@ impl Raft {
         labcodec::encode(command, &mut buf).map_err(Error::Encode)?;
         let entry = self.make_log(buf);
         self.log.push(entry);
+        self.persist();
+
         let index = self.last_log_index();
         let term = self.term;
         Ok((index, term))
@@ -428,15 +456,15 @@ fn select<T: Send + 'static>(channels: impl Iterator<Item=Receiver<T>>) -> Recei
     rx
 }
 
-impl Into<LogEntry> for append_entries_args::Entry {
+impl Into<LogEntry> for Entry {
     fn into(self) -> LogEntry {
         LogEntry::new(self.command, self.term)
     }
 }
 
-impl Into<append_entries_args::Entry> for LogEntry {
-    fn into(self) -> append_entries_args::Entry {
-        append_entries_args::Entry {
+impl Into<Entry> for LogEntry {
+    fn into(self) -> Entry {
+        Entry {
             command: self.data,
             term: self.term,
         }
@@ -516,11 +544,13 @@ impl Raft {
         std::thread::spawn(move || {
             let mut guard = raft.lock().unwrap();
             guard.current_role = Candidate;
-            guard.term += 1;
+            // make the borrow checker happy.
+            let old_term = guard.term;
+            guard.update_term(old_term + 1);
             let term_at_start = guard.term;
             let me = guard.me;
             info!("NO{} started a new election of term {}.", me, guard.term);
-            guard.voted_for = Some(me);
+            guard.vote_for(me);
             let peer_count = guard.peers.len();
             let send_result = (0..peer_count)
                 .filter(|i| *i != me)
@@ -760,6 +790,7 @@ impl Raft {
         if new_term != self.term {
             info!("NO{} is now set to term {}", self.me, new_term);
             self.voted_for = None;
+            self.persist();
         }
         self.term = new_term;
     }
@@ -832,6 +863,20 @@ impl Raft {
             }
         }
         entries.len()
+    }
+
+    fn vote_for(&mut self, candidate: usize) {
+        let voted = self.voted_for.map(|x| candidate != x).unwrap_or(false);
+        if voted {
+            warn!(
+                "{} trying to vote {}, but it has voted for {}",
+                self.self_info(),
+                candidate,
+                self.voted_for.unwrap()
+            )
+        }
+        self.voted_for = Some(candidate);
+        self.persist();
     }
 }
 
@@ -980,6 +1025,9 @@ impl Node {
             raft.apply_logs();
         }
 
+        // Anyway, persist it.
+        raft.persist();
+
         true
     }
 
@@ -1009,7 +1057,7 @@ impl Node {
             // NOTE：即便没有设置投票者……（就是说，一个节点可以在一个 term 中投多个票）
             // 我们仍旧可以几乎所有情况下通过 2A 和 2B 的所有测试……
             // 为什么没有发生脑裂呢……？
-            raft.voted_for = Some(args.candidate_id as usize);
+            raft.vote_for(args.candidate_id as usize)
         }
         RequestVoteReply {
             term: raft.term,

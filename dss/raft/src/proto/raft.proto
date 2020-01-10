@@ -16,15 +16,16 @@ message RequestVoteReply {
     bool voteGranted = 2;
 }
 
+message Entry {
+    bytes command = 1;
+    uint64 term = 2;
+}
+
 message AppendEntriesArgs {
     uint64 term = 1;
     uint64 leaderId = 2;
     uint64 prevLogIndex = 3;
     uint64 prevLogTerm = 4;
-    message Entry {
-        bytes command = 1;
-        uint64 term = 2;
-    }
     repeated Entry entries = 5;
     uint64 leaderCommit = 6;
 }
@@ -32,4 +33,10 @@ message AppendEntriesArgs {
 message AppendEntriesReply {
     uint64 term = 1;
     bool success = 2;
+}
+
+message PersistedStatus {
+    uint64 current_term = 1;
+    repeated uint64 voted_for = 2;
+    repeated Entry logs = 3;
 }
