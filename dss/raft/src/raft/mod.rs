@@ -8,6 +8,7 @@ use std::time::Duration;
 use futures::Future;
 use futures::sync::mpsc::UnboundedSender;
 use rand::Rng;
+use rayon::{ThreadPool, ThreadPoolBuilder};
 
 use labrpc::RpcFuture;
 
@@ -25,7 +26,7 @@ pub mod persister;
 #[cfg(test)]
 mod tests;
 
-static PLACE_HOLDER: [u8; 4] = [0xcau8, 0xfeu8, 0xbau8, 0xbeu8];
+static PLACE_HOLDER: [u8; 4] = [0xca, 0xfe, 0xba, 0xbe];
 
 pub struct ApplyMsg {
     pub command_valid: bool,
@@ -85,6 +86,7 @@ pub struct Raft {
 
     // leader state
     leader_state: Option<LeaderState>,
+    leader_execution_pool: ThreadPool,
 }
 
 #[derive(Clone, Debug)]
@@ -131,6 +133,7 @@ impl Raft {
     ) -> Raft {
         let raft_state = persister.raft_state();
         // Your initialization code here (2A, 2B, 2C).
+        let peer_count = peers.len();
         let mut rf = Raft {
             peers,
             persister,
@@ -145,6 +148,11 @@ impl Raft {
             commit_index: 0,
             last_applied: 0,
             leader_state: None,
+            leader_execution_pool: ThreadPoolBuilder::new()
+                .thread_name(move |n| format!("[`{}`] leader execution worker ({})", me, n))
+                .num_threads(peer_count * 2)
+                .build()
+                .unwrap(),
         };
 
         // initialize from state persisted before a crash
@@ -396,7 +404,7 @@ impl Raft {
         let leader_state = self
             .leader_state
             .as_ref()
-            .expect("fetal: leader node does'nt has leader state.");
+            .expect("fetal: leader node does'nt have leader state.");
         let mut valid_state = leader_state.match_index.clone();
         valid_state.remove(self.me);
         *mid(valid_state.as_mut_slice())
@@ -411,19 +419,19 @@ impl Raft {
         }
     }
 
-    fn commit_log_until(&mut self, next: u64) {
-        for i in (self.commit_index + 1)..=next {
+    fn apply_logs(&mut self) {
+        for i in (self.last_applied + 1)..=(self.commit_index) {
             self.apply_ch
                 .unbounded_send(self.make_apply_message(i))
                 .expect("fetal: failed to send to apply ch.");
         }
-        self.commit_index = next;
     }
 
-    fn commit_logs(&mut self) {
+    fn leader_commit_logs(&mut self) {
         let next = self.next_commit_index();
         if next > self.commit_index {
-            self.commit_log_until(next);
+            self.commit_index = next;
+            self.apply_logs();
         }
     }
 
@@ -444,7 +452,8 @@ impl Raft {
         }
     }
 
-    // TODO：有没有什么办法呢让这个函数短一些呐？
+    // TODO: 错综复杂的 Mutex 获取、释放关系……贸然重构或许会有些危险……
+    // TODO：这种方式一开始就是 error-prone 的吗？
     fn transform_to_candidate(raft: Arc<Mutex<Self>>) {
         std::thread::spawn(move || {
             let mut guard = raft.lock().unwrap();
@@ -460,9 +469,9 @@ impl Raft {
                 .map(|i| guard.send_request_vote(i, &guard.make_request_vote_args()))
                 .collect::<Vec<Receiver<_>>>();
             drop(guard);
+            let data_channel = select(send_result.into_iter());
 
             let mut vote_count = 1;
-            let data_channel = select(send_result.into_iter());
             while let Ok(result) = data_channel.recv_timeout(Duration::from_millis(300)) {
                 if result.is_err() {
                     continue;
@@ -543,25 +552,26 @@ impl Raft {
             }
             let peer_len = raft.peers.len();
             let me = raft.me;
-            raft.commit_logs();
+            raft.leader_commit_logs();
 
             info!(
                 "{}: leader_state = {:?}",
                 raft.self_info(),
                 raft.leader_state
             );
-            drop(raft);
-            // TODO: 使用 rayon 来完成并行发送请求！
             (0..peer_len).filter(|i| *i != me).for_each(|i| {
                 let raft_lock = raft_lock.clone();
-                std::thread::spawn(move || {
+                raft.leader_execution_pool.spawn(move || {
                     let raft = raft_lock.lock().unwrap();
+                    if raft.current_role != Leader {
+                        return;
+                    }
                     let request = raft.make_append_entries_for(i);
                     let result = raft.send_append_entries(i, &request);
                     let self_info = raft.self_info();
                     drop(raft);
                     // TODO: 实现 Leader 收到回应之后的状态转换。
-                    match result.recv_timeout(Duration::from_millis(1000)) {
+                    match result.recv_timeout(Duration::from_millis(200)) {
                         Err(_e) => debug!(
                             "{} failed to receive append_entries result to NO{} because timeout.",
                             self_info, i
@@ -594,12 +604,16 @@ impl Raft {
                                 leader_state.match_index[i] = matching;
                                 leader_state.next_index[i] = matching + 1;
                             } else {
-                                leader_state.next_index[i] -= 1;
+                                leader_state.next_index[i] = leader_state.next_index[i]
+                                    .checked_sub(12)
+                                    .map(|x| if x == 0 { 1 } else { x })
+                                    .unwrap_or(1);
                             }
                         }
                     };
                 });
             });
+            drop(raft);
             sleep(Duration::from_millis(100));
         }
         let mut guard = raft_lock.lock().unwrap();
@@ -868,7 +882,8 @@ impl Node {
         // 5. Set commit index.
         if args.leader_commit > raft.commit_index {
             let next = Ord::min(args.leader_commit, raft.last_log_index());
-            raft.commit_log_until(next);
+            raft.commit_index = next;
+            raft.apply_logs();
         }
 
         true
