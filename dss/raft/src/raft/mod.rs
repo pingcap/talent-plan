@@ -28,6 +28,32 @@ mod tests;
 
 static PLACE_HOLDER: [u8; 4] = [0xca, 0xfe, 0xba, 0xbe];
 
+/// Some additional configuration options of Raft.
+struct RaftConfig {
+    /// Depends how often the leader sends append_entries during idle periods.
+    leader_append_entries_delay: Duration,
+    /// Tolerance for high latency.
+    /// The higher this value, the higher the probability of receiving an append_entries response in a high-latency network.
+    /// However, in order to prevent IO from blocking new requests, more threads will be started.
+    latency_tolerance_factor: f64,
+}
+
+impl RaftConfig {
+    fn get_timeout(&self) -> Duration {
+        self.leader_append_entries_delay
+            .mul_f64(self.latency_tolerance_factor)
+    }
+}
+
+impl Default for RaftConfig {
+    fn default() -> Self {
+        RaftConfig {
+            leader_append_entries_delay: Duration::from_millis(100),
+            latency_tolerance_factor: 2.0,
+        }
+    }
+}
+
 pub struct ApplyMsg {
     pub command_valid: bool,
     pub command: Vec<u8>,
@@ -52,7 +78,7 @@ impl State {
     }
 }
 
-struct DelayedAppendEntriesRequest {
+struct SentAppendEntriesRequest {
     follower: usize,
     request: AppendEntriesArgs,
     response: Receiver<Result<AppendEntriesReply>>,
@@ -63,7 +89,7 @@ From<(
     usize,
     AppendEntriesArgs,
     Receiver<Result<AppendEntriesReply>>,
-)> for DelayedAppendEntriesRequest
+)> for SentAppendEntriesRequest
 {
     fn from(
         origin: (
@@ -72,7 +98,7 @@ From<(
             Receiver<Result<AppendEntriesReply>>,
         ),
     ) -> Self {
-        DelayedAppendEntriesRequest {
+        SentAppendEntriesRequest {
             follower: origin.0,
             request: origin.1,
             response: origin.2,
@@ -115,6 +141,9 @@ pub struct Raft {
     // leader state
     leader_state: Option<LeaderState>,
     leader_execution_pool: ThreadPool,
+
+    // misc
+    extra: RaftConfig,
 }
 
 #[derive(Clone, Debug)]
@@ -162,6 +191,7 @@ impl Raft {
         let raft_state = persister.raft_state();
         // Your initialization code here (2A, 2B, 2C).
         let peer_count = peers.len();
+        let config = RaftConfig::default();
         let mut rf = Raft {
             peers,
             persister,
@@ -178,9 +208,10 @@ impl Raft {
             leader_state: None,
             leader_execution_pool: ThreadPoolBuilder::new()
                 .thread_name(move |n| format!("[`{}`] leader execution worker ({})", me, n))
-                .num_threads(peer_count * 2)
+                .num_threads(((peer_count as f64) * config.latency_tolerance_factor) as usize)
                 .build()
                 .unwrap(),
+            extra: config,
         };
 
         // initialize from state persisted before a crash
@@ -303,8 +334,8 @@ impl Raft {
     }
 
     fn start<M>(&mut self, command: &M) -> Result<(u64, u64)>
-    where
-        M: labcodec::Message,
+        where
+            M: labcodec::Message,
     {
         let is_leader = self.current_role == Leader;
         if !is_leader {
@@ -455,7 +486,8 @@ impl Raft {
 
     fn leader_commit_logs(&mut self) {
         let next = self.next_commit_index();
-        if next > self.commit_index {
+        // 5.4.2: NEVER commit log entries from previous terms by counting replicas.
+        if next > self.commit_index && self.log[next as usize].term == self.term {
             self.commit_index = next;
             self.apply_logs();
         }
@@ -599,8 +631,30 @@ impl Raft {
         }
     }
 
-    // TODO: 在转换到 Leader 的时候应该发送空 AppendEntries。
-    // TODO：因此……将 SendAppendEntries 的逻辑抽离吧！
+    fn send_append_entries_requests<F>(&self, mut factory: F) -> Vec<SentAppendEntriesRequest>
+        where
+            F: FnMut(&Raft, usize) -> AppendEntriesArgs,
+    {
+        let peer_len = self.peers.len();
+        (0..peer_len)
+            .filter(|i| *i != self.me)
+            .map(|i| {
+                let request = factory(self, i);
+                let response = self.send_append_entries(i, &request);
+                SentAppendEntriesRequest::from((i, request, response))
+            })
+            .collect()
+    }
+
+    // ……我们用了与 paper 中不同的办法来发送 AppendEntries.
+    // 不是在收到客户端请求后"立即"发起 AppendEntries，
+    // 而是在发送心跳包的同时带上这些信息。
+    // 这样做能够在符合 5.3 的约定（只是……延迟会变高）的同时让实现更加简单一些。
+    // **似乎**可视化的 Raft 也是这样做的。
+    // 那些约定摘录如下：
+    // - Leader 需要在收到请求时将请求录入 log，并且并行地发送 AppendEntries 请求。
+    // - 如果 Follower 不可用，那么需要无限地重试。
+    // 唯一的问题是我们违反了 5.2 中关于心跳包的问题。
     fn transform_to_leader(raft_lock: Arc<Mutex<Raft>>) {
         let mut guard = raft_lock.lock().unwrap();
         guard.try_send_to_election_timer(Stop);
@@ -611,20 +665,12 @@ impl Raft {
             if raft.current_role != Leader {
                 break;
             }
-            let peer_len = raft.peers.len();
-            let me = raft.me;
             raft.leader_commit_logs();
             let raft_info = raft.self_info();
 
             info!("{}: leader_state = {:?}", raft_info, raft.leader_state);
-            let requests: Vec<_> = (0..peer_len)
-                .filter(|i| *i != me)
-                .map(|i| {
-                    let request = raft.make_append_entries_for(i);
-                    let response = raft.send_append_entries(i, &request);
-                    DelayedAppendEntriesRequest::from((i, request, response))
-                })
-                .collect();
+            let requests =
+                raft.send_append_entries_requests(|raft, i| raft.make_append_entries_for(i));
             drop(raft);
             Raft::spawn_append_entries_handler(raft_lock.clone(), requests.into_iter());
             sleep(Duration::from_millis(100));
@@ -635,29 +681,33 @@ impl Raft {
 
     fn spawn_append_entries_handler(
         raft_lock: Arc<Mutex<Self>>,
-        requests: impl Iterator<Item=DelayedAppendEntriesRequest>,
+        requests: impl Iterator<Item=SentAppendEntriesRequest>,
     ) {
         let raft = raft_lock.lock().unwrap();
         requests.for_each(|req| {
             let raft_info = raft.self_info();
             let raft_lock = raft_lock.clone();
-            raft.leader_execution_pool.spawn(move || {
-                match req.response.recv_timeout(Duration::from_millis(200)) {
-                    Err(_e) => debug!(
-                        "{} failed to receive append_entries result to NO{} because timeout.",
-                        raft_info, req.follower
-                    ),
-                    Ok(Err(e)) => {
-                        warn!(
-                            "{} Failed to get result of append_entries, because: {}",
-                            raft_info, e
-                        );
-                    }
-                    Ok(Ok(info)) => {
-                        let mut raft = raft_lock.lock().unwrap();
-                        raft.handle_append_entries(&req.request, &info, req.follower);
-                    }
-                };
+            let delay = raft.extra.get_timeout();
+            raft.leader_execution_pool.spawn({
+                let raft_lock = raft_lock.clone();
+                move || {
+                    match req.response.recv_timeout(delay) {
+                        Err(_e) => debug!(
+                            "{} failed to receive append_entries result to NO{} because timeout.",
+                            raft_info, req.follower
+                        ),
+                        Ok(Err(e)) => {
+                            warn!(
+                                "{} Failed to get result of append_entries, because: {}",
+                                raft_info, e
+                            );
+                        }
+                        Ok(Ok(info)) => {
+                            let mut raft = raft_lock.lock().unwrap();
+                            raft.handle_append_entries(&req.request, &info, req.follower);
+                        }
+                    };
+                }
             });
         });
     }
@@ -824,14 +874,14 @@ impl Node {
     ///
     /// This method must return without blocking on the raft.
     pub fn start<M>(&self, command: &M) -> Result<(u64, u64)>
-    where
-        M: labcodec::Message,
+        where
+            M: labcodec::Message,
     {
         // Your code here.
         // Example:
         // self.raft.start(command)
-        let mut guard = self.raft.lock().unwrap();
-        guard.start(command)
+        let mut raft = self.raft.lock().unwrap();
+        raft.start(command)
     }
 
     /// The current term of this peer.
@@ -887,6 +937,8 @@ impl Node {
         Raft::check_term(self.raft.clone(), new_term)
     }
 
+    /// The implementation of AppendEntries.
+    /// See the raft paper figure 2.
     /// This function will be executed in an OS thread, don't worry even it blocks.
     fn do_append_entries_judge(&self, mut args: AppendEntriesArgs) -> bool {
         // pre-handle: check term.
@@ -931,12 +983,37 @@ impl Node {
         true
     }
 
-    /// This function will be executed in a real thread, don't worry even it blocks.
+    /// This function will be executed in a OS thread, don't worry even it blocks.
     fn do_append_entries(&self, args: AppendEntriesArgs) -> AppendEntriesReply {
         let success = self.do_append_entries_judge(args);
         AppendEntriesReply {
             term: self.term(),
             success,
+        }
+    }
+
+    fn do_request_vote(&self, args: RequestVoteArgs) -> RequestVoteReply {
+        self.check_term(args.term);
+        let mut raft = self.raft.lock().unwrap();
+        debug!("request_vote({:?})", args);
+        let granted = raft.check_grant(&args);
+        info!(
+            "{} grant to RV({:?})? = {}",
+            raft.self_info(),
+            args,
+            granted
+        );
+        // TODO: 这儿似乎有一些风险，如果发生活锁，那么请来看看这里。
+        if granted {
+            raft.reset_election_timer();
+            // NOTE：即便没有设置投票者……（就是说，一个节点可以在一个 term 中投多个票）
+            // 我们仍旧可以几乎所有情况下通过 2A 和 2B 的所有测试……
+            // 为什么没有发生脑裂呢……？
+            raft.voted_for = Some(args.candidate_id as usize);
+        }
+        RequestVoteReply {
+            term: raft.term,
+            vote_granted: granted,
         }
     }
 }
@@ -945,32 +1022,12 @@ impl RaftService for Node {
     // example RequestVote RPC handler.
     //
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
+
     fn request_vote(&self, args: RequestVoteArgs) -> RpcFuture<RequestVoteReply> {
         let (sx, rx) = futures::sync::oneshot::channel::<RequestVoteReply>();
-        let raft = self.raft.clone();
         let myself = self.clone();
         self.rpc_execution_pool.spawn(move || {
-            myself.check_term(args.term);
-            let mut guard = raft.lock().unwrap();
-            debug!("request_vote({:?})", args);
-            let granted = guard.check_grant(&args);
-            info!(
-                "{} grant to RV({:?})? = {}",
-                guard.self_info(),
-                args,
-                granted
-            );
-            // TODO: 这儿似乎有一些风险，如果发生活锁，那么请来看看这里。
-            if granted {
-                guard.reset_election_timer();
-                // NOTE：即便没有设置投票者……（就是说，一个节点可以在一个 term 中投多个票）我们仍旧可以在绝大多数情况下通过 2A 和 2B 的所有测试……
-                // 为什么没有发生脑裂呢……？
-                guard.voted_for = Some(args.candidate_id as usize);
-            }
-            sx.send(RequestVoteReply {
-                term: guard.term,
-                vote_granted: granted,
-            })
+            sx.send(myself.do_request_vote(args))
                 .unwrap_or_else(|args| {
                     warn!(
                         "RPC channel exception, RPC request_vote({:?}) won't be replied.",
