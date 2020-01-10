@@ -52,6 +52,34 @@ impl State {
     }
 }
 
+struct DelayedAppendEntriesRequest {
+    follower: usize,
+    request: AppendEntriesArgs,
+    response: Receiver<Result<AppendEntriesReply>>,
+}
+
+impl
+From<(
+    usize,
+    AppendEntriesArgs,
+    Receiver<Result<AppendEntriesReply>>,
+)> for DelayedAppendEntriesRequest
+{
+    fn from(
+        origin: (
+            usize,
+            AppendEntriesArgs,
+            Receiver<Result<AppendEntriesReply>>,
+        ),
+    ) -> Self {
+        DelayedAppendEntriesRequest {
+            follower: origin.0,
+            request: origin.1,
+            response: origin.2,
+        }
+    }
+}
+
 #[derive(Clone, Eq, PartialEq, Copy, Debug)]
 enum RaftRole {
     Leader = 0,
@@ -312,8 +340,6 @@ impl Raft {
         let _ = &self.peers;
 
         // user added.
-        let _ = &self.apply_ch;
-        let _ = self.last_applied;
         let _ = &self.make_empty_append_entries();
     }
 }
@@ -507,6 +533,7 @@ impl Raft {
         });
     }
 
+    // TODO: 实现 Leader 收到回应之后的状态转换。
     fn handle_append_entries(
         &mut self,
         request: &AppendEntriesArgs,
@@ -590,41 +617,49 @@ impl Raft {
             let raft_info = raft.self_info();
 
             info!("{}: leader_state = {:?}", raft_info, raft.leader_state);
-            (0..peer_len)
+            let requests: Vec<_> = (0..peer_len)
                 .filter(|i| *i != me)
                 .map(|i| {
                     let request = raft.make_append_entries_for(i);
                     let response = raft.send_append_entries(i, &request);
-                    (i, request, response)
+                    DelayedAppendEntriesRequest::from((i, request, response))
                 })
-                .for_each(|(i, request, result)| {
-                    let raft_lock = raft_lock.clone();
-                    let raft_info = raft_info.clone();
-                    raft.leader_execution_pool.spawn(move || {
-                        // TODO: 实现 Leader 收到回应之后的状态转换。
-                        match result.recv_timeout(Duration::from_millis(200)) {
-                            Err(_e) => debug!(
-                                "{} failed to receive append_entries result to NO{} because timeout.",
-                                raft_info, i
-                        ),
-                            Ok(Err(e)) => {
-                                warn!(
-                                    "{} Failed to get result of append_entries, because: {}",
-                                    raft_info, e
-                                );
-                            }
-                            Ok(Ok(info)) => {
-                                let mut raft = raft_lock.lock().unwrap();
-                                raft.handle_append_entries(&request, &info, i);
-                            }
-                        };
-                    });
-                });
+                .collect();
             drop(raft);
+            Raft::spawn_append_entries_handler(raft_lock.clone(), requests.into_iter());
             sleep(Duration::from_millis(100));
         }
         let mut guard = raft_lock.lock().unwrap();
         guard.leader_state = None;
+    }
+
+    fn spawn_append_entries_handler(
+        raft_lock: Arc<Mutex<Self>>,
+        requests: impl Iterator<Item=DelayedAppendEntriesRequest>,
+    ) {
+        let raft = raft_lock.lock().unwrap();
+        requests.for_each(|req| {
+            let raft_info = raft.self_info();
+            let raft_lock = raft_lock.clone();
+            raft.leader_execution_pool.spawn(move || {
+                match req.response.recv_timeout(Duration::from_millis(200)) {
+                    Err(_e) => debug!(
+                        "{} failed to receive append_entries result to NO{} because timeout.",
+                        raft_info, req.follower
+                    ),
+                    Ok(Err(e)) => {
+                        warn!(
+                            "{} Failed to get result of append_entries, because: {}",
+                            raft_info, e
+                        );
+                    }
+                    Ok(Ok(info)) => {
+                        let mut raft = raft_lock.lock().unwrap();
+                        raft.handle_append_entries(&req.request, &info, req.follower);
+                    }
+                };
+            });
+        });
     }
 
     fn try_send_to_election_timer(&self, message: TimerMsg) -> bool {
@@ -852,7 +887,7 @@ impl Node {
         Raft::check_term(self.raft.clone(), new_term)
     }
 
-    /// This function will be executed in a real thread, don't worry even it blocks.
+    /// This function will be executed in an OS thread, don't worry even it blocks.
     fn do_append_entries_judge(&self, mut args: AppendEntriesArgs) -> bool {
         // pre-handle: check term.
         self.check_term(args.term);
@@ -879,10 +914,10 @@ impl Node {
             .into_iter()
             .map(Into::into)
             .collect();
-        let new_log_starts_at = raft.check_and_trunc_log(base, &entries);
+        let new_log_base = raft.check_and_trunc_log(base, &entries);
 
         // 4. Append any new entries.
-        for entry in entries.into_iter().skip(new_log_starts_at) {
+        for entry in entries.into_iter().skip(new_log_base) {
             raft.log.push(entry)
         }
 
@@ -927,7 +962,10 @@ impl RaftService for Node {
             );
             // TODO: 这儿似乎有一些风险，如果发生活锁，那么请来看看这里。
             if granted {
-                guard.reset_election_timer()
+                guard.reset_election_timer();
+                // NOTE：即便没有设置投票者……（就是说，一个节点可以在一个 term 中投多个票）我们仍旧可以在绝大多数情况下通过 2A 和 2B 的所有测试……
+                // 为什么没有发生脑裂呢……？
+                guard.voted_for = Some(args.candidate_id as usize);
             }
             sx.send(RequestVoteReply {
                 term: guard.term,
