@@ -49,7 +49,7 @@ impl RaftConfig {
 impl Default for RaftConfig {
     fn default() -> Self {
         RaftConfig {
-            leader_append_entries_delay: Duration::from_millis(100),
+            leader_append_entries_delay: Duration::from_millis(50),
             latency_tolerance_factor: 2.0,
         }
     }
@@ -166,7 +166,7 @@ struct LeaderState {
 }
 
 impl LeaderState {
-    fn from_raft(raft: &Raft) -> Self {
+    fn by_raft(raft: &Raft) -> Self {
         LeaderState {
             next_index: vec![raft.last_log_index() + 1; raft.peers.len()],
             match_index: vec![0; raft.peers.len()],
@@ -482,6 +482,14 @@ fn mid<T: Ord>(items: &mut [T]) -> &T {
 }
 
 impl Raft {
+    fn get_term_starts_at(&self, term: u64, from: usize) -> usize {
+        let mut n = from;
+        while self.log[n].term == term {
+            n -= 1;
+        }
+        n + 1
+    }
+
     fn next_commit_index(&self) -> u64 {
         if self.current_role != Leader {
             panic!("fetal: try to fetch leader state on non-leader node");
@@ -607,7 +615,8 @@ impl Raft {
             "[{}] append_entries({:?}) => {:?}",
             raft_info, request, response
         );
-        if self.current_role != Leader {
+        // 这里不太方便将自身转换为 Follower，等一会儿让别人来打醒它吧。
+        if self.current_role != Leader || self.term < response.term {
             return;
         }
         let leader_state = self.leader_state.as_mut().unwrap_or_else(|| {
@@ -623,10 +632,22 @@ impl Raft {
             leader_state.match_index[follower] = new_match_index;
             leader_state.next_index[follower] = new_match_index + 1;
         } else {
-            leader_state.next_index[follower] = leader_state.next_index[follower]
-                .checked_sub(12)
-                .map(|x| if x == 0 { 1 } else { x })
-                .unwrap_or(1);
+            let next_index = response.conflicted_term_starts_at as usize;
+            if next_index == 0xcafe_babe {
+                warn!("A debug magic number appears, which might means InvalidLeader message has handled by incorrect way.");
+            }
+            let can_match = self
+                .log
+                .get(next_index)
+                .map(|idx| idx.term == response.conflicted_term)
+                .unwrap_or(false);
+            let real_next = if can_match {
+                next_index
+            } else {
+                next_index - 1
+            } as u64;
+            // don't send placeholder!
+            leader_state.next_index[follower] = Ord::max(1, real_next);
         }
     }
 
@@ -688,7 +709,7 @@ impl Raft {
     fn transform_to_leader(raft_lock: Arc<Mutex<Raft>>) {
         let mut guard = raft_lock.lock().unwrap();
         guard.try_send_to_election_timer(Stop);
-        guard.leader_state = Some(LeaderState::from_raft(guard.deref()));
+        guard.leader_state = Some(LeaderState::by_raft(guard.deref()));
         drop(guard);
         loop {
             let mut raft = raft_lock.lock().unwrap();
@@ -886,6 +907,14 @@ enum TimerMsg {
     Stop,
 }
 
+enum FailedAppendEntries {
+    ConflictedEntry {
+        conflicted_term: u64,
+        conflicted_term_starts_at: u64,
+    },
+    InvalidLeader,
+}
+
 impl Node {
     /// Create a new raft service.
     pub fn new(raft: Raft) -> Node {
@@ -985,13 +1014,16 @@ impl Node {
     /// The implementation of AppendEntries.
     /// See the raft paper figure 2.
     /// This function will be executed in an OS thread, don't worry even it blocks.
-    fn do_append_entries_judge(&self, mut args: AppendEntriesArgs) -> bool {
+    fn do_append_entries_judge(
+        &self,
+        mut args: AppendEntriesArgs,
+    ) -> std::result::Result<(), FailedAppendEntries> {
         // pre-handle: check term.
         self.check_term(args.term);
 
         // 1. Reply false if term < currentTerm.
         if args.term < self.term() {
-            return false;
+            return Err(FailedAppendEntries::InvalidLeader);
         }
 
         // this message is sent by a valid leader, reset election timer.
@@ -999,23 +1031,40 @@ impl Node {
 
         // 2. Reply false if log doesn't match.
         let mut raft = self.raft.lock().unwrap();
-        let entry = raft.log.get(args.prev_log_index as usize);
+        let prev_log_index = args.prev_log_index as usize;
+        let entry = raft.log.get(prev_log_index);
         let term_matches = entry.map(|e| e.term == args.prev_log_term).unwrap_or(false);
         if !term_matches {
-            return false;
+            if entry.is_none() {
+                return Err(FailedAppendEntries::ConflictedEntry {
+                    conflicted_term: 0,
+                    conflicted_term_starts_at: raft.last_log_index() + 1,
+                });
+            }
+
+            let conflicted_term = entry.unwrap().term;
+            let conflicted_term_starts_at =
+                raft.get_term_starts_at(conflicted_term, prev_log_index) as u64;
+            return Err(FailedAppendEntries::ConflictedEntry {
+                conflicted_term,
+                conflicted_term_starts_at,
+            });
         }
 
         // 3. Test matching. If conflict, truncate the log.
-        let base = args.prev_log_index as usize + 1;
-        let entries: Vec<LogEntry> = std::mem::replace(&mut args.entries, vec![])
-            .into_iter()
-            .map(Into::into)
-            .collect();
+        let base = prev_log_index + 1;
+        let mut entries: Vec<LogEntry> = args.entries.drain(..).map(Into::into).collect();
         let new_log_base = raft.check_and_trunc_log(base, &entries);
 
         // 4. Append any new entries.
-        for entry in entries.into_iter().skip(new_log_base) {
+        let new_logs: Vec<LogEntry> = entries.drain(new_log_base..).collect();
+        let log_changed = !new_logs.is_empty();
+        for entry in new_logs.into_iter() {
             raft.log.push(entry)
+        }
+        // Anyway, persist it.
+        if log_changed {
+            raft.persist();
         }
 
         // 5. Set commit index.
@@ -1025,18 +1074,36 @@ impl Node {
             raft.apply_logs();
         }
 
-        // Anyway, persist it.
-        raft.persist();
-
-        true
+        Ok(())
     }
 
     /// This function will be executed in a OS thread, don't worry even it blocks.
     fn do_append_entries(&self, args: AppendEntriesArgs) -> AppendEntriesReply {
         let success = self.do_append_entries_judge(args);
-        AppendEntriesReply {
-            term: self.term(),
-            success,
+        match success {
+            Ok(()) => AppendEntriesReply {
+                term: self.term(),
+                success: true,
+                conflicted_term: 0,
+                conflicted_term_starts_at: 0,
+            },
+            Err(FailedAppendEntries::InvalidLeader) => AppendEntriesReply {
+                term: self.term(),
+                success: false,
+                // for debug usage -- those fields shouldn't be used.
+                // TODO: 使用 oneof 而不是（不太安全的）积类型来完成这项工作。
+                conflicted_term: 0xcafe_babe,
+                conflicted_term_starts_at: 0xcafe_babe,
+            },
+            Err(FailedAppendEntries::ConflictedEntry {
+                    conflicted_term,
+                    conflicted_term_starts_at,
+                }) => AppendEntriesReply {
+                term: self.term(),
+                success: false,
+                conflicted_term,
+                conflicted_term_starts_at,
+            },
         }
     }
 
@@ -1070,7 +1137,6 @@ impl RaftService for Node {
     // example RequestVote RPC handler.
     //
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
-
     fn request_vote(&self, args: RequestVoteArgs) -> RpcFuture<RequestVoteReply> {
         let (sx, rx) = futures::sync::oneshot::channel::<RequestVoteReply>();
         let myself = self.clone();

@@ -33,6 +33,8 @@ message AppendEntriesArgs {
 message AppendEntriesReply {
     uint64 term = 1;
     bool success = 2;
+    uint64 conflictedTerm = 3;
+    uint64 conflictedTermStartsAt = 4;
 }
 
 message PersistedStatus {
