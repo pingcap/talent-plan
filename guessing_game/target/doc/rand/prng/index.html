@@ -1,0 +1,214 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `prng` mod in crate `rand`."><meta name="keywords" content="rust, rustlang, rust-lang, prng"><title>rand::prng - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://www.rust-lang.org/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../rand/index.html'><div class='logo-container'><img src='https://www.rust-lang.org/logos/rust-logo-128x128-blk.png' alt='logo'></div></a><p class='location'>Module prng</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></div><p class='location'><a href='../index.html'>rand</a></p><script>window.sidebarCurrent = {name: 'prng', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/rand/prng/mod.rs.html#11-330' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>rand</a>::<wbr><a class="mod" href=''>prng</a></span></h1><div class='docblock'><p>Pseudo-random number generators.</p>
+<p>Pseudo-random number generators are algorithms to produce apparently random
+numbers deterministically, and usually fairly quickly. See the documentation
+of the <a href="../rngs/index.html"><code>rngs</code> module</a> for some introduction to PRNGs.</p>
+<p>As mentioned there, PRNGs fall in two broad categories:</p>
+<ul>
+<li><a href="#basic-pseudo-random-number-generators-prngs">basic PRNGs</a>, primarily designed for simulations</li>
+<li><a href="#cryptographically-secure-pseudo-random-number-generators-csprngs">CSPRNGs</a>, primarily designed for cryptography</li>
+</ul>
+<p>In simple terms, the basic PRNGs are often predictable; CSPRNGs should not
+be predictable <em>when used correctly</em>.</p>
+<p>Contents of this documentation:</p>
+<ol>
+<li><a href="#the-generators">The generators</a></li>
+<li><a href="#performance">Performance and size</a></li>
+<li><a href="#quality">Quality and cycle length</a></li>
+<li><a href="#security">Security</a></li>
+<li><a href="#extra-features">Extra features</a></li>
+<li><a href="#further-reading">Further reading</a></li>
+</ol>
+<h1 id="the-generators" class="section-header"><a href="#the-generators">The generators</a></h1><h2 id="basic-pseudo-random-number-generators-prngs" class="section-header"><a href="#basic-pseudo-random-number-generators-prngs">Basic pseudo-random number generators (PRNGs)</a></h2>
+<p>The goal of regular, non-cryptographic PRNGs is usually to find a good
+balance between simplicity, quality, memory usage and performance. These
+algorithms are very important to Monte Carlo simulations, and also suitable
+for several other problems such as randomized algorithms and games (except
+where there is a risk of players predicting the next output value from
+previous values, in which case a CSPRNG should be used).</p>
+<p>Currently Rand provides only one PRNG, and not a very good one at that:</p>
+<table><thead><tr><th>name</th><th>full name</th><th>performance</th><th>memory</th><th>quality</th><th>period</th><th>features</th></tr></thead><tbody>
+<tr><td><a href="struct.XorShiftRng.html"><code>XorShiftRng</code></a></td><td>Xorshift 32/128</td><td>★★★☆☆</td><td>16 bytes</td><td>★☆☆☆☆</td><td><code>u32</code> * 2<sup>128</sup> - 1</td><td>—</td></tr>
+</tbody></table>
+<h2 id="cryptographically-secure-pseudo-random-number-generators-csprngs" class="section-header"><a href="#cryptographically-secure-pseudo-random-number-generators-csprngs">Cryptographically secure pseudo-random number generators (CSPRNGs)</a></h2>
+<p>CSPRNGs have much higher requirements than basic PRNGs. The primary
+consideration is security. Performance and simplicity are also important,
+but in general CSPRNGs are more complex and slower than regular PRNGs.
+Quality is no longer a concern, as it is a requirement for a
+CSPRNG that the output is basically indistinguishable from true randomness
+since any bias or correlation makes the output more predictable.</p>
+<p>There is a close relationship between CSPRNGs and cryptographic ciphers.
+Any block cipher can be turned into a CSPRNG by encrypting a counter. Stream
+ciphers are basically a CSPRNG and a combining operation, usually XOR. This
+means that we can easily use any stream cipher as a CSPRNG.</p>
+<p>Rand currently provides two trustworthy CSPRNGs and two CSPRNG-like PRNGs:</p>
+<table><thead><tr><th>name</th><th>full name</th><th>performance</th><th>initialization</th><th>memory</th><th>predictability</th><th>forward secrecy</th></tr></thead><tbody>
+<tr><td><a href="chacha/struct.ChaChaRng.html"><code>ChaChaRng</code></a></td><td>ChaCha20</td><td>★☆☆☆☆</td><td>fast</td><td>136 bytes</td><td>secure</td><td>no</td></tr>
+<tr><td><a href="hc128/struct.Hc128Rng.html"><code>Hc128Rng</code></a></td><td>HC-128</td><td>★★☆☆☆</td><td>slow</td><td>4176 bytes</td><td>secure</td><td>no</td></tr>
+<tr><td><a href="isaac/struct.IsaacRng.html"><code>IsaacRng</code></a></td><td>ISAAC</td><td>★★☆☆☆</td><td>slow</td><td>2072 bytes</td><td>unknown</td><td>unknown</td></tr>
+<tr><td><a href="isaac64/struct.Isaac64Rng.html"><code>Isaac64Rng</code></a></td><td>ISAAC-64</td><td>★★☆☆☆</td><td>slow</td><td>4136 bytes</td><td>unknown</td><td>unknown</td></tr>
+</tbody></table>
+<p>It should be noted that the ISAAC generators are only included for
+historical reasons, they have been with the Rust language since the very
+beginning. They have good quality output and no attacks are known, but have
+received little attention from cryptography experts.</p>
+<h1 id="performance" class="section-header"><a href="#performance">Performance</a></h1>
+<p>First it has to be said most PRNGs are very fast, and will rarely be a
+performance bottleneck.</p>
+<p>Performance of basic PRNGs is a bit of a subtle thing. It depends a lot on
+the CPU architecture (32 vs. 64 bits), inlining, and also on the number of
+available registers. This often causes the performance to be affected by
+surrounding code due to inlining and other usage of registers.</p>
+<p>When choosing a PRNG for performance it is important to benchmark your own
+application due to interactions between PRNGs and surrounding code and
+dependence on the CPU architecture as well as the impact of the size of
+data requested. Because of all this, we do not include performance numbers
+here but merely a qualitative rating.</p>
+<p>CSPRNGs are a little different in that they typically generate a block of
+output in a cache, and pull outputs from the cache. This allows them to have
+good amortised performance, and reduces or completely removes the influence
+of surrounding code on the CSPRNG performance.</p>
+<h3 id="worst-case-performance" class="section-header"><a href="#worst-case-performance">Worst-case performance</a></h3>
+<p>Because CSPRNGs usually produce a block of values into a cache, they have
+poor worst case performance (in contrast to basic PRNGs, where the
+performance is usually quite regular).</p>
+<h2 id="state-size" class="section-header"><a href="#state-size">State size</a></h2>
+<p>Simple PRNGs often use very little memory, commonly only a few words, where
+a <em>word</em> is usually either <code>u32</code> or <code>u64</code>. This is not true for all
+non-cryptographic PRNGs however, for example the historically popular
+Mersenne Twister MT19937 algorithm requires 2.5 kB of state.</p>
+<p>CSPRNGs typically require more memory; since the seed size is recommended
+to be at least 192 bits and some more may be required for the algorithm,
+256 bits would be approximately the minimum secure size. In practice,
+CSPRNGs tend to use quite a bit more, <a href="chacha/struct.ChaChaRng.html"><code>ChaChaRng</code></a> is relatively small with
+136 bytes of state.</p>
+<h2 id="initialization-time" class="section-header"><a href="#initialization-time">Initialization time</a></h2>
+<p>The time required to initialize new generators varies significantly. Many
+simple PRNGs and even some cryptographic ones (including <a href="chacha/struct.ChaChaRng.html"><code>ChaChaRng</code></a>)
+only need to copy the seed value and some constants into their state, and
+thus can be constructed very quickly. In contrast, CSPRNGs with large state
+require an expensive key-expansion.</p>
+<h1 id="quality" class="section-header"><a href="#quality">Quality</a></h1>
+<p>Many basic PRNGs are not much more than a couple of bitwise and arithmetic
+operations. Their simplicity gives good performance, but also means there
+are small regularities hidden in the generated random number stream.</p>
+<p>How much do those hidden regularities matter? That is hard to say, and
+depends on how the RNG gets used. If there happen to be correlations between
+the random numbers and the algorithm they are used in, the results can be
+wrong or misleading.</p>
+<p>A random number generator can be considered good if it gives the correct
+results in as many applications as possible. The quality of PRNG
+algorithms can be evaluated to some extend analytically, to determine the
+cycle length and to rule out some correlations. Then there are empirical
+test suites designed to test how well a PRNG performs on a wide range of
+possible uses, the latest and most complete of which are <a href="http://simul.iro.umontreal.ca/testu01/tu01.html">TestU01</a> and
+<a href="http://pracrand.sourceforge.net/">PractRand</a>.</p>
+<p>CSPRNGs tend to be more complex, and have an explicit requirement to be
+unpredictable. This implies there must be no obvious correlations between
+output values.</p>
+<h3 id="quality-stars" class="section-header"><a href="#quality-stars">Quality stars:</a></h3>
+<p>PRNGs with 3 stars or more should be good enough for any purpose.
+1 or 2 stars may be good enough for typical apps and games, but do not work
+well with all algorithms.</p>
+<h2 id="period" class="section-header"><a href="#period">Period</a></h2>
+<p>The <em>period</em> or <em>cycle length</em> of a PRNG is the number of values that can be
+generated after which it starts repeating the same random number stream.
+Many PRNGs have a fixed-size period, but for some only an expected average
+cycle length can be given, where the exact length depends on the seed.</p>
+<p>On today's hardware, even a fast RNG with a cycle length of <em>only</em>
+2<sup>64</sup> can be used for centuries before cycling. Yet we recommend a
+period of 2<sup>128</sup> or more, which most modern PRNGs satisfy.
+Alternatively a PRNG with shorter period but support for multiple streams
+may be chosen. There are two reasons for this, as follows.</p>
+<p>If we see the entire period of an RNG as one long random number stream,
+every independently seeded RNG returns a slice of that stream. When multiple
+RNG are seeded randomly, there is an increasingly large chance to end up
+with a partially overlapping slice of the stream.</p>
+<p>If the period of the RNG is 2<sup>128</sup>, and an application consumes
+2<sup>48</sup> values, it then takes about 2<sup>32</sup> random
+initializations to have a chance of 1 in a million to repeat part of an
+already used stream. This seems good enough for common usage of
+non-cryptographic generators, hence the recommendation of at least
+2<sup>128</sup>. As an estimate, the chance of any overlap in a period of
+size <code>p</code> with <code>n</code> independent seeds and <code>u</code> values used per seed is
+approximately <code>1 - e^(-u * n^2 / (2 * p))</code>.</p>
+<p>Further, it is not recommended to use the full period of an RNG. Many
+PRNGs have a property called <em>k-dimensional equidistribution</em>, meaning that
+for values of some size (potentially larger than the output size), all
+possible values are produced the same number of times over the generator's
+period. This is not a property of true randomness. This is known as the
+generalized birthday problem, see the <a href="http://www.pcg-random.org/pdf/hmc-cs-2014-0905.pdf">PCG paper</a> for a good explanation.
+This results in a noticable bias on output after generating more values
+than the square root of the period (after 2<sup>64</sup> values for a
+period of 2<sup>128</sup>).</p>
+<h1 id="security" class="section-header"><a href="#security">Security</a></h1><h2 id="predictability" class="section-header"><a href="#predictability">Predictability</a></h2>
+<p>From the context of any PRNG, one can ask the question <em>given some previous
+output from the PRNG, is it possible to predict the next output value?</em>
+This is an important property in any situation where there might be an
+adversary.</p>
+<p>Regular PRNGs tend to be predictable, although with varying difficulty. In
+some cases prediction is trivial, for example plain Xorshift outputs part of
+its state without mutation, and prediction is as simple as seeding a new
+Xorshift generator from four <code>u32</code> outputs. Other generators, like
+<a href="http://www.pcg-random.org/predictability.html">PCG</a> and truncated Xorshift*
+are harder to predict, but not outside the realm of common mathematics and a
+desktop PC.</p>
+<p>The basic security that CSPRNGs must provide is the infeasibility to predict
+output. This requirement is formalized as the <a href="https://en.wikipedia.org/wiki/Next-bit_test">next-bit test</a>; this is
+roughly stated as: given the first <em>k</em> bits of a random sequence, the
+sequence satisfies the next-bit test if there is no algorithm able to
+predict the next bit using reasonable computing power.</p>
+<p>A further security that <em>some</em> CSPRNGs provide is forward secrecy:
+in the event that the CSPRNGs state is revealed at some point, it must be
+infeasible to reconstruct previous states or output. Note that many CSPRNGs
+<em>do not</em> have forward secrecy in their usual formulations.</p>
+<p>As an outsider it is hard to get a good idea about the security of an
+algorithm. People in the field of cryptography spend a lot of effort
+analyzing existing designs, and what was once considered good may now turn
+out to be weaker. Generally it is best to use algorithms well-analyzed by
+experts, such as those recommended by NIST or ECRYPT.</p>
+<h2 id="state-and-seeding" class="section-header"><a href="#state-and-seeding">State and seeding</a></h2>
+<p>It is worth noting that a CSPRNG's security relies absolutely on being
+seeded with a secure random key. Should the key be known or guessable, all
+output of the CSPRNG is easy to guess. This implies that the seed should
+come from a trusted source; usually either the OS or another CSPRNG. Our
+seeding helper trait, <a href="../trait.FromEntropy.html"><code>FromEntropy</code></a>, and the source it uses
+(<a href="../rngs/struct.EntropyRng.html"><code>EntropyRng</code></a>), should be secure. Additionally, <a href="../rngs/struct.ThreadRng.html"><code>ThreadRng</code></a> is a CSPRNG,
+thus it is acceptable to seed from this (although for security applications
+fresh/external entropy should be preferred).</p>
+<p>Further, it should be obvious that the internal state of a CSPRNG must be
+kept secret. With that in mind, our implementations do not provide direct
+access to most of their internal state, and <code>Debug</code> implementations do not
+print any internal state. This does not fully protect CSPRNG state; code
+within the same process may read this memory (and we allow cloning and
+serialisation of CSPRNGs for convenience). Further, a running process may be
+forked by the operating system, which may leave both processes with a copy
+of the same generator.</p>
+<h2 id="not-a-crypto-library" class="section-header"><a href="#not-a-crypto-library">Not a crypto library</a></h2>
+<p>It should be emphasised that this is not a cryptography library; although
+Rand does take some measures to provide secure random numbers, it does not
+necessarily take all recommended measures. Further, cryptographic processes
+such as encryption and authentication are complex and must be implemented
+very carefully to avoid flaws and resist known attacks. It is therefore
+recommended to use specialized libraries where possible, for example
+<a href="https://crates.io/crates/openssl">openssl</a>, <a href="https://crates.io/crates/ring">ring</a> and the <a href="https://github.com/RustCrypto">RustCrypto libraries</a>.</p>
+<h1 id="extra-features" class="section-header"><a href="#extra-features">Extra features</a></h1>
+<p>Some PRNGs may provide extra features, like:</p>
+<ul>
+<li>Support for multiple streams, which can help with parallel tasks.</li>
+<li>The ability to jump or seek around in the random number stream;
+with large periood this can be used as an alternative to streams.</li>
+</ul>
+<h1 id="further-reading" class="section-header"><a href="#further-reading">Further reading</a></h1>
+<p>There is quite a lot that can be said about PRNGs. The <a href="http://www.pcg-random.org/pdf/hmc-cs-2014-0905.pdf">PCG paper</a> is a
+very approachable explaining more concepts.</p>
+<p>A good paper about RNG quality is
+<a href="http://random.mat.sbg.ac.at/results/peter/A19final.pdf">&quot;Good random number generators are (not so) easy to find&quot;</a> by P. Hellekalek.</p>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Re-exports</a></h2>
+<table><tr><td><code>pub use self::chacha::<a class="struct" href="../../rand/prng/chacha/struct.ChaChaRng.html" title="struct rand::prng::chacha::ChaChaRng">ChaChaRng</a>;</code></td></tr><tr><td><code>pub use self::hc128::<a class="struct" href="../../rand/prng/hc128/struct.Hc128Rng.html" title="struct rand::prng::hc128::Hc128Rng">Hc128Rng</a>;</code></td></tr><tr><td><code>pub use self::isaac::<a class="struct" href="../../rand/prng/isaac/struct.IsaacRng.html" title="struct rand::prng::isaac::IsaacRng">IsaacRng</a>;</code></td></tr><tr><td><code>pub use self::isaac64::<a class="struct" href="../../rand/prng/isaac64/struct.Isaac64Rng.html" title="struct rand::prng::isaac64::Isaac64Rng">Isaac64Rng</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table><tr class='module-item'><td><a class="mod" href="chacha/index.html" title='rand::prng::chacha mod'>chacha</a></td><td class='docblock-short'><p>The ChaCha random number generator.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="hc128/index.html" title='rand::prng::hc128 mod'>hc128</a></td><td class='docblock-short'><p>The HC-128 random number generator.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="isaac/index.html" title='rand::prng::isaac mod'>isaac</a></td><td class='docblock-short'><p>The ISAAC random number generator.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="isaac64/index.html" title='rand::prng::isaac64 mod'>isaac64</a></td><td class='docblock-short'><p>The ISAAC-64 random number generator.</p>
+</td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.XorShiftRng.html" title='rand::prng::XorShiftRng struct'>XorShiftRng</a></td><td class='docblock-short'><p>An Xorshift random number generator.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "rand";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>
