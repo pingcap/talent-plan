@@ -169,10 +169,10 @@ fn cli_invalid_rm() {
 }
 
 #[test]
-fn cli_invalid_sub_command() {
+fn cli_invalid_subcommand() {
     Command::cargo_bin("kvs")
         .unwrap()
-        .args(&["unknown", "sub-command"])
+        .args(&["unknown", "subcommand"])
         .assert()
         .failure();
 }
