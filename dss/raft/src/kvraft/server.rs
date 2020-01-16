@@ -1,8 +1,9 @@
+use futures::sync::mpsc::unbounded;
+
+use labrpc::RpcFuture;
+
 use crate::proto::kvraftpb::*;
 use crate::raft;
-
-use futures::sync::mpsc::unbounded;
-use labrpc::RpcFuture;
 
 pub struct KvServer {
     pub rf: raft::Node,
@@ -23,7 +24,6 @@ impl KvServer {
 
         let (tx, apply_ch) = unbounded();
         let rf = raft::Raft::new(servers, me, persister, tx);
-
         crate::your_code_here((rf, maxraftstate, apply_ch))
     }
 }

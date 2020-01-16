@@ -603,26 +603,17 @@ impl Raft {
         });
     }
 
-    // TODO: 实现 Leader 收到回应之后的状态转换。
-    fn handle_append_entries(
+    fn modify_state_by_append_entries(
         &mut self,
         request: &AppendEntriesArgs,
         response: &AppendEntriesReply,
         follower: usize,
     ) {
-        let raft_info = self.self_info();
-        info!(
-            "[{}] append_entries({:?}) => {:?}",
-            raft_info, request, response
-        );
-        // 这里不太方便将自身转换为 Follower，等一会儿让别人来打醒它吧。
-        if self.current_role != Leader || self.term < response.term {
-            return;
-        }
+        let self_info = self.self_info();
         let leader_state = self.leader_state.as_mut().unwrap_or_else(|| {
             panic!(
                 "{} fetal: Handling append_entries without leader_state.",
-                raft_info
+                self_info
             )
         });
         if response.success {
@@ -649,6 +640,29 @@ impl Raft {
             // don't send placeholder!
             leader_state.next_index[follower] = Ord::max(1, real_next);
         }
+    }
+
+    fn handle_append_entries(
+        raft_lock: Arc<Mutex<Self>>,
+        request: &AppendEntriesArgs,
+        response: &AppendEntriesReply,
+        follower: usize,
+    ) {
+        let mut raft = raft_lock.lock().unwrap();
+        let raft_info = raft.self_info();
+        info!(
+            "[{}] append_entries({:?}) => {:?}",
+            raft_info, request, response
+        );
+        if raft.current_role != Leader {
+            return;
+        }
+        if raft.term < response.term {
+            drop(raft);
+            Raft::check_term(raft_lock.clone(), response.term);
+            return;
+        }
+        raft.modify_state_by_append_entries(request, response, follower);
     }
 
     fn make_empty_append_entries(&self) -> AppendEntriesArgs {
@@ -705,7 +719,10 @@ impl Raft {
     // 那些约定摘录如下：
     // - Leader 需要在收到请求时将请求录入 log，并且并行地发送 AppendEntries 请求。
     // - 如果 Follower 不可用，那么需要无限地重试。
-    // 唯一的问题是我们违反了 5.2 中关于心跳包的问题。
+    // 唯一的问题是我们违反了 5.2 中关于心跳包的问题，但是其原文是，
+    // 在空闲期间发送空心跳包。
+    // 另：此处的风格更加接近一种 "micro-batch"，即统计一段时间内所有的 entries 然后一次发送。
+    // 这样的做法会增加客户端的延迟（客户平均至少需要等待半个 `AppendEntries` 的周期才能获得确定提交的相应。）
     fn transform_to_leader(raft_lock: Arc<Mutex<Raft>>) {
         let mut guard = raft_lock.lock().unwrap();
         guard.try_send_to_election_timer(Stop);
@@ -754,8 +771,12 @@ impl Raft {
                             );
                         }
                         Ok(Ok(info)) => {
-                            let mut raft = raft_lock.lock().unwrap();
-                            raft.handle_append_entries(&req.request, &info, req.follower);
+                            Raft::handle_append_entries(
+                                raft_lock.clone(),
+                                &req.request,
+                                &info,
+                                req.follower,
+                            );
                         }
                     };
                 }
