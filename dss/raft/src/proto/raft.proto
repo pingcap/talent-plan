@@ -38,7 +38,7 @@ message AppendEntriesReply {
 }
 
 message PersistedStatus {
-    uint64 current_term = 1;
-    repeated uint64 voted_for = 2;
+    uint64 currentTerm = 1;
+    repeated uint64 votedFor = 2;
     repeated ProtoEntry logs = 3;
 }
