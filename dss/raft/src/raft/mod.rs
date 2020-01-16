@@ -456,15 +456,15 @@ fn select<T: Send + 'static>(channels: impl Iterator<Item=Receiver<T>>) -> Recei
     rx
 }
 
-impl Into<LogEntry> for Entry {
+impl Into<LogEntry> for ProtoEntry {
     fn into(self) -> LogEntry {
         LogEntry::new(self.command, self.term)
     }
 }
 
-impl Into<Entry> for LogEntry {
-    fn into(self) -> Entry {
-        Entry {
+impl Into<ProtoEntry> for LogEntry {
+    fn into(self) -> ProtoEntry {
+        ProtoEntry {
             command: self.data,
             term: self.term,
         }

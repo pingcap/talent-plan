@@ -16,7 +16,7 @@ message RequestVoteReply {
     bool voteGranted = 2;
 }
 
-message Entry {
+message ProtoEntry {
     bytes command = 1;
     uint64 term = 2;
 }
@@ -26,7 +26,7 @@ message AppendEntriesArgs {
     uint64 leaderId = 2;
     uint64 prevLogIndex = 3;
     uint64 prevLogTerm = 4;
-    repeated Entry entries = 5;
+    repeated ProtoEntry entries = 5;
     uint64 leaderCommit = 6;
 }
 
@@ -40,5 +40,5 @@ message AppendEntriesReply {
 message PersistedStatus {
     uint64 current_term = 1;
     repeated uint64 voted_for = 2;
-    repeated Entry logs = 3;
+    repeated ProtoEntry logs = 3;
 }
