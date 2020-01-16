@@ -482,6 +482,10 @@ fn mid<T: Ord>(items: &mut [T]) -> &T {
 }
 
 impl Raft {
+    fn is_leader(&self) -> bool {
+        self.current_role == Leader
+    }
+
     fn get_term_starts_at(&self, term: u64, from: usize) -> usize {
         let mut n = from;
         while self.log[n].term == term {
@@ -491,7 +495,7 @@ impl Raft {
     }
 
     fn next_commit_index(&self) -> u64 {
-        if self.current_role != Leader {
+        if !self.is_leader() {
             panic!("fetal: try to fetch leader state on non-leader node");
         }
         let leader_state = self
@@ -654,7 +658,7 @@ impl Raft {
             "[{}] append_entries({:?}) => {:?}",
             raft_info, request, response
         );
-        if raft.current_role != Leader {
+        if !raft.is_leader() {
             return;
         }
         if raft.term < response.term {
@@ -730,7 +734,7 @@ impl Raft {
         drop(guard);
         loop {
             let mut raft = raft_lock.lock().unwrap();
-            if raft.current_role != Leader {
+            if !raft.is_leader() {
                 break;
             }
             raft.leader_commit_logs();
@@ -802,7 +806,7 @@ impl Raft {
     }
 
     fn reset_election_timer(&self) {
-        if self.current_role == Leader {
+        if self.is_leader() {
             warn!(
                 "NO{} Trying to reset election timer on a leader node.",
                 self.me
@@ -879,7 +883,7 @@ impl Raft {
         let mut guard = raft.lock().unwrap();
         if new_term >= guard.term {
             let old_term = guard.term;
-            let leader_to_follower = guard.current_role == Leader && new_term > old_term;
+            let leader_to_follower = guard.is_leader() && new_term > old_term;
             let candidate_to_follower = guard.current_role == Candidate;
             guard.update_term(new_term);
             if leader_to_follower || candidate_to_follower {
@@ -994,7 +998,7 @@ impl Node {
         // Example:
         // self.raft.leader_id == self.id
         let guard = self.raft.lock().unwrap();
-        guard.current_role == Leader
+        guard.is_leader()
     }
 
     /// The current state of this peer.
