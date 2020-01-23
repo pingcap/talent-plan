@@ -226,6 +226,7 @@ impl KvServer {
         let _ = &self.me;
         let _ = &self.maxraftstate;
         let _ = KvCommand::from_bytes(vec![].as_slice());
+        crate::your_code_here(());
     }
 }
 
