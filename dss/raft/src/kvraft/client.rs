@@ -11,6 +11,7 @@ pub struct Clerk {
     pub name: String,
     pub servers: Vec<KvClient>,
     // You will have to modify this struct.
+
 }
 
 impl fmt::Debug for Clerk {

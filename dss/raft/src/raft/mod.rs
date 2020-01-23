@@ -1,12 +1,12 @@
 use std::cmp::Ordering;
 use std::ops::Deref;
+use std::sync::mpsc::{channel, sync_channel, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{channel, Receiver, sync_channel, SyncSender};
 use std::thread::sleep;
 use std::time::Duration;
 
-use futures::Future;
 use futures::sync::mpsc::UnboundedSender;
+use futures::Future;
 use rand::Rng;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 
@@ -86,11 +86,11 @@ struct SentAppendEntriesRequest {
 }
 
 impl
-From<(
-    usize,
-    AppendEntriesArgs,
-    Receiver<Result<AppendEntriesReply>>,
-)> for SentAppendEntriesRequest
+    From<(
+        usize,
+        AppendEntriesArgs,
+        Receiver<Result<AppendEntriesReply>>,
+    )> for SentAppendEntriesRequest
 {
     fn from(
         origin: (
@@ -360,8 +360,8 @@ impl Raft {
     }
 
     fn start<M>(&mut self, command: &M) -> Result<(u64, u64)>
-        where
-            M: labcodec::Message,
+    where
+        M: labcodec::Message,
     {
         let is_leader = self.current_role == Leader;
         if !is_leader {
@@ -424,7 +424,7 @@ pub struct Node {
 }
 
 // 有没有比轮询更加好的办法呢？（似乎 Go 语言的 Select 在规模变大之后使用的也是轮询）
-fn select<T: Send + 'static>(channels: impl Iterator<Item=Receiver<T>>) -> Receiver<T> {
+fn select<T: Send + 'static>(channels: impl Iterator<Item = Receiver<T>>) -> Receiver<T> {
     use std::sync::mpsc::TryRecvError::*;
     let (sx, rx) = channel();
     let channels: Vec<Receiver<T>> = channels.collect();
@@ -701,8 +701,8 @@ impl Raft {
     }
 
     fn send_append_entries_requests<F>(&self, mut factory: F) -> Vec<SentAppendEntriesRequest>
-        where
-            F: FnMut(&Raft, usize) -> AppendEntriesArgs,
+    where
+        F: FnMut(&Raft, usize) -> AppendEntriesArgs,
     {
         let peer_len = self.peers.len();
         (0..peer_len)
@@ -753,7 +753,7 @@ impl Raft {
 
     fn spawn_append_entries_handler(
         raft_lock: Arc<Mutex<Self>>,
-        requests: impl Iterator<Item=SentAppendEntriesRequest>,
+        requests: impl Iterator<Item = SentAppendEntriesRequest>,
     ) {
         let raft = raft_lock.lock().unwrap();
         requests.for_each(|req| {
@@ -873,7 +873,7 @@ impl Raft {
             self.voted_for.is_none() || self.voted_for == Some(args.candidate_id as usize);
         let self_should_vote = (args.last_log_term > self.last_log_term())
             || (args.last_log_term == self.last_log_term()
-            && args.last_log_index >= self.last_log_index());
+                && args.last_log_index >= self.last_log_index());
         self_can_vote && self_should_vote
     }
 
@@ -973,8 +973,8 @@ impl Node {
     ///
     /// This method must return without blocking on the raft.
     pub fn start<M>(&self, command: &M) -> Result<(u64, u64)>
-        where
-            M: labcodec::Message,
+    where
+        M: labcodec::Message,
     {
         // Your code here.
         // Example:
@@ -1121,9 +1121,9 @@ impl Node {
                 conflicted_term_starts_at: 0xcafe_babe,
             },
             Err(FailedAppendEntries::ConflictedEntry {
-                    conflicted_term,
-                    conflicted_term_starts_at,
-                }) => AppendEntriesReply {
+                conflicted_term,
+                conflicted_term_starts_at,
+            }) => AppendEntriesReply {
                 term: self.term(),
                 success: false,
                 conflicted_term,
@@ -1174,7 +1174,7 @@ impl RaftService for Node {
                     )
                 });
         });
-        box rx.map_err(|e| panic!("request vote: failed to execute: {}", e))
+        Box::new(rx.map_err(|e| panic!("request vote: failed to execute: {}", e)))
     }
 
     fn append_entries(&self, req: AppendEntriesArgs) -> RpcFuture<AppendEntriesReply> {
@@ -1189,6 +1189,6 @@ impl RaftService for Node {
                     )
                 });
         });
-        box rx.map_err(|e| panic!("request vote: failed to execute: {}", e))
+        Box::new(rx.map_err(|e| panic!("request vote: failed to execute: {}", e)))
     }
 }
