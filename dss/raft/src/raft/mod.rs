@@ -522,6 +522,7 @@ impl Raft {
                 .unbounded_send(self.make_apply_message(i))
                 .expect("fetal: failed to send to apply ch.");
         }
+        self.last_applied = self.commit_index;
     }
 
     fn leader_commit_logs(&mut self) {
@@ -613,6 +614,11 @@ impl Raft {
         response: &AppendEntriesReply,
         follower: usize,
     ) {
+        // Don't handle response from older request.
+        if self.term != request.term {
+            return;
+        }
+
         let self_info = self.self_info();
         let leader_state = self.leader_state.as_mut().unwrap_or_else(|| {
             panic!(
@@ -629,7 +635,8 @@ impl Raft {
         } else {
             let next_index = response.conflicted_term_starts_at as usize;
             if next_index == 0xcafe_babe {
-                warn!("A debug magic number appears, which might means InvalidLeader message has handled by incorrect way.");
+                panic!("A debug magic number appears, which might means InvalidLeader message has handled by incorrect way.\n\
+                Debug info: ({:?}) => {:?} self = {}", request, response, self_info);
             }
             let can_match = self
                 .log
@@ -770,8 +777,8 @@ impl Raft {
                         ),
                         Ok(Err(e)) => {
                             warn!(
-                                "{} Failed to get result of append_entries, because: {}",
-                                raft_info, e
+                                "{} Failed to get result of {:?}, because: {}",
+                                raft_info, req.request, e
                             );
                         }
                         Ok(Ok(info)) => {

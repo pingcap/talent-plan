@@ -7,6 +7,7 @@ use std::cell::Cell;
 use std::time::Duration;
 use uuid::Uuid;
 
+#[derive(Debug)]
 enum Op {
     Put(String, String),
     Append(String, String),
@@ -66,9 +67,11 @@ impl Clerk {
         is_leader: impl Fn(&R) -> bool,
     ) -> Option<R> {
         if let Some(leader) = self.leader.get() {
+            debug!("{}: we have leader {}, sending~", self.name, leader);
             let message = send(&self.servers[leader]);
             return if !is_leader(&message) {
                 // leadership changed.
+                debug!("{}: leader {} is died :(", self.name, leader);
                 self.leader.set(None);
                 None
             } else {
@@ -83,15 +86,18 @@ impl Clerk {
         send: impl Fn(&KvClient) -> R,
         is_leader: impl Fn(&R) -> bool,
     ) -> R {
+        debug!("{}: No leader found, but we are seeking ;)", self.name);
         loop {
             for (i, client) in self.servers.iter().enumerate() {
                 let result = send(client);
                 if is_leader(&result) {
+                    debug!("We found leader {}!", i);
                     self.leader.set(Some(i));
                     return result;
                 }
             }
-            std::thread::sleep(Duration::from_millis(50));
+            // ensure that there is a leader elected.
+            std::thread::sleep(Duration::from_millis(300));
         }
     }
 
@@ -117,9 +123,10 @@ impl Clerk {
     // you can send an RPC with code like this:
     // if let Some(reply) = self.servers[i].get(args).wait() { /* do something */ }
     pub fn get(&self, key: String) -> String {
+        info!("{}: get({:?})", self.name, key);
         let args = GetRequest {
             id: Self::new_id(),
-            key,
+            key: key.clone(),
         };
 
         let send = |client: &KvClient| client.get(&args).wait();
@@ -131,8 +138,14 @@ impl Clerk {
 
         loop {
             match self.request(&send, &is_leader) {
-                Ok(message) => return message.value,
-                Err(_) => continue,
+                Ok(message) => {
+                    info!("get({:?}) => {:?}", key, message);
+                    return message.value;
+                }
+                Err(_) => {
+                    info!("GET: failed to send request");
+                    std::thread::sleep(Duration::from_millis(200))
+                }
             }
         }
     }
@@ -142,6 +155,7 @@ impl Clerk {
     // you can send an RPC with code like this:
     // let reply = self.servers[i].put_append(args).unwrap();
     fn put_append(&self, op: Op) {
+        info!("{}: put_append({:?})", self.name, op);
         // You will have to modify this function.
         let args: PutAppendRequest = op.into();
         let send = |client: &KvClient| client.put_append(&args).wait();
@@ -153,8 +167,17 @@ impl Clerk {
 
         loop {
             match self.request(&send, &is_leader) {
-                Ok(_) => return,
-                Err(_) => continue,
+                Ok(result) => {
+                    info!("put_append({:?}) => {:?}", args, result);
+                    return;
+                }
+                Err(_) => {
+                    info!(
+                        "{}: put_append({:?}) failed, sleeping before resend...",
+                        self.name, args
+                    );
+                    std::thread::sleep(Duration::from_millis(200))
+                }
             }
         }
     }

@@ -12,9 +12,10 @@ use failure::Fail;
 use futures::sync::oneshot::Sender;
 use futures::{Future, Stream};
 use labcodec::Message;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 #[allow(dead_code)]
+#[derive(Clone, Debug)]
 enum KvCommand {
     Get {
         id: Uuid,
@@ -79,12 +80,16 @@ impl KvCommand {
 }
 
 #[derive(Fail, Debug)]
+// TODO: 移除这个 dead_code。
+#[allow(dead_code)]
 enum KvError {
     // TODO: 加上 cause
     #[fail(display = "Raft response error.")]
     Raft(raft::errors::Error),
     #[fail(display = "Current node isn't leader.")]
     NotLeader,
+    #[fail(display = "replicated command.")]
+    Replicated,
 }
 
 type Result<T> = std::result::Result<T, KvError>;
@@ -93,27 +98,49 @@ type Result<T> = std::result::Result<T, KvError>;
 struct KvStateMachine {
     index: usize,
     pub state: Arc<Mutex<BTreeMap<String, String>>>,
-    pending_commands: Arc<Mutex<HashSet<Uuid>>>,
-    waiting_channels: Arc<Mutex<HashMap<u64, Sender<()>>>>,
+    success_commands: Arc<Mutex<HashSet<Uuid>>>,
+    waiting_channels: Arc<Mutex<BTreeMap<u64, Sender<()>>>>,
     raft: raft::Node,
+    name: String,
+}
+
+trait Identifiable {
+    fn get_id(&self) -> Uuid;
+}
+
+impl Identifiable for PutAppendRequest {
+    fn get_id(&self) -> Uuid {
+        Uuid::from_slice(self.id.as_slice()).unwrap()
+    }
+}
+
+impl Identifiable for GetRequest {
+    fn get_id(&self) -> Uuid {
+        Uuid::from_slice(self.id.as_slice()).unwrap()
+    }
 }
 
 impl KvStateMachine {
-    fn new(apply_ch: UnboundedReceiver<ApplyMsg>, raft: raft::Node) -> Self {
+    fn new(apply_ch: UnboundedReceiver<ApplyMsg>, raft: raft::Node, name: String) -> Self {
         let state = Arc::new(Mutex::default());
-        let pending_commands = Arc::new(Mutex::default());
-        let waiting_channels = Arc::new(Mutex::default());
+        let success_commands = Arc::new(Mutex::new(HashSet::new()));
+        let waiting_channels = Arc::new(Mutex::new(BTreeMap::new()));
         // spawn the handler.
         std::thread::spawn({
-            let pending_commands = pending_commands.clone();
+            let pending_commands = success_commands.clone();
             let state = state.clone();
             let waiting_channels = waiting_channels.clone();
+            let name = name.clone();
+            info!("FSM worker for {} start!", name);
             move || {
                 apply_ch
+                    .wait()
+                    .map(std::result::Result::unwrap)
                     .for_each(|message| {
+                        debug!("{}: message[{}] received...", name, message.command_index);
                         let mut notifier = waiting_channels.lock().unwrap();
                         if let Some(sender) =
-                            HashMap::remove(&mut *notifier, &message.command_index)
+                            BTreeMap::remove(&mut *notifier, &message.command_index)
                         {
                             Sender::send(sender, ()).unwrap_or_else(|_| {
                                 warn!(
@@ -127,7 +154,19 @@ impl KvStateMachine {
                             panic!("Invalid message received.")
                         }
                         let cmd = command.unwrap();
+                        debug!("request: {:?}", cmd.get_id());
                         let id = *cmd.get_id();
+                        let mut history = pending_commands.lock().unwrap();
+                        if history.contains(&id) {
+                            info!(
+                                "Replicated ID: {} get, the command {:?} won't be processed.",
+                                id, cmd
+                            );
+                            return;
+                        }
+                        history.insert(id);
+                        drop(history);
+
                         match cmd {
                             KvCommand::Get { .. } => {}
                             KvCommand::Put { key, value, .. } => {
@@ -143,28 +182,25 @@ impl KvStateMachine {
                                 }
                             }
                         }
-                        let mut pending_commands = pending_commands.lock().unwrap();
-                        HashSet::remove(&mut *pending_commands, &id);
-                        futures::finished(())
                     })
-                    .wait()
-                    .expect("FSM supporting worker panicked.");
             }
         });
         KvStateMachine {
             index: 1,
             state,
-            pending_commands,
+            success_commands,
             waiting_channels,
             raft,
+            name,
         }
     }
 
     fn start(
         &self,
-        cmd: &impl Message,
+        cmd: &(impl Message + Identifiable),
     ) -> Box<dyn Future<Item = Result<()>, Error = ()> + Send + 'static> {
         use crate::raft::errors::Error;
+
         match self.raft.start(cmd) {
             // TODO: 这里 Raft 可能会过早提交成功导致无法收到通知。
             Ok((idx, _term)) => {
@@ -208,7 +244,7 @@ impl KvServer {
         let (tx, apply_ch) = unbounded();
         let rf = raft::Raft::new(servers, me, persister, tx);
         let node = raft::Node::new(rf);
-        let fsm = KvStateMachine::new(apply_ch, node.clone());
+        let fsm = KvStateMachine::new(apply_ch, node.clone(), format!("FSM4Node{}", me));
         KvServer {
             rf: node,
             me,
