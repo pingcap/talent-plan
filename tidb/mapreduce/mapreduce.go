@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"hash/fnv"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -112,7 +113,37 @@ func (c *MRCluster) worker() {
 				// hint: don't encode results returned by ReduceF, and just output
 				// them into the destination file directly so that users can get
 				// results formatted as what they want.
-				panic("YOUR CODE HERE")
+				m := make(map[string][]string)
+				for i := 0; i < t.nMap; i++ {
+					rpath := reduceName(t.dataDir, t.jobName, i, t.taskNumber)
+					//fmt.Println(rpath)
+					f, bs := OpenFileAndBuf(rpath)
+					//content, err := ioutil.ReadFile(t.mapFile)
+					dec := json.NewDecoder(bs)
+					var kv KeyValue
+					for {
+						if err := dec.Decode(&kv); err == io.EOF {
+							break
+						} else if err != nil {
+							log.Fatalln(err)
+						}
+						log.Println(kv.Key, " *** ", kv.Value)
+						m[kv.Key] = append(m[kv.Key], kv.Value)
+					}
+					f.Close()
+				}
+				res := ""
+				for k, v := range m {
+					temp := t.reduceF(k, v)
+					//log.Println("reduce result : ",temp)
+					res = res + temp
+				}
+				println(t.taskNumber, res)
+				outputPath := mergeName(t.dataDir, t.jobName, t.taskNumber)
+				outf, outfb := CreateFileAndBuf(outputPath)
+				WriteToBuf(outfb, res)
+				SafeClose(outf, outfb)
+				//panic("YOUR CODE HERE")
 			}
 			t.wg.Done()
 		case <-c.exit:
@@ -159,7 +190,30 @@ func (c *MRCluster) run(jobName, dataDir string, mapF MapF, reduceF ReduceF, map
 
 	// reduce phase
 	// YOUR CODE HERE :D
-	panic("YOUR CODE HERE")
+	outpath := make([]string, 0, nReduce)
+	tasks = make([]*task, 0, nReduce)
+	for i := 0; i < nReduce; i++ {
+		t := &task{
+			dataDir:    dataDir,
+			jobName:    jobName,
+			phase:      reducePhase,
+			taskNumber: i,
+			nMap:       nMap,
+			nReduce:    nReduce,
+			reduceF:    reduceF,
+			wg:         sync.WaitGroup{},
+		}
+		t.wg.Add(1)
+		tasks = append(tasks, t)
+		go func() { c.taskCh <- t }()
+		outpath = append(outpath, mergeName(t.dataDir, t.jobName, t.taskNumber))
+	}
+
+	for _, t := range tasks {
+		t.wg.Wait()
+	}
+	notify <- outpath
+	//panic("YOUR CODE HERE")
 }
 
 func ihash(s string) int {
