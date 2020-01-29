@@ -127,7 +127,7 @@ func (c *MRCluster) worker() {
 						} else if err != nil {
 							log.Fatalln(err)
 						}
-						log.Println(kv.Key, " *** ", kv.Value)
+						//log.Println(kv.Key, " *** ", kv.Value)
 						m[kv.Key] = append(m[kv.Key], kv.Value)
 					}
 					f.Close()
@@ -138,7 +138,7 @@ func (c *MRCluster) worker() {
 					//log.Println("reduce result : ",temp)
 					res = res + temp
 				}
-				println(t.taskNumber, res)
+				//println(t.taskNumber, res)
 				outputPath := mergeName(t.dataDir, t.jobName, t.taskNumber)
 				outf, outfb := CreateFileAndBuf(outputPath)
 				WriteToBuf(outfb, res)
