@@ -1,9 +1,11 @@
 use std::fmt;
 
 use crate::proto::kvraftpb::*;
+use crate::select_idx;
 use futures::Future;
 use labrpc::Error;
 use std::cell::Cell;
+use std::sync::mpsc::{channel, Receiver};
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -56,19 +58,33 @@ impl Clerk {
         }
     }
 
+    fn run_async<I, E>(
+        &self,
+        f: impl Future<Item = I, Error = E> + Send + 'static,
+    ) -> Receiver<Result<I, E>>
+    where
+        I: Send + 'static,
+        E: Send + 'static,
+    {
+        let (sx, rx) = channel();
+        std::thread::spawn(move || sx.send(f.wait()));
+        rx
+    }
+
     fn new_id() -> Vec<u8> {
         let id = Uuid::new_v4();
         id.as_bytes().to_vec()
     }
 
+    // TODO: 将这些函数的 R 换成 Receiver<R>。
     fn try_send_to_current_leader<R>(
         &self,
-        send: impl Fn(&KvClient) -> R,
+        send: impl Fn(&KvClient) -> Receiver<R>,
         is_leader: impl Fn(&R) -> bool,
     ) -> Option<R> {
         if let Some(leader) = self.leader.get() {
             debug!("{}: we have leader {}, sending~", self.name, leader);
-            let message = send(&self.servers[leader]);
+            let message = send(&self.servers[leader]).recv().unwrap();
             return if !is_leader(&message) {
                 // leadership changed.
                 debug!("{}: leader {} is died :(", self.name, leader);
@@ -81,15 +97,17 @@ impl Clerk {
         None
     }
 
-    fn check_leader_and_send<R>(
+    fn check_leader_and_send<R: Send + 'static>(
         &self,
-        send: impl Fn(&KvClient) -> R,
+        send: impl Fn(&KvClient) -> Receiver<R>,
         is_leader: impl Fn(&R) -> bool,
     ) -> R {
         debug!("{}: No leader found, but we are seeking ;)", self.name);
         loop {
-            for (i, client) in self.servers.iter().enumerate() {
-                let result = send(client);
+            let sent = self.servers.iter().map(|client| send(client));
+            let send_items = select_idx(sent);
+
+            while let Ok((i, result)) = send_items.recv() {
                 if is_leader(&result) {
                     debug!("We found leader {}!", i);
                     self.leader.set(Some(i));
@@ -101,7 +119,11 @@ impl Clerk {
         }
     }
 
-    fn request<R>(&self, send: impl Fn(&KvClient) -> R, is_leader: impl Fn(&R) -> bool) -> R {
+    fn request<R: Send + 'static>(
+        &self,
+        send: impl Fn(&KvClient) -> Receiver<R>,
+        is_leader: impl Fn(&R) -> bool,
+    ) -> R {
         // first: send to current leader.
         let try_result = self.try_send_to_current_leader(&send, &is_leader);
         if let Some(message) = try_result {
@@ -129,7 +151,7 @@ impl Clerk {
             key: key.clone(),
         };
 
-        let send = |client: &KvClient| client.get(&args).wait();
+        let send = |client: &KvClient| self.run_async(client.get(&args));
         let is_leader = |reply: &Result<GetReply, Error>| match reply {
             Err(_) => false,
             Ok(message) if message.wrong_leader => false,
@@ -158,7 +180,7 @@ impl Clerk {
         info!("{}: put_append({:?})", self.name, op);
         // You will have to modify this function.
         let args: PutAppendRequest = op.into();
-        let send = |client: &KvClient| client.put_append(&args).wait();
+        let send = |client: &KvClient| self.run_async(client.put_append(&args));
         let is_leader = |reply: &Result<PutAppendReply, Error>| match reply {
             Err(_) => false,
             Ok(message) if message.wrong_leader => false,

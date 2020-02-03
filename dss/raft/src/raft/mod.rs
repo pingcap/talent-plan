@@ -16,6 +16,7 @@ use labrpc::RpcFuture;
 use crate::proto::raftpb::*;
 use crate::raft::RaftRole::{Candidate, Follower, Leader};
 use crate::raft::TimerMsg::Stop;
+use crate::select;
 
 use self::errors::*;
 use self::persister::*;
@@ -421,39 +422,6 @@ impl Raft {
 pub struct Node {
     raft: Arc<Mutex<Raft>>,
     rpc_execution_pool: Arc<rayon::ThreadPool>,
-}
-
-// 有没有比轮询更加好的办法呢？（似乎 Go 语言的 Select 在规模变大之后使用的也是轮询）
-fn select<T: Send + 'static>(channels: impl Iterator<Item = Receiver<T>>) -> Receiver<T> {
-    use std::sync::mpsc::TryRecvError::*;
-    let (sx, rx) = channel();
-    let channels: Vec<Receiver<T>> = channels.collect();
-    let mut is_available = vec![true; channels.len()];
-    let mut available_count = channels.len();
-    std::thread::spawn(move || loop {
-        if available_count == 0 {
-            return;
-        }
-        for (i, ch) in channels.iter().enumerate() {
-            if is_available[i] {
-                match ch.try_recv() {
-                    Ok(data) => {
-                        if let Err(_e) = sx.send(data) {
-                            debug!("select: select receiver is closed.");
-                            return;
-                        }
-                    }
-                    Err(Disconnected) => {
-                        is_available[i] = false;
-                        available_count -= 1;
-                    }
-                    Err(Empty) => {}
-                }
-            }
-        }
-        sleep(Duration::from_millis(8))
-    });
-    rx
 }
 
 impl Into<LogEntry> for ProtoEntry {
