@@ -81,10 +81,18 @@ impl Clerk {
         &self,
         send: impl Fn(&KvClient) -> Receiver<R>,
         is_leader: impl Fn(&R) -> bool,
+        timeout: Duration,
     ) -> Option<R> {
         if let Some(leader) = self.leader.get() {
             debug!("{}: we have leader {}, sending~", self.name, leader);
-            let message = send(&self.servers[leader]).recv().unwrap();
+            let message = send(&self.servers[leader]).recv_timeout(timeout);
+            if message.is_err() {
+                debug!("{}: leader {} is timeout :(", self.name, leader);
+                self.leader.set(None);
+                return None;
+            }
+
+            let message = message.unwrap();
             return if !is_leader(&message) {
                 // leadership changed.
                 debug!("{}: leader {} is died :(", self.name, leader);
@@ -94,6 +102,7 @@ impl Clerk {
                 Some(message)
             };
         }
+
         None
     }
 
@@ -101,20 +110,27 @@ impl Clerk {
         &self,
         send: impl Fn(&KvClient) -> Receiver<R>,
         is_leader: impl Fn(&R) -> bool,
+        timeout: Duration,
     ) -> R {
         debug!("{}: No leader found, but we are seeking ;)", self.name);
         loop {
             let sent = self.servers.iter().map(|client| send(client));
             let send_items = select_idx(sent);
-
-            while let Ok((i, result)) = send_items.recv() {
-                if is_leader(&result) {
-                    debug!("We found leader {}!", i);
-                    self.leader.set(Some(i));
-                    return result;
+            use std::sync::mpsc::RecvTimeoutError;
+            loop {
+                match send_items.recv_timeout(timeout) {
+                    Ok((i, result)) => {
+                        if is_leader(&result) {
+                            debug!("We found leader {}!", i);
+                            self.leader.set(Some(i));
+                            return result;
+                        }
+                    }
+                    Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => break,
                 }
             }
             // ensure that there is a leader elected.
+            info!("CHECK_LEADER: failed to find leader... retrying...");
             std::thread::sleep(Duration::from_millis(300));
         }
     }
@@ -123,9 +139,10 @@ impl Clerk {
         &self,
         send: impl Fn(&KvClient) -> Receiver<R>,
         is_leader: impl Fn(&R) -> bool,
+        timeout: Duration,
     ) -> R {
         // first: send to current leader.
-        let try_result = self.try_send_to_current_leader(&send, &is_leader);
+        let try_result = self.try_send_to_current_leader(&send, &is_leader, timeout);
         if let Some(message) = try_result {
             return message;
         }
@@ -135,7 +152,7 @@ impl Clerk {
             self.leader.get().is_none(),
             "We tried to find new leader even there is a leader available."
         );
-        self.check_leader_and_send(&send, &is_leader)
+        self.check_leader_and_send(&send, &is_leader, timeout)
     }
 
     /// fetch the current value for a key.
@@ -159,7 +176,7 @@ impl Clerk {
         };
 
         loop {
-            match self.request(&send, &is_leader) {
+            match self.request(&send, &is_leader, Duration::from_millis(300)) {
                 Ok(message) => {
                     info!("get({:?}) => {:?}", key, message);
                     return message.value;
@@ -188,7 +205,7 @@ impl Clerk {
         };
 
         loop {
-            match self.request(&send, &is_leader) {
+            match self.request(&send, &is_leader, Duration::from_millis(300)) {
                 Ok(result) => {
                     info!("put_append({:?}) => {:?}", args, result);
                     return;

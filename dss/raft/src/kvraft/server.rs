@@ -139,7 +139,7 @@ impl KvStateMachine {
                     .wait()
                     .map(std::result::Result::unwrap)
                     .for_each(|message| {
-                        info!("{}: message[{}] received...", name, message.command_index);
+                        debug!("{}: message[{}] received...", name, message.command_index);
 
                         let command = KvCommand::from_bytes(message.command.as_slice());
                         if command.is_none() {
@@ -210,7 +210,7 @@ impl KvStateMachine {
                 let mut map = self.waiting_channels.lock().unwrap();
                 map.insert(idx, sx);
                 let cmd_id = cmd.get_id();
-                info!("{}: started message[{}]", self.name, idx);
+                debug!("{}: started message[{}]", self.name, idx);
                 Box::new(
                     rx.map(move |id| {
                         if id == cmd_id {
@@ -328,62 +328,81 @@ impl Node {
         let server = self.server.lock().unwrap();
         server.rf.get_state()
     }
-}
 
-impl KvService for Node {
-    // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
-    fn get(&self, arg: GetRequest) -> RpcFuture<GetReply> {
+    fn do_get(&self, arg: GetRequest) -> GetReply {
         let server = self.server.lock().unwrap();
         let fsm = server.fsm.clone();
         drop(server);
 
         let start_result = fsm.start(&arg);
-        let reply_fut = start_result.map(move |result| match result {
-            Err(KvError::NotLeader) => GetReply {
-                wrong_leader: true,
-                err: "not leader".to_owned(),
-                value: "".to_owned(),
-            },
-            Ok(()) => GetReply {
+        start_result
+            .map(move |result| match result {
+                Err(KvError::NotLeader) => GetReply {
+                    wrong_leader: true,
+                    err: "not leader".to_owned(),
+                    value: "".to_owned(),
+                },
+                Ok(()) => GetReply {
+                    wrong_leader: false,
+                    err: "".to_owned(),
+                    value: fsm.get(&arg.key).unwrap_or_else(|| "".to_owned()),
+                },
+                Err(e) => GetReply {
+                    wrong_leader: false,
+                    err: format!("{}", e),
+                    value: "".to_owned(),
+                },
+            })
+            .wait()
+            .unwrap()
+    }
+
+    fn do_put_append(&self, arg: PutAppendRequest) -> PutAppendReply {
+        let server = self.server.lock().unwrap();
+        let cmd_id = Uuid::from_slice(arg.id.as_slice()).expect("fetal: bad command id.");
+        if server.fsm.contains_command(cmd_id) {
+            return PutAppendReply {
                 wrong_leader: false,
                 err: "".to_owned(),
-                value: fsm.get(&arg.key).unwrap_or_else(|| "".to_owned()),
-            },
-            Err(e) => GetReply {
-                wrong_leader: false,
-                err: format!("{}", e),
-                value: "".to_owned(),
-            },
-        });
-        Box::new(reply_fut.map_err(|_| panic!("fetal: failed to send rpc: failed to execute.")))
+            };
+        }
+        let start_result = server.fsm.start(&arg);
+        drop(server);
+
+        start_result
+            .map(|result| match result {
+                Err(KvError::NotLeader) => PutAppendReply {
+                    wrong_leader: true,
+                    err: "not leader".to_owned(),
+                },
+                Ok(()) => PutAppendReply {
+                    wrong_leader: false,
+                    err: "".to_owned(),
+                },
+                Err(e) => PutAppendReply {
+                    wrong_leader: false,
+                    err: format!("{}", e),
+                },
+            })
+            .wait()
+            .unwrap()
+    }
+}
+
+impl KvService for Node {
+    // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
+    fn get(&self, arg: GetRequest) -> RpcFuture<GetReply> {
+        let (sx, rx) = futures::sync::oneshot::channel();
+        let this = self.clone();
+        std::thread::spawn(move || sx.send(this.do_get(arg)));
+        Box::new(rx.map_err(|_| panic!("fetal: failed to send rpc: failed to execute.")))
     }
 
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
     fn put_append(&self, arg: PutAppendRequest) -> RpcFuture<PutAppendReply> {
-        let server = self.server.lock().unwrap();
-        let cmd_id = Uuid::from_slice(arg.id.as_slice()).expect("fetal: bad command id.");
-        if server.fsm.contains_command(cmd_id) {
-            return Box::new(futures::finished(PutAppendReply {
-                wrong_leader: false,
-                err: "".to_owned(),
-            }));
-        }
-        let start_result = server.fsm.start(&arg);
-        drop(server);
-        let reply_fut = start_result.map(|result| match result {
-            Err(KvError::NotLeader) => PutAppendReply {
-                wrong_leader: true,
-                err: "not leader".to_owned(),
-            },
-            Ok(()) => PutAppendReply {
-                wrong_leader: false,
-                err: "".to_owned(),
-            },
-            Err(e) => PutAppendReply {
-                wrong_leader: false,
-                err: format!("{}", e),
-            },
-        });
-        Box::new(reply_fut.map_err(|_| panic!("fetal: failed to send rpc: failed to execute.")))
+        let (sx, rx) = futures::sync::oneshot::channel();
+        let this = self.clone();
+        std::thread::spawn(move || sx.send(this.do_put_append(arg)));
+        Box::new(rx.map_err(|_| panic!("fetal: failed to send rpc: failed to execute.")))
     }
 }

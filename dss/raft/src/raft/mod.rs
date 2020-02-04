@@ -744,7 +744,7 @@ impl Raft {
                             raft_info, req.follower
                         ),
                         Ok(Err(e)) => {
-                            warn!(
+                            info!(
                                 "{} Failed to get result of {:?}, because: {}",
                                 raft_info, req.request, e
                             );
