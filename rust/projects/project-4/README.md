@@ -63,7 +63,7 @@ The interface to the CLI is the same as in the [previous project]. The
 difference this time is in the concurrent implementation, which will be
 described as we work through it.
 
-[previous project]: ../project-3/project.md
+[previous project]: ../project-3/README.md
 
 The library interface is nearly the same except for two things. First this time
 all the `KvsEngine`, `KvStore`, etc. methods take `&self` instead of `&mut
