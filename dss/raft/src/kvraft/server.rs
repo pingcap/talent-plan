@@ -5,15 +5,20 @@ use uuid::Uuid;
 
 use labrpc::RpcFuture;
 
-use crate::kvraft::server::KvError::FailToCommit;
+use crate::kvraft::server::KvError::{FailToCommit, Timeout};
 use crate::proto::kvraftpb::*;
 use crate::raft;
 use crate::raft::ApplyMsg;
 use failure::Fail;
+use failure::_core::time::Duration;
 use futures::sync::oneshot::Sender;
 use futures::{Future, Sink, Stream};
+use futures_timer::Delay;
 use labcodec::Message;
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::collections::{BTreeMap, HashSet};
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
@@ -95,6 +100,10 @@ enum KvError {
     Replicated,
     #[fail(display = "The command failed to commit.")]
     FailToCommit,
+    #[fail(
+        display = "The command spend too mach time to commit, maybe leader is died or network partition occurs."
+    )]
+    Timeout,
 }
 
 type Result<T> = std::result::Result<T, KvError>;
@@ -198,6 +207,9 @@ impl KvStateMachine {
             .send(None)
             .wait()
             .unwrap_or_else(|e| panic!("Failed to shutdown kv machine, because: {}", e));
+        let mut wc = self.waiting_channels.lock().unwrap();
+        // drop all pending channels.
+        wc.clear();
     }
 
     fn notify_at(&self, idx: u64, msg: &KvCommand) {
@@ -369,12 +381,28 @@ impl KvServer {
 #[derive(Clone)]
 pub struct Node {
     server: Arc<Mutex<KvServer>>,
+    active_thread: Arc<AtomicU64>,
+    rpc_execution_pool: Arc<ThreadPool>,
+}
+
+static RAFT_COMMIT_TIMEOUT: Duration = Duration::from_secs(1);
+
+fn timeout_fut<T>() -> impl Future<Item = Result<T>, Error = ()> {
+    Delay::new(RAFT_COMMIT_TIMEOUT)
+        .map(|_| Err(Timeout))
+        .map_err(|_| ())
 }
 
 impl Node {
     pub fn new(kv: KvServer) -> Node {
         let server = Arc::new(Mutex::new(kv));
-        Node { server }
+        let active_thread = Arc::new(AtomicU64::new(0));
+        let rpc_execution_pool = Arc::new(ThreadPoolBuilder::new().num_threads(8).build().unwrap());
+        Node {
+            server,
+            active_thread,
+            rpc_execution_pool,
+        }
     }
 
     /// the tester calls Kill() when a KVServer instance won't
@@ -385,7 +413,11 @@ impl Node {
         // Your code here, if desired.
         let server = self.server.lock().unwrap();
         server.fsm.shutdown();
-        info!("node[{}] is died.", server.me);
+        info!(
+            "node[{}] is died. with active thread: {}",
+            server.me,
+            self.active_thread.load(Ordering::SeqCst)
+        );
     }
 
     /// The current term of this peer.
@@ -409,8 +441,9 @@ impl Node {
         drop(server);
 
         let start_result = fsm.start(&arg);
-        start_result
-            .map(move |result| match result {
+        let result = start_result
+            .select(timeout_fut())
+            .map(move |(result, _)| match result {
                 Err(KvError::NotLeader) => GetReply {
                     wrong_leader: true,
                     err: "not leader".to_owned(),
@@ -428,11 +461,13 @@ impl Node {
                 },
             })
             .wait()
-            .unwrap_or_else(|()| GetReply {
+            .unwrap_or_else(|((), _)| GetReply {
                 wrong_leader: false,
                 err: "FSM cancels execution.".to_owned(),
                 value: "".to_owned(),
-            })
+            });
+        self.active_thread.fetch_sub(1, Ordering::SeqCst);
+        result
     }
 
     fn do_put_append(&self, arg: PutAppendRequest) -> PutAppendReply {
@@ -447,8 +482,9 @@ impl Node {
         let start_result = server.fsm.start(&arg);
         drop(server);
 
-        start_result
-            .map(|result| match result {
+        let result = start_result
+            .select(timeout_fut())
+            .map(|(result, _)| match result {
                 Err(KvError::NotLeader) => PutAppendReply {
                     wrong_leader: true,
                     err: "not leader".to_owned(),
@@ -463,10 +499,12 @@ impl Node {
                 },
             })
             .wait()
-            .unwrap_or_else(|()| PutAppendReply {
+            .unwrap_or_else(|((), _)| PutAppendReply {
                 wrong_leader: false,
                 err: "FSM cancels execution.".to_owned(),
-            })
+            });
+        self.active_thread.fetch_sub(1, Ordering::SeqCst);
+        result
     }
 }
 
@@ -476,6 +514,7 @@ impl KvService for Node {
         let (sx, rx) = futures::sync::oneshot::channel();
         let this = self.clone();
         std::thread::spawn(move || sx.send(this.do_get(arg)));
+        self.active_thread.fetch_add(1, Ordering::SeqCst);
         Box::new(rx.map_err(|_| panic!("fetal: failed to send rpc: failed to execute.")))
     }
 
@@ -484,6 +523,7 @@ impl KvService for Node {
         let (sx, rx) = futures::sync::oneshot::channel();
         let this = self.clone();
         std::thread::spawn(move || sx.send(this.do_put_append(arg)));
+        self.active_thread.fetch_add(1, Ordering::SeqCst);
         Box::new(rx.map_err(|_| panic!("fetal: failed to send rpc: failed to execute.")))
     }
 }
