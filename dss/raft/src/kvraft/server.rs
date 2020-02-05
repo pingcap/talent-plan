@@ -1,8 +1,9 @@
+use futures::sync::mpsc::unbounded;
+
+use labrpc::RpcFuture;
+
 use crate::proto::kvraftpb::*;
 use crate::raft;
-
-use futures::sync::mpsc::unbounded;
-use labrpc::RpcFuture;
 
 pub struct KvServer {
     pub rf: raft::Node,
@@ -67,6 +68,11 @@ impl Node {
     /// in Kill(), but it might be convenient to (for example)
     /// turn off debug output from this instance.
     pub fn kill(&self) {
+        // If you want to free some resources by `raft::Node::kill` method,
+        // you should call `raft::Node::kill` here also to prevent resource leaking.
+        // Since the test framework will call kvraft::Node::kill only.
+        // self.server.kill();
+
         // Your code here, if desired.
     }
 
