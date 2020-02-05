@@ -1,24 +1,24 @@
+use std::collections::{BTreeMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
+use failure::_core::time::Duration;
+use failure::Fail;
+use futures::{Future, Sink, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
+use futures::sync::oneshot::Sender;
+use futures_timer::Delay;
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use uuid::Uuid;
 
+use labcodec::Message;
 use labrpc::RpcFuture;
 
 use crate::kvraft::server::KvError::{FailToCommit, Timeout};
 use crate::proto::kvraftpb::*;
 use crate::raft;
 use crate::raft::ApplyMsg;
-use failure::Fail;
-use failure::_core::time::Duration;
-use futures::sync::oneshot::Sender;
-use futures::{Future, Sink, Stream};
-use futures_timer::Delay;
-use labcodec::Message;
-use rayon::{ThreadPool, ThreadPoolBuilder};
-use std::collections::{BTreeMap, HashSet};
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
@@ -421,6 +421,7 @@ impl Node {
         // Your code here, if desired.
         let server = self.server.lock().unwrap();
         server.fsm.shutdown();
+        server.rf.kill();
         info!(
             "node[{}] is died. with active thread: {}",
             server.me,

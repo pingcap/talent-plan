@@ -1,12 +1,12 @@
 use std::cmp::Ordering;
 use std::ops::Deref;
-use std::sync::mpsc::{channel, sync_channel, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{channel, Receiver, sync_channel, SyncSender};
 use std::thread::sleep;
 use std::time::Duration;
 
-use futures::sync::mpsc::UnboundedSender;
 use futures::Future;
+use futures::sync::mpsc::UnboundedSender;
 use rand::Rng;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 
@@ -820,6 +820,7 @@ impl Raft {
     }
 
     fn transform_to_follower(raft: Arc<Mutex<Raft>>) {
+        use std::sync::mpsc::RecvTimeoutError::*;
         let (sx, rx) = sync_channel::<TimerMsg>(1);
         let mut guard = raft.lock().unwrap();
         guard.try_send_to_election_timer(Stop);
@@ -830,11 +831,11 @@ impl Raft {
             move || loop {
                 let message = rx.recv_timeout(Raft::generate_election_timeout());
                 match message {
-                    Err(_) => {
+                    Err(Timeout) => {
                         Raft::transform_to_candidate(raft.clone());
                     }
                     Ok(TimerMsg::Reset) => debug!("Reset election timeout!"),
-                    Ok(TimerMsg::Stop) => {
+                    Ok(TimerMsg::Stop) | Err(Disconnected) => {
                         debug!("stop signal received, the timer will stop.");
                         return;
                     }
