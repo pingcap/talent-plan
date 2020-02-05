@@ -299,6 +299,7 @@ impl KvStateMachine {
                 let mut map = self.waiting_channels.lock().unwrap();
                 map.insert(idx, sx);
                 let cmd_id = cmd.get_id();
+                let should_log = self.should_log;
                 debug!("{}: started message[{}]", self.name, idx);
                 Box::new(
                     rx.map(move |cmd| {
@@ -308,7 +309,14 @@ impl KvStateMachine {
                             Err(FailToCommit)
                         }
                     })
-                    .map_err(|e| error!("FSM::start received exception: {}", e)),
+                    .map_err(move |e| {
+                        if should_log {
+                            error!(
+                                "FSM::start received exception: {}, maybe FSM should stop.",
+                                e
+                            )
+                        }
+                    }),
                 )
             }
             Err(Error::NotLeader) => Box::new(futures::finished(Err(KvError::NotLeader))),
@@ -385,7 +393,7 @@ pub struct Node {
     rpc_execution_pool: Arc<ThreadPool>,
 }
 
-static RAFT_COMMIT_TIMEOUT: Duration = Duration::from_secs(1);
+static RAFT_COMMIT_TIMEOUT: Duration = Duration::from_millis(300);
 
 fn timeout_fut<T>() -> impl Future<Item = Result<T>, Error = ()> {
     Delay::new(RAFT_COMMIT_TIMEOUT)
@@ -513,7 +521,9 @@ impl KvService for Node {
     fn get(&self, arg: GetRequest) -> RpcFuture<GetReply> {
         let (sx, rx) = futures::sync::oneshot::channel();
         let this = self.clone();
-        std::thread::spawn(move || sx.send(this.do_get(arg)));
+        self.rpc_execution_pool.spawn(move || {
+            let _ = sx.send(this.do_get(arg));
+        });
         self.active_thread.fetch_add(1, Ordering::SeqCst);
         Box::new(rx.map_err(|_| panic!("fetal: failed to send rpc: failed to execute.")))
     }
@@ -522,7 +532,9 @@ impl KvService for Node {
     fn put_append(&self, arg: PutAppendRequest) -> RpcFuture<PutAppendReply> {
         let (sx, rx) = futures::sync::oneshot::channel();
         let this = self.clone();
-        std::thread::spawn(move || sx.send(this.do_put_append(arg)));
+        self.rpc_execution_pool.spawn(move || {
+            let _ = sx.send(this.do_put_append(arg));
+        });
         self.active_thread.fetch_add(1, Ordering::SeqCst);
         Box::new(rx.map_err(|_| panic!("fetal: failed to send rpc: failed to execute.")))
     }
