@@ -177,10 +177,11 @@ impl Clerk {
 
         loop {
             match self.request(&send, &is_leader, Duration::from_millis(300)) {
-                Ok(message) => {
+                Ok(ref message) if message.err.is_empty() => {
                     info!("get({:?}) => {:?}", key, message);
-                    return message.value;
+                    return message.value.clone();
                 }
+                Ok(ref message) => info!("GET: occurs error: {}, retrying...", message.err),
                 Err(_) => {
                     info!("GET: failed to send request");
                     std::thread::sleep(Duration::from_millis(200))
@@ -206,11 +207,11 @@ impl Clerk {
 
         loop {
             match self.request(&send, &is_leader, Duration::from_millis(300)) {
-                Ok(result) => {
+                Ok(ref result) if result.err.is_empty() => {
                     info!("put_append({:?}) => {:?}", args, result);
                     return;
                 }
-                Err(_) => {
+                _ => {
                     info!(
                         "{}: put_append({:?}) failed, sleeping before resend...",
                         self.name, args

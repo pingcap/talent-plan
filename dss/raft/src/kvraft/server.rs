@@ -20,6 +20,7 @@ use std::collections::{BTreeMap, HashSet};
 enum KvCommand {
     Get {
         id: Uuid,
+        key: String,
     },
     Put {
         id: Uuid,
@@ -51,7 +52,7 @@ impl KvCommand {
 
     fn from_put_append(request: PutAppendRequest) -> Self {
         match Op::from_i32(request.op).unwrap_or(Op::Unknown) {
-            Op::Unknown => panic!("unknown op detached."),
+            Op::Unknown => panic!("unknown op detached: {}.", request.op),
             Op::Put => KvCommand::Put {
                 id: build_uuid(request.id.as_slice()),
                 key: request.key,
@@ -68,12 +69,13 @@ impl KvCommand {
     fn from_get(request: GetRequest) -> Self {
         KvCommand::Get {
             id: build_uuid(request.id.as_slice()),
+            key: request.key,
         }
     }
 
     fn get_id(&self) -> Uuid {
         *match self {
-            KvCommand::Get { id } => id,
+            KvCommand::Get { id, .. } => id,
             KvCommand::Put { id, .. } => id,
             KvCommand::Append { id, .. } => id,
         }
@@ -101,30 +103,72 @@ type Result<T> = std::result::Result<T, KvError>;
 struct KvStateMachine {
     state: Arc<Mutex<BTreeMap<String, String>>>,
     success_commands: Arc<Mutex<HashSet<Uuid>>>,
-    waiting_channels: Arc<Mutex<BTreeMap<u64, Sender<Uuid>>>>,
+    waiting_channels: Arc<Mutex<BTreeMap<u64, Sender<CommandResponse>>>>,
     raft: raft::Node,
     name: String,
+    should_log: bool,
 }
 
-trait Identifiable {
+trait Command {
     fn get_id(&self) -> Uuid;
+    fn is_readonly(&self) -> bool;
 }
 
-impl Identifiable for PutAppendRequest {
+impl Command for PutAppendRequest {
     fn get_id(&self) -> Uuid {
         Uuid::from_slice(self.id.as_slice()).unwrap()
     }
+
+    fn is_readonly(&self) -> bool {
+        false
+    }
 }
 
-impl Identifiable for GetRequest {
+impl Command for GetRequest {
     fn get_id(&self) -> Uuid {
         Uuid::from_slice(self.id.as_slice()).unwrap()
+    }
+
+    fn is_readonly(&self) -> bool {
+        true
+    }
+}
+
+impl Command for KvCommand {
+    fn get_id(&self) -> Uuid {
+        self.get_id()
+    }
+
+    fn is_readonly(&self) -> bool {
+        match self {
+            KvCommand::Get { .. } => true,
+            KvCommand::Put { .. } | KvCommand::Append { .. } => false,
+        }
+    }
+}
+
+struct CommandResponse {
+    command_id: Uuid,
+    reply: String,
+}
+
+impl CommandResponse {
+    fn new(id: Uuid, reply: String) -> Self {
+        CommandResponse {
+            command_id: id,
+            reply,
+        }
     }
 }
 
 impl KvStateMachine {
-    fn new(apply_ch: UnboundedReceiver<ApplyMsg>, raft: raft::Node, name: String) -> Self {
-        let state = Arc::new(Mutex::default());
+    fn new(
+        apply_ch: UnboundedReceiver<ApplyMsg>,
+        raft: raft::Node,
+        name: String,
+        should_log: bool,
+    ) -> Self {
+        let state = Arc::new(Mutex::new(BTreeMap::new()));
         let success_commands = Arc::new(Mutex::new(HashSet::new()));
         let waiting_channels = Arc::new(Mutex::new(BTreeMap::new()));
         // spawn the handler.
@@ -139,18 +183,28 @@ impl KvStateMachine {
                     .wait()
                     .map(std::result::Result::unwrap)
                     .for_each(|message| {
-                        debug!("{}: message[{}] received...", name, message.command_index);
+                        if should_log {
+                            debug!("{}: message[{}] received...", name, message.command_index);
+                        }
 
                         let command = KvCommand::from_bytes(message.command.as_slice());
                         if command.is_none() {
                             panic!("Invalid message received.")
                         }
                         let cmd = command.unwrap();
-                        debug!("request: {:?}", cmd.get_id());
+                        if should_log {
+                            debug!("request: {:?}", cmd.get_id());
+                        }
 
                         let mut notifier = waiting_channels.lock().unwrap();
                         if let Some(sender) = notifier.remove(&message.command_index) {
-                            Sender::send(sender, cmd.get_id()).unwrap_or_else(|_| {
+                            let response = if let KvCommand::Get { id, key } = &cmd {
+                                let state = state.lock().unwrap();
+                                CommandResponse::new(*id, state.get(key).cloned().unwrap_or_else(|| "".to_owned()))
+                            } else {
+                                CommandResponse::new(cmd.get_id(), "".to_owned())
+                            };
+                            Sender::send(sender, response).unwrap_or_else(|_| {
                                 warn!(
                                     "Message notifier doesn't send rightly. \
                                      Maybe raft commits this too fast."
@@ -158,31 +212,33 @@ impl KvStateMachine {
                             });
                         }
 
-                        let id = cmd.get_id();
-                        let mut history = success_commands.lock().unwrap();
-                        if history.contains(&id) {
-                            warn!(
-                                "{}: Replicated ID: {} get, the command {:?} won't be processed.",
-                                name, id, cmd
-                            );
-                            return;
-                        }
-                        history.insert(id);
-                        drop(history);
-
-                        match cmd {
-                            KvCommand::Get { .. } => {}
-                            KvCommand::Put { key, value, .. } => {
-                                let mut state: MutexGuard<BTreeMap<String, String>> =
-                                    state.lock().unwrap();
-                                let map = &mut *state;
-                                map.insert(key, value);
-                            }
-                            KvCommand::Append { key, value, .. } => {
-                                let mut state = state.lock().unwrap();
-                                if let Some(val) = state.get_mut(&key) {
-                                    val.push_str(value.as_str());
+                        if !cmd.is_readonly() {
+                            let id = cmd.get_id();
+                            let mut history = success_commands.lock().unwrap();
+                            if history.contains(&id) {
+                                if should_log {
+                                    warn!(
+                                        "{}: Replicated ID: {} get, the command {:?} won't be processed.",
+                                        name, id, cmd
+                                    );
                                 }
+                                return;
+                            }
+                            history.insert(id);
+                            drop(history);
+
+                            match cmd {
+                                KvCommand::Put { key, value, .. } => {
+                                    let mut state: MutexGuard<BTreeMap<String, String>> =
+                                        state.lock().unwrap();
+                                    let map = &mut *state;
+                                    map.insert(key, value);
+                                }
+                                KvCommand::Append { key, value, .. } => {
+                                    let mut state = state.lock().unwrap();
+                                    state.entry(key).or_default().push_str(value.as_str());
+                                }
+                                _ => ()
                             }
                         }
                     })
@@ -194,13 +250,14 @@ impl KvStateMachine {
             waiting_channels,
             raft,
             name,
+            should_log,
         }
     }
 
     fn start(
         &self,
-        cmd: &(impl Message + Identifiable),
-    ) -> Box<dyn Future<Item = Result<()>, Error = ()> + Send + 'static> {
+        cmd: &(impl Message + Command),
+    ) -> Box<dyn Future<Item = Result<CommandResponse>, Error = ()> + Send + 'static> {
         use crate::raft::errors::Error;
 
         match self.raft.start(cmd) {
@@ -212,24 +269,19 @@ impl KvStateMachine {
                 let cmd_id = cmd.get_id();
                 debug!("{}: started message[{}]", self.name, idx);
                 Box::new(
-                    rx.map(move |id| {
-                        if id == cmd_id {
-                            Ok(())
+                    rx.map(move |cmd| {
+                        if cmd.command_id == cmd_id {
+                            Ok(cmd)
                         } else {
                             Err(FailToCommit)
                         }
                     })
-                    .map_err(|e| warn!("FSM::start received exception: {}", e)),
+                    .map_err(|e| error!("FSM::start received exception: {}", e)),
                 )
             }
             Err(Error::NotLeader) => Box::new(futures::finished(Err(KvError::NotLeader))),
             Err(e) => Box::new(futures::finished(Err(KvError::Raft(e)))),
         }
-    }
-
-    fn get(&self, key: &str) -> Option<String> {
-        let state = self.state.lock().unwrap();
-        state.get(key).cloned()
     }
 
     fn contains_command(&self, id: Uuid) -> bool {
@@ -259,7 +311,7 @@ impl KvServer {
         let (tx, apply_ch) = unbounded();
         let rf = raft::Raft::new(servers, me, persister, tx);
         let node = raft::Node::new(rf);
-        let fsm = KvStateMachine::new(apply_ch, node.clone(), format!("[{}]", me));
+        let fsm = KvStateMachine::new(apply_ch, node.clone(), format!("[{}]", me), me == 0);
         KvServer {
             rf: node,
             me,
@@ -273,7 +325,6 @@ impl KvServer {
     /// Only for suppressing deadcode warnings.
     #[doc(hidden)]
     pub fn __suppress_deadcode(&mut self) {
-        let _ = KvCommand::Get { id: Uuid::nil() };
         let _ = &self.me;
         let _ = &self.maxraftstate;
         let _ = KvCommand::from_bytes(vec![].as_slice());
@@ -342,19 +393,23 @@ impl Node {
                     err: "not leader".to_owned(),
                     value: "".to_owned(),
                 },
-                Ok(()) => GetReply {
+                Ok(cmd) => GetReply {
                     wrong_leader: false,
                     err: "".to_owned(),
-                    value: fsm.get(&arg.key).unwrap_or_else(|| "".to_owned()),
+                    value: cmd.reply,
                 },
                 Err(e) => GetReply {
                     wrong_leader: false,
-                    err: format!("{}", e),
+                    err: format!("ERROR: {}", e),
                     value: "".to_owned(),
                 },
             })
             .wait()
-            .unwrap()
+            .unwrap_or_else(|()| GetReply {
+                wrong_leader: false,
+                err: "FSM cancels execution.".to_owned(),
+                value: "".to_owned(),
+            })
     }
 
     fn do_put_append(&self, arg: PutAppendRequest) -> PutAppendReply {
@@ -375,7 +430,7 @@ impl Node {
                     wrong_leader: true,
                     err: "not leader".to_owned(),
                 },
-                Ok(()) => PutAppendReply {
+                Ok(_) => PutAppendReply {
                     wrong_leader: false,
                     err: "".to_owned(),
                 },
@@ -385,7 +440,10 @@ impl Node {
                 },
             })
             .wait()
-            .unwrap()
+            .unwrap_or_else(|()| PutAppendReply {
+                wrong_leader: false,
+                err: "FSM cancels execution.".to_owned(),
+            })
     }
 }
 

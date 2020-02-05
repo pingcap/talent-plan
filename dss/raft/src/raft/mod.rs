@@ -495,6 +495,9 @@ impl Raft {
 
     fn leader_commit_logs(&mut self) {
         let next = self.next_commit_index();
+        assert!((next as usize) < self.log.len(),
+                "match_index grater than self log length... next = {} and match_index = {:?} and self.log.len() = {}",
+                next, self.leader_state.as_ref().map(|s| s.match_index.clone()), self.log.len());
         // 5.4.2: NEVER commit log entries from previous terms by counting replicas.
         if next > self.commit_index && self.log[next as usize].term == self.term {
             self.commit_index = next;
