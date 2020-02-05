@@ -63,9 +63,9 @@ impl Node {
         crate::your_code_here(kv);
     }
 
-    /// the tester calls Kill() when a KVServer instance won't
+    /// the tester calls kill() when a KVServer instance won't
     /// be needed again. you are not required to do anything
-    /// in Kill(), but it might be convenient to (for example)
+    /// in kill(), but it might be convenient to (for example)
     /// turn off debug output from this instance.
     pub fn kill(&self) {
         // If you want to free some resources by `raft::Node::kill` method,
