@@ -52,7 +52,7 @@ impl KvCommand {
 
     fn from_put_append(request: PutAppendRequest) -> Self {
         match Op::from_i32(request.op).unwrap_or(Op::Unknown) {
-            Op::Unknown => panic!("unknown op detached: {}.", request.op),
+            Op::Unknown => panic!("unknown op detached: {:?}.", request),
             Op::Put => KvCommand::Put {
                 id: build_uuid(request.id.as_slice()),
                 key: request.key,
@@ -162,6 +162,56 @@ impl CommandResponse {
 }
 
 impl KvStateMachine {
+    fn handle_command(&self, cmd: KvCommand) {
+        let id = cmd.get_id();
+        let mut history = self.success_commands.lock().unwrap();
+        if history.contains(&id) {
+            if self.should_log {
+                warn!(
+                    "{}: Replicated ID: {} get, the command {:?} won't be processed.",
+                    self.name, id, cmd
+                );
+            }
+            return;
+        }
+        history.insert(id);
+        drop(history);
+
+        match cmd {
+            KvCommand::Put { key, value, .. } => {
+                let mut state: MutexGuard<BTreeMap<String, String>> = self.state.lock().unwrap();
+                let map = &mut *state;
+                map.insert(key, value);
+            }
+            KvCommand::Append { key, value, .. } => {
+                let mut state = self.state.lock().unwrap();
+                state.entry(key).or_default().push_str(value.as_str());
+            }
+            _ => (),
+        }
+    }
+
+    fn notify_at(&self, idx: u64, msg: &KvCommand) {
+        let mut notifier = self.waiting_channels.lock().unwrap();
+        if let Some(sender) = notifier.remove(&idx) {
+            let response = if let KvCommand::Get { id, key } = msg {
+                let state = self.state.lock().unwrap();
+                CommandResponse::new(
+                    *id,
+                    state.get(key).cloned().unwrap_or_else(|| "".to_owned()),
+                )
+            } else {
+                CommandResponse::new(msg.get_id(), "".to_owned())
+            };
+            Sender::send(sender, response).unwrap_or_else(|_| {
+                warn!(
+                    "Message notifier doesn't send rightly. \
+                     Maybe raft commits this too fast."
+                );
+            });
+        }
+    }
+
     fn new(
         apply_ch: UnboundedReceiver<ApplyMsg>,
         raft: raft::Node,
@@ -171,87 +221,47 @@ impl KvStateMachine {
         let state = Arc::new(Mutex::new(BTreeMap::new()));
         let success_commands = Arc::new(Mutex::new(HashSet::new()));
         let waiting_channels = Arc::new(Mutex::new(BTreeMap::new()));
-        // spawn the handler.
-        std::thread::spawn({
-            let success_commands = success_commands.clone();
-            let state = state.clone();
-            let waiting_channels = waiting_channels.clone();
-            let name = name.clone();
-            info!("FSM worker for {} start!", name);
-            move || {
-                apply_ch
-                    .wait()
-                    .map(std::result::Result::unwrap)
-                    .for_each(|message| {
-                        if should_log {
-                            debug!("{}: message[{}] received...", name, message.command_index);
-                        }
-
-                        let command = KvCommand::from_bytes(message.command.as_slice());
-                        if command.is_none() {
-                            panic!("Invalid message received.")
-                        }
-                        let cmd = command.unwrap();
-                        if should_log {
-                            debug!("request: {:?}", cmd.get_id());
-                        }
-
-                        let mut notifier = waiting_channels.lock().unwrap();
-                        if let Some(sender) = notifier.remove(&message.command_index) {
-                            let response = if let KvCommand::Get { id, key } = &cmd {
-                                let state = state.lock().unwrap();
-                                CommandResponse::new(*id, state.get(key).cloned().unwrap_or_else(|| "".to_owned()))
-                            } else {
-                                CommandResponse::new(cmd.get_id(), "".to_owned())
-                            };
-                            Sender::send(sender, response).unwrap_or_else(|_| {
-                                warn!(
-                                    "Message notifier doesn't send rightly. \
-                                     Maybe raft commits this too fast."
-                                );
-                            });
-                        }
-
-                        if !cmd.is_readonly() {
-                            let id = cmd.get_id();
-                            let mut history = success_commands.lock().unwrap();
-                            if history.contains(&id) {
-                                if should_log {
-                                    warn!(
-                                        "{}: Replicated ID: {} get, the command {:?} won't be processed.",
-                                        name, id, cmd
-                                    );
-                                }
-                                return;
-                            }
-                            history.insert(id);
-                            drop(history);
-
-                            match cmd {
-                                KvCommand::Put { key, value, .. } => {
-                                    let mut state: MutexGuard<BTreeMap<String, String>> =
-                                        state.lock().unwrap();
-                                    let map = &mut *state;
-                                    map.insert(key, value);
-                                }
-                                KvCommand::Append { key, value, .. } => {
-                                    let mut state = state.lock().unwrap();
-                                    state.entry(key).or_default().push_str(value.as_str());
-                                }
-                                _ => ()
-                            }
-                        }
-                    })
-            }
-        });
-        KvStateMachine {
+        let fsm = KvStateMachine {
             state,
             success_commands,
             waiting_channels,
             raft,
             name,
             should_log,
-        }
+        };
+        // spawn the handler.
+        let _handler = std::thread::spawn({
+            let fsm = fsm.clone();
+            info!("FSM worker for {} start!", fsm.name);
+            move || {
+                let mut i = apply_ch.wait();
+                while let Some(Ok(message)) = i.next() {
+                    if should_log {
+                        debug!(
+                            "{}: message[{}] received...",
+                            fsm.name, message.command_index
+                        );
+                    }
+
+                    let command = KvCommand::from_bytes(message.command.as_slice());
+                    if command.is_none() {
+                        panic!("Invalid message received.")
+                    }
+                    let cmd = command.unwrap();
+                    if should_log {
+                        debug!("request: {:?}", cmd.get_id());
+                    }
+
+                    fsm.notify_at(message.command_index, &cmd);
+
+                    if !cmd.is_readonly() {
+                        fsm.handle_command(cmd)
+                    }
+                }
+                info!("FSM worker for {} ends!", fsm.name)
+            }
+        });
+        fsm
     }
 
     fn start(
@@ -363,6 +373,8 @@ impl Node {
     /// turn off debug output from this instance.
     pub fn kill(&self) {
         // Your code here, if desired.
+        let server = self.server.lock().unwrap();
+        info!("node[{}] is died.", server.me);
     }
 
     /// The current term of this peer.

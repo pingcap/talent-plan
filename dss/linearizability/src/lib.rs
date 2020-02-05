@@ -245,11 +245,6 @@ fn check_single<M: Model>(
         }
         let matched = entry.as_ref().unwrap().borrow().matched.clone();
         entry = if let Some(matching) = matched {
-            println!(
-                "LINEAR: matched = {:?}\ncurrent = {:?}",
-                matching.borrow().value,
-                entry.as_ref().unwrap().borrow().value,
-            );
             // the return entry
             let res = model.step(
                 &state,
@@ -282,12 +277,6 @@ fn check_single<M: Model>(
                 (false, _) => entry.as_ref().unwrap().borrow().next.clone(),
             }
         } else {
-            println!(
-                "LINEAR: calls.len() = {:?}\ncurrent = {:?}",
-                calls.len(),
-                entry.as_ref().unwrap().borrow().value
-            );
-
             if calls.is_empty() {
                 return false;
             }

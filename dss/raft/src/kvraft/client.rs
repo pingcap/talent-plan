@@ -76,7 +76,6 @@ impl Clerk {
         id.as_bytes().to_vec()
     }
 
-    // TODO: 将这些函数的 R 换成 Receiver<R>。
     fn try_send_to_current_leader<R>(
         &self,
         send: impl Fn(&KvClient) -> Receiver<R>,
