@@ -4,6 +4,7 @@ use crate::proto::kvraftpb::*;
 use crate::select_idx;
 use futures::Future;
 use labrpc::Error;
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::cell::Cell;
 use std::sync::mpsc::{channel, Receiver};
 use std::time::Duration;
@@ -20,6 +21,7 @@ pub struct Clerk {
     pub servers: Vec<KvClient>,
     // You will have to modify this struct.
     leader: Cell<Option<usize>>,
+    rpc_execution_poll: ThreadPool,
 }
 
 impl Into<PutAppendRequest> for Op {
@@ -51,10 +53,15 @@ impl Clerk {
     pub fn new(name: String, servers: Vec<KvClient>) -> Clerk {
         // You'll have to add code here.
         // Clerk { name, servers }
+        let pool = ThreadPoolBuilder::new()
+            .num_threads(servers.len() * 2)
+            .build()
+            .unwrap();
         Clerk {
             name,
             servers,
             leader: Cell::new(None),
+            rpc_execution_poll: pool,
         }
     }
 
@@ -67,7 +74,9 @@ impl Clerk {
         E: Send + 'static,
     {
         let (sx, rx) = channel();
-        std::thread::spawn(move || sx.send(f.wait()));
+        self.rpc_execution_poll.spawn(move || {
+            let _ = sx.send(f.wait());
+        });
         rx
     }
 

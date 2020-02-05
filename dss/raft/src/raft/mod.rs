@@ -488,7 +488,7 @@ impl Raft {
         for i in (self.last_applied + 1)..=(self.commit_index) {
             self.apply_ch
                 .unbounded_send(self.make_apply_message(i))
-                .expect("fetal: failed to send to apply ch.");
+                .unwrap_or_else(|e| error!("fetal: failed to send to apply ch. because: {}. the client of raft may shutdown.", e));
         }
         self.last_applied = self.commit_index;
     }

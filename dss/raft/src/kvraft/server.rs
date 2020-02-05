@@ -11,7 +11,7 @@ use crate::raft;
 use crate::raft::ApplyMsg;
 use failure::Fail;
 use futures::sync::oneshot::Sender;
-use futures::{Future, Stream};
+use futures::{Future, Sink, Stream};
 use labcodec::Message;
 use std::collections::{BTreeMap, HashSet};
 
@@ -107,6 +107,7 @@ struct KvStateMachine {
     raft: raft::Node,
     name: String,
     should_log: bool,
+    cancel_ch: Arc<futures::sync::mpsc::Sender<Option<ApplyMsg>>>,
 }
 
 trait Command {
@@ -191,6 +192,14 @@ impl KvStateMachine {
         }
     }
 
+    fn shutdown(&self) {
+        (&*self.cancel_ch)
+            .clone()
+            .send(None)
+            .wait()
+            .unwrap_or_else(|e| panic!("Failed to shutdown kv machine, because: {}", e));
+    }
+
     fn notify_at(&self, idx: u64, msg: &KvCommand) {
         let mut notifier = self.waiting_channels.lock().unwrap();
         if let Some(sender) = notifier.remove(&idx) {
@@ -221,6 +230,7 @@ impl KvStateMachine {
         let state = Arc::new(Mutex::new(BTreeMap::new()));
         let success_commands = Arc::new(Mutex::new(HashSet::new()));
         let waiting_channels = Arc::new(Mutex::new(BTreeMap::new()));
+        let (do_cancel, cancel) = futures::sync::mpsc::channel(1);
         let fsm = KvStateMachine {
             state,
             success_commands,
@@ -228,14 +238,14 @@ impl KvStateMachine {
             raft,
             name,
             should_log,
+            cancel_ch: Arc::new(do_cancel),
         };
-        // spawn the handler.
-        let _handler = std::thread::spawn({
+        std::thread::spawn({
             let fsm = fsm.clone();
             info!("FSM worker for {} start!", fsm.name);
             move || {
-                let mut i = apply_ch.wait();
-                while let Some(Ok(message)) = i.next() {
+                let mut i = apply_ch.map(Some).select(cancel).wait();
+                while let Some(Ok(Some(message))) = i.next() {
                     if should_log {
                         debug!(
                             "{}: message[{}] received...",
@@ -374,6 +384,7 @@ impl Node {
     pub fn kill(&self) {
         // Your code here, if desired.
         let server = self.server.lock().unwrap();
+        server.fsm.shutdown();
         info!("node[{}] is died.", server.me);
     }
 
