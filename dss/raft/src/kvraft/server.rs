@@ -264,7 +264,7 @@ impl KvStateMachine {
                             fsm.name, message.command_index
                         );
                     }
-                    if message.command_vaild {
+                    if message.command_valid {
                         let command = KvCommand::from_bytes(message.command.as_slice());
                         if command.is_none() {
                             panic!("Invalid message received.")

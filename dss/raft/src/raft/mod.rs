@@ -1,21 +1,19 @@
 use std::cmp::Ordering;
-use std::collections::HashSet;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Receiver, sync_channel, SyncSender};
 use std::thread::sleep;
 use std::time::Duration;
 
+use failure::_core::ops::{Index, RangeFrom};
 use futures::Future;
 use futures::sync::mpsc::UnboundedSender;
 use rand::Rng;
 use rayon::{ThreadPool, ThreadPoolBuilder};
-use uuid::Uuid;
 
 use labcodec::{decode, encode};
 use labrpc::RpcFuture;
 
-use crate::proto::kvraftpb::VirtualCommand;
 use crate::proto::raftpb::*;
 use crate::raft::RaftRole::{Candidate, Follower, Leader};
 use crate::raft::TimerMsg::Stop;
@@ -31,52 +29,69 @@ pub mod persister;
 #[cfg(test)]
 mod tests;
 
+//TODO: Remove them, if desired.
+#[allow(dead_code)]
 static PLACE_HOLDER: [u8; 4] = [0xca, 0xfe, 0xba, 0xbe];
 
-struct KvSnapShot {
-    commands: Vec<VirtualCommand>,
-}
-
-impl Default for KvSnapShot {
-    fn default() -> Self {
-        KvSnapShot {
-            commands: vec![]
+#[allow(dead_code)]
+impl LogEntry {
+    fn null() -> LogEntry {
+        LogEntry {
+            term: 0,
+            data: Vec::from(&PLACE_HOLDER[..]),
         }
     }
 }
 
+struct SnapShotFile {
+    commands: Vec<Vec<u8>>,
+}
+
+impl Default for SnapShotFile {
+    fn default() -> Self {
+        SnapShotFile { commands: vec![] }
+    }
+}
+
 /// A vector with offset.
-struct OffsetKvLog {
+struct RaftLogWithSnapShot {
     last_included_index: u64,
     last_included_term: u64,
-    state_machine_state: KvSnapShot,
+    state_machine_state: SnapShotFile,
     commands: Vec<LogEntry>,
 }
 
-impl From<&[LogEntry]> for OffsetKvLog {
-    fn from(commands: &[LogEntry]) -> Self {
-        OffsetKvLog {
+impl Default for RaftLogWithSnapShot {
+    fn default() -> Self {
+        RaftLogWithSnapShot {
             last_included_index: 0,
             last_included_term: 0,
-            state_machine_state: KvSnapShot::default(),
-            commands: Vec::from(commands),
+            state_machine_state: SnapShotFile::default(),
+            commands: vec![],
         }
     }
 }
 
 // TODO: 修改持久化机制。
 // TODO：修改 do_append_entries.
-impl OffsetKvLog {
-    fn offset_index(&self, origin: u64) -> usize {
-        assert!(n >= self.last_included_index + 1,
-                "GET: Trying to access a entry that is in the snapshot.");
-        let offset = origin - self.last_included_index - 1;
-        offset as usize
+impl RaftLogWithSnapShot {
+    fn offset_index(&self, origin: usize) -> usize {
+        self.checked_offset_index(origin).unwrap_or_else(||
+            panic!("Trying to access a entry that is in the snapshot: snapshot last index = {}, accessing = {}",
+                   self.last_included_index,
+                   origin, )
+        )
+    }
+
+    /// Try to get the origin index in the log.
+    /// If the index is in snapshot, return `None`.
+    fn checked_offset_index(&self, origin: usize) -> Option<usize> {
+        origin.checked_sub((self.last_included_index + 1) as usize)
     }
 
     /// Get length of the logs.
     fn len(&self) -> usize {
-        self.last_included_index + self.commands.len()
+        self.last_included_index as usize + self.commands.len()
     }
 
     /// Push a new log entry into log.
@@ -86,29 +101,62 @@ impl OffsetKvLog {
 
     /// Get a log entry at the exact place.
     /// like `log[n]`
-    fn get(&self, n: u64) -> Option<&LogEntry> {
+    fn get(&self, n: usize) -> Option<&LogEntry> {
+        if n == 0 {
+            return None;
+        }
         self.commands.get(self.offset_index(n))
     }
 
     /// Get all entries after the nth place of log entry.
     /// like `log[n..]`
-    fn after(&self, n: u64) -> &[LogEntry] {
+    fn after(&self, n: usize) -> &[LogEntry] {
         let offset_idx = self.offset_index(n);
         &self.commands[offset_idx..]
     }
 
     /// Remove all entries after `target_size`.
     /// i.e. shrink the vector length to `target_size`.
-    fn truncate(&mut self, target_size: u64) {
+    fn truncate(&mut self, target_size: usize) {
         self.commands.truncate(self.offset_index(target_size))
     }
 
     /// Get the term of the last entry.
     /// When here isn't any entry, returns `0`.
     fn last_term(&self) -> u64 {
-        self.commands.last()
-            .map(|e| *e.term)
+        self.commands
+            .last()
+            .map(|e| e.term)
             .unwrap_or(self.last_included_term)
+    }
+
+    fn term_at(&self, n: usize) -> u64 {
+        self.checked_offset_index(n)
+            .and_then(|after_offset| self.commands.get(after_offset))
+            .map(|e| e.term)
+            .unwrap_or(self.last_included_term)
+    }
+
+    /// Return the iter of current log vector.
+    /// [Excludes the snapshot!]
+    fn iter(&self) -> impl Iterator<Item=&LogEntry> {
+        self.commands.iter()
+    }
+}
+
+impl Index<usize> for RaftLogWithSnapShot {
+    type Output = LogEntry;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get(index).expect("Index out of bound.")
+    }
+}
+
+impl Index<RangeFrom<usize>> for RaftLogWithSnapShot {
+    type Output = [LogEntry];
+
+    fn index(&self, index: RangeFrom<usize>) -> &Self::Output {
+        self.after(index.start)
     }
 }
 
@@ -197,7 +245,6 @@ enum RaftRole {
     Follower = 2,
 }
 
-// TODO: Generify Log by `RaftLog` trait.
 // A single Raft peer.
 pub struct Raft {
     // RPC end points of all peers
@@ -217,7 +264,8 @@ pub struct Raft {
     // stored state.
     term: u64,
     voted_for: Option<usize>,
-    log: Vec<LogEntry>,
+    // TODO: Generify Log by `RaftLog` trait.
+    log: RaftLogWithSnapShot,
 
     // in-memory state
     commit_index: u64,
@@ -264,6 +312,9 @@ impl PersistedStatus {
             current_term: raft.term,
             voted_for: raft.voted_for.iter().map(|x| *x as u64).collect(),
             logs: raft.log.iter().cloned().map(Into::into).collect(),
+            state_machine_state: raft.log.state_machine_state.commands.clone(),
+            last_index_of_snapshot: raft.log.last_included_index,
+            last_term_of_snapshot: raft.log.last_included_term,
         }
     }
 }
@@ -297,7 +348,7 @@ impl Raft {
             term: 0,
             voted_for: None,
             election_timer: None,
-            log: vec![LogEntry::new(Vec::from(&PLACE_HOLDER[..]), 0)],
+            log: RaftLogWithSnapShot::default(),
             commit_index: 0,
             last_applied: 0,
             leader_state: None,
@@ -340,7 +391,14 @@ impl Raft {
             Ok(state) => {
                 info!("{} restored to: {:?}", self.self_info(), state);
                 self.term = state.current_term;
-                self.log = state.logs.into_iter().map(Into::into).collect();
+                self.log = RaftLogWithSnapShot {
+                    last_included_index: state.last_index_of_snapshot,
+                    last_included_term: state.last_term_of_snapshot,
+                    state_machine_state: SnapShotFile {
+                        commands: state.state_machine_state,
+                    },
+                    commands: state.logs.into_iter().map(Into::into).collect(),
+                };
                 self.voted_for = state.voted_for.first().map(|x| *x as usize);
             }
             Err(e) => {
@@ -538,7 +596,7 @@ impl Raft {
 
     fn get_term_starts_at(&self, term: u64, from: usize) -> usize {
         let mut n = from;
-        while self.log[n].term == term {
+        while self.log.term_at(n) == term {
             n -= 1;
         }
         n + 1
@@ -577,7 +635,7 @@ impl Raft {
 
     fn leader_commit_logs(&mut self) {
         let next = self.next_commit_index();
-        assert!((next as usize) < self.log.len(),
+        assert!((next as usize) <= self.log.len(),
                 "match_index grater than self log length... next = {} and match_index = {:?} and self.log.len() = {}",
                 next, self.leader_state.as_ref().map(|s| s.match_index.clone()), self.log.len());
         // 5.4.2: NEVER commit log entries from previous terms by counting replicas.
@@ -588,11 +646,11 @@ impl Raft {
     }
 
     fn last_log_index(&self) -> u64 {
-        self.log.len() as u64 - 1
+        self.log.len() as u64
     }
 
     fn last_log_term(&self) -> u64 {
-        self.log.last().map(|e| e.term).unwrap_or(0)
+        self.log.last_term()
     }
 
     fn make_request_vote_args(&self) -> RequestVoteArgs {
@@ -739,7 +797,7 @@ impl Raft {
             term: self.term,
             leader_id: self.me as u64,
             prev_log_index: (next_index - 1) as u64,
-            prev_log_term: self.log[next_index - 1].term,
+            prev_log_term: self.log.term_at(next_index - 1),
             entries: self.log[next_index..]
                 .iter()
                 .cloned()
@@ -1109,9 +1167,9 @@ impl Node {
         // 2. Reply false if log doesn't match.
         let mut raft = self.raft.lock().unwrap();
         let prev_log_index = args.prev_log_index as usize;
-        let entry = raft.log.get(prev_log_index);
-        let term_matches = entry.map(|e| e.term == args.prev_log_term).unwrap_or(false);
+        let term_matches = raft.log.term_at(prev_log_index) == args.prev_log_term;
         if !term_matches {
+            let entry = raft.log.get(prev_log_index);
             if entry.is_none() {
                 return Err(FailedAppendEntries::ConflictedEntry {
                     conflicted_term: 0,

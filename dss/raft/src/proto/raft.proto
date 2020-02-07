@@ -41,4 +41,7 @@ message PersistedStatus {
     uint64 currentTerm = 1;
     repeated uint64 votedFor = 2;
     repeated ProtoEntry logs = 3;
+    repeated bytes stateMachineState = 4;
+    uint64 lastTermOfSnapshot = 5;
+    uint64 lastIndexOfSnapshot = 6;
 }
