@@ -2,8 +2,8 @@ use std::collections::{BTreeMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 
-use failure::_core::time::Duration;
 use failure::Fail;
 use futures::{Future, Sink, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
@@ -15,6 +15,7 @@ use uuid::Uuid;
 use labcodec::Message;
 use labrpc::RpcFuture;
 
+use crate::async_rpc;
 use crate::kvraft::server::KvError::{FailToCommit, Timeout};
 use crate::proto::kvraftpb::*;
 use crate::raft;
@@ -519,25 +520,6 @@ impl Node {
 }
 
 impl KvService for Node {
-    // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
-    fn get(&self, arg: GetRequest) -> RpcFuture<GetReply> {
-        let (sx, rx) = futures::sync::oneshot::channel();
-        let this = self.clone();
-        self.rpc_execution_pool.spawn(move || {
-            let _ = sx.send(this.do_get(arg));
-        });
-        self.active_thread.fetch_add(1, Ordering::SeqCst);
-        Box::new(rx.map_err(|_| panic!("fetal: failed to send rpc: failed to execute.")))
-    }
-
-    // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
-    fn put_append(&self, arg: PutAppendRequest) -> RpcFuture<PutAppendReply> {
-        let (sx, rx) = futures::sync::oneshot::channel();
-        let this = self.clone();
-        self.rpc_execution_pool.spawn(move || {
-            let _ = sx.send(this.do_put_append(arg));
-        });
-        self.active_thread.fetch_add(1, Ordering::SeqCst);
-        Box::new(rx.map_err(|_| panic!("fetal: failed to send rpc: failed to execute.")))
-    }
+    async_rpc! { get(GetRequest) -> GetReply where uses Self::do_get }
+    async_rpc! { put_append(PutAppendRequest) -> PutAppendReply where uses Self::do_put_append }
 }

@@ -1,11 +1,12 @@
 use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::ops::{Index, RangeFrom};
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Receiver, sync_channel, SyncSender};
 use std::thread::sleep;
 use std::time::Duration;
 
-use failure::_core::ops::{Index, RangeFrom};
 use futures::Future;
 use futures::sync::mpsc::UnboundedSender;
 use rand::Rng;
@@ -18,6 +19,8 @@ use crate::proto::raftpb::*;
 use crate::raft::RaftRole::{Candidate, Follower, Leader};
 use crate::raft::TimerMsg::Stop;
 use crate::select;
+
+use super::async_rpc;
 
 use self::errors::*;
 use self::persister::*;
@@ -72,7 +75,6 @@ impl Default for RaftLogWithSnapShot {
     }
 }
 
-// TODO: 修改持久化机制。
 // TODO：修改 do_append_entries.
 impl RaftLogWithSnapShot {
     fn offset_index(&self, origin: usize) -> usize {
@@ -210,18 +212,25 @@ impl State {
     }
 }
 
+#[allow(dead_code)]
 struct SentAppendEntriesRequest {
     follower: usize,
     request: AppendEntriesArgs,
     response: Receiver<Result<AppendEntriesReply>>,
 }
 
+struct SentRequest<Req, Res> {
+    follower: usize,
+    request: Req,
+    response: Receiver<Result<Res>>,
+}
+
 impl
-    From<(
-        usize,
-        AppendEntriesArgs,
-        Receiver<Result<AppendEntriesReply>>,
-    )> for SentAppendEntriesRequest
+From<(
+    usize,
+    AppendEntriesArgs,
+    Receiver<Result<AppendEntriesReply>>,
+)> for SentRequest<AppendEntriesArgs, AppendEntriesReply>
 {
     fn from(
         origin: (
@@ -230,7 +239,7 @@ impl
             Receiver<Result<AppendEntriesReply>>,
         ),
     ) -> Self {
-        SentAppendEntriesRequest {
+        SentRequest {
             follower: origin.0,
             request: origin.1,
             response: origin.2,
@@ -807,9 +816,12 @@ impl Raft {
         }
     }
 
-    fn send_append_entries_requests<F>(&self, mut factory: F) -> Vec<SentAppendEntriesRequest>
-    where
-        F: FnMut(&Raft, usize) -> AppendEntriesArgs,
+    fn send_append_entries_requests<F>(
+        &self,
+        mut factory: F,
+    ) -> Vec<SentRequest<AppendEntriesArgs, AppendEntriesReply>>
+        where
+            F: FnMut(&Raft, usize) -> AppendEntriesArgs,
     {
         let peer_len = self.peers.len();
         (0..peer_len)
@@ -817,7 +829,7 @@ impl Raft {
             .map(|i| {
                 let request = factory(self, i);
                 let response = self.send_append_entries(i, &request);
-                SentAppendEntriesRequest::from((i, request, response))
+                SentRequest::from((i, request, response))
             })
             .collect()
     }
@@ -853,24 +865,31 @@ impl Raft {
             let requests =
                 raft.send_append_entries_requests(|raft, i| raft.make_append_entries_for(i));
             drop(raft);
-            Raft::spawn_append_entries_handler(raft_lock.clone(), requests.into_iter());
+            Raft::spawn_append_entries_handler(
+                raft_lock.clone(),
+                requests.into_iter(),
+                Raft::handle_append_entries,
+            );
             sleep(delay);
         }
         let mut guard = raft_lock.lock().unwrap();
         guard.leader_state = None;
     }
 
-    fn spawn_append_entries_handler(
+    fn spawn_append_entries_handler<Req: Debug + Send + 'static, Res: Send + 'static>(
         raft_lock: Arc<Mutex<Self>>,
-        requests: impl Iterator<Item = SentAppendEntriesRequest>,
+        requests: impl Iterator<Item=SentRequest<Req, Res>>,
+        handler: impl Fn(Arc<Mutex<Raft>>, &Req, &Res, usize) + Send + Sync + 'static,
     ) {
         let raft = raft_lock.lock().unwrap();
+        let h = Arc::new(handler);
         requests.for_each(|req| {
             let raft_info = raft.self_info();
             let raft_lock = raft_lock.clone();
             let delay = raft.extra.get_timeout();
             raft.leader_execution_pool.spawn({
                 let raft_lock = raft_lock.clone();
+                let h = h.clone();
                 move || {
                     match req.response.recv_timeout(delay) {
                         Err(_e) => debug!(
@@ -884,12 +903,7 @@ impl Raft {
                             );
                         }
                         Ok(Ok(info)) => {
-                            Raft::handle_append_entries(
-                                raft_lock.clone(),
-                                &req.request,
-                                &info,
-                                req.follower,
-                            );
+                            h(raft_lock.clone(), &req.request, &info, req.follower);
                         }
                     };
                 }
@@ -1272,33 +1286,10 @@ impl RaftService for Node {
     // example RequestVote RPC handler.
     //
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
-    fn request_vote(&self, args: RequestVoteArgs) -> RpcFuture<RequestVoteReply> {
-        let (sx, rx) = futures::sync::oneshot::channel::<RequestVoteReply>();
-        let myself = self.clone();
-        self.rpc_execution_pool.spawn(move || {
-            sx.send(myself.do_request_vote(args))
-                .unwrap_or_else(|args| {
-                    warn!(
-                        "RPC channel exception, RPC request_vote({:?}) won't be replied.",
-                        args
-                    )
-                });
-        });
-        Box::new(rx.map_err(|e| panic!("request vote: failed to execute: {}", e)))
-    }
+    async_rpc! { request_vote(RequestVoteArgs) -> RequestVoteReply where uses Self::do_request_vote }
+    async_rpc! { append_entries(AppendEntriesArgs) -> AppendEntriesReply where uses Self::do_append_entries }
 
-    fn append_entries(&self, req: AppendEntriesArgs) -> RpcFuture<AppendEntriesReply> {
-        let (sx, rx) = futures::sync::oneshot::channel::<AppendEntriesReply>();
-        let myself = self.clone();
-        self.rpc_execution_pool.spawn(move || {
-            sx.send(myself.do_append_entries(req))
-                .unwrap_or_else(|req| {
-                    warn!(
-                        "RPC channel exception, RPC append_entries({:?}) won't be replied.",
-                        req
-                    )
-                });
-        });
-        Box::new(rx.map_err(|e| panic!("request vote: failed to execute: {}", e)))
+    fn install_snapshot(&self, _req: InstallSnapshotArgs) -> RpcFuture<InstallSnapshotReply> {
+        unimplemented!()
     }
 }

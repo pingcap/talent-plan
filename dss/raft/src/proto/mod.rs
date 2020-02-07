@@ -11,6 +11,8 @@ pub mod raftpb {
             rpc append_entries(AppendEntriesArgs) returns (AppendEntriesReply);
             // Your code here if more rpc desired.
             // rpc xxx(yyy) returns (zzz)
+
+            rpc install_snapshot(InstallSnapshotArgs) returns (InstallSnapshotReply);
         }
     }
 }

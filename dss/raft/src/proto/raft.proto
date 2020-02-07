@@ -45,3 +45,15 @@ message PersistedStatus {
     uint64 lastTermOfSnapshot = 5;
     uint64 lastIndexOfSnapshot = 6;
 }
+
+message InstallSnapshotArgs {
+    uint64 term = 1;
+    uint64 leaderId = 2;
+    uint64 lastIncludedIndex = 3;
+    uint64 lastIncludedTerm = 4;
+    repeated bytes data = 5;
+}
+
+message InstallSnapshotReply {
+    uint64 term = 1;
+}

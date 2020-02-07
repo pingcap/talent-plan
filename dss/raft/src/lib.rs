@@ -72,3 +72,28 @@ fn select_idx<T: Send + 'static, I: Iterator<Item = Receiver<T>>>(
     });
     rx
 }
+
+/// declare a rpc endpoint, that instead of uses async functions(i.e. functions in the future context)
+/// to describe our logic, uses the sync function `$handler` to pass the rpc.
+/// This macro requires `self` has a struct named `rpc_execution_pool`.
+/// This will spawn a new thread on `rpc_execution_pool` each time the rpc endpoint called.
+/// TODO: allow rename to this pool.
+#[macro_export]
+macro_rules! async_rpc {
+    ($name:ident($arg:ty) -> $rel:ty where uses $handler:expr) => {
+        fn $name(&self, args: $arg) -> RpcFuture<$rel> {
+            let (sx, rx) = futures::sync::oneshot::channel();
+            let myself = self.clone();
+            self.rpc_execution_pool.spawn(move || {
+                sx.send($handler(&myself, args))
+                    .unwrap_or_else(|args| {
+                        warn!(
+                            concat!("RPC channel exception, RPC", stringify!($name), "({:?})won't be replied."),
+                            args
+                        )
+                    });
+            });
+            Box::new(rx.map_err(|e| panic!("rpc: failed to execute: {}", e)))
+        }
+    }
+}
