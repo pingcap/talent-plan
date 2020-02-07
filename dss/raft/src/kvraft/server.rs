@@ -264,20 +264,21 @@ impl KvStateMachine {
                             fsm.name, message.command_index
                         );
                     }
+                    if message.command_vaild {
+                        let command = KvCommand::from_bytes(message.command.as_slice());
+                        if command.is_none() {
+                            panic!("Invalid message received.")
+                        }
+                        let cmd = command.unwrap();
+                        if should_log {
+                            debug!("request: {:?}", cmd.get_id());
+                        }
 
-                    let command = KvCommand::from_bytes(message.command.as_slice());
-                    if command.is_none() {
-                        panic!("Invalid message received.")
-                    }
-                    let cmd = command.unwrap();
-                    if should_log {
-                        debug!("request: {:?}", cmd.get_id());
-                    }
+                        fsm.notify_at(message.command_index, &cmd);
 
-                    fsm.notify_at(message.command_index, &cmd);
-
-                    if !cmd.is_readonly() {
-                        fsm.handle_command(cmd)
+                        if !cmd.is_readonly() {
+                            fsm.handle_command(cmd)
+                        }
                     }
                 }
                 info!("FSM worker for {} ends!", fsm.name)

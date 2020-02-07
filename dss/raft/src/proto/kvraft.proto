@@ -34,3 +34,23 @@ message GetReply {
     string err = 2;
     string value = 3;
 }
+
+message InstallSuccessCommands {
+    repeated bytes commands = 1;
+}
+
+message InstallEntries {
+    repeated Entry entries = 1;
+}
+
+message Entry {
+    string key = 1;
+    string value = 2;
+}
+
+message VirtualCommand {
+    oneof command {
+        InstallSuccessCommands isc = 1;
+        InstallEntries ie = 2;
+    }
+}

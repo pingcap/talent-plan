@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Receiver, sync_channel, SyncSender};
@@ -9,10 +10,12 @@ use futures::Future;
 use futures::sync::mpsc::UnboundedSender;
 use rand::Rng;
 use rayon::{ThreadPool, ThreadPoolBuilder};
+use uuid::Uuid;
 
 use labcodec::{decode, encode};
 use labrpc::RpcFuture;
 
+use crate::proto::kvraftpb::VirtualCommand;
 use crate::proto::raftpb::*;
 use crate::raft::RaftRole::{Candidate, Follower, Leader};
 use crate::raft::TimerMsg::Stop;
@@ -29,6 +32,85 @@ pub mod persister;
 mod tests;
 
 static PLACE_HOLDER: [u8; 4] = [0xca, 0xfe, 0xba, 0xbe];
+
+struct KvSnapShot {
+    commands: Vec<VirtualCommand>,
+}
+
+impl Default for KvSnapShot {
+    fn default() -> Self {
+        KvSnapShot {
+            commands: vec![]
+        }
+    }
+}
+
+/// A vector with offset.
+struct OffsetKvLog {
+    last_included_index: u64,
+    last_included_term: u64,
+    state_machine_state: KvSnapShot,
+    commands: Vec<LogEntry>,
+}
+
+impl From<&[LogEntry]> for OffsetKvLog {
+    fn from(commands: &[LogEntry]) -> Self {
+        OffsetKvLog {
+            last_included_index: 0,
+            last_included_term: 0,
+            state_machine_state: KvSnapShot::default(),
+            commands: Vec::from(commands),
+        }
+    }
+}
+
+// TODO: 修改持久化机制。
+// TODO：修改 do_append_entries.
+impl OffsetKvLog {
+    fn offset_index(&self, origin: u64) -> usize {
+        assert!(n >= self.last_included_index + 1,
+                "GET: Trying to access a entry that is in the snapshot.");
+        let offset = origin - self.last_included_index - 1;
+        offset as usize
+    }
+
+    /// Get length of the logs.
+    fn len(&self) -> usize {
+        self.last_included_index + self.commands.len()
+    }
+
+    /// Push a new log entry into log.
+    fn push(&mut self, log: LogEntry) {
+        self.commands.push(log)
+    }
+
+    /// Get a log entry at the exact place.
+    /// like `log[n]`
+    fn get(&self, n: u64) -> Option<&LogEntry> {
+        self.commands.get(self.offset_index(n))
+    }
+
+    /// Get all entries after the nth place of log entry.
+    /// like `log[n..]`
+    fn after(&self, n: u64) -> &[LogEntry] {
+        let offset_idx = self.offset_index(n);
+        &self.commands[offset_idx..]
+    }
+
+    /// Remove all entries after `target_size`.
+    /// i.e. shrink the vector length to `target_size`.
+    fn truncate(&mut self, target_size: u64) {
+        self.commands.truncate(self.offset_index(target_size))
+    }
+
+    /// Get the term of the last entry.
+    /// When here isn't any entry, returns `0`.
+    fn last_term(&self) -> u64 {
+        self.commands.last()
+            .map(|e| *e.term)
+            .unwrap_or(self.last_included_term)
+    }
+}
 
 /// Some additional configuration options of Raft.
 struct RaftConfig {
@@ -115,6 +197,7 @@ enum RaftRole {
     Follower = 2,
 }
 
+// TODO: Generify Log by `RaftLog` trait.
 // A single Raft peer.
 pub struct Raft {
     // RPC end points of all peers
@@ -400,7 +483,6 @@ impl Raft {
         let _ = &self.peers;
 
         // user added.
-        let _ = &self.make_empty_append_entries();
     }
 }
 
@@ -647,17 +729,6 @@ impl Raft {
         raft.modify_state_by_append_entries(request, response, follower);
     }
 
-    fn make_empty_append_entries(&self) -> AppendEntriesArgs {
-        AppendEntriesArgs {
-            term: self.term,
-            leader_id: self.me as u64,
-            prev_log_index: 0,
-            prev_log_term: 0,
-            entries: vec![],
-            leader_commit: self.commit_index,
-        }
-    }
-
     fn make_append_entries_for(&self, server: usize) -> AppendEntriesArgs {
         let leader_state = self
             .leader_state
@@ -702,11 +773,13 @@ impl Raft {
     // - Leader 需要在收到请求时将请求录入 log，并且并行地发送 AppendEntries 请求。
     // - 如果 Follower 不可用，那么需要无限地重试。
     // 唯一的问题是我们违反了 5.2 中关于心跳包的问题，但是其原文是，
-    // 在空闲期间发送空心跳包。
+    // 在空闲期间发送空心跳包，在忙的时候选择不发送心跳包，似乎也没有什么问题。
     // 另：此处的风格更加接近一种 "micro-batch"，即统计一段时间内所有的 entries 然后一次发送。
-    // 这样的做法会增加客户端的延迟（客户平均至少需要等待半个 `AppendEntries` 的周期才能获得确定提交的相应。）
+    // 这样的做法会增加客户端的延迟（客户平均至少需要等待半个 `AppendEntries` 的周期才能获得确定提交的相应。），
+    // 但是能减少 RPC 的数量，在网络不稳定的情况（这是少数情况……我认为如此……）会增加 Leader 失效的概率。
     fn transform_to_leader(raft_lock: Arc<Mutex<Raft>>) {
         let mut guard = raft_lock.lock().unwrap();
+        let delay = guard.extra.leader_append_entries_delay;
         guard.try_send_to_election_timer(Stop);
         guard.leader_state = Some(LeaderState::by_raft(guard.deref()));
         drop(guard);
@@ -723,7 +796,7 @@ impl Raft {
                 raft.send_append_entries_requests(|raft, i| raft.make_append_entries_for(i));
             drop(raft);
             Raft::spawn_append_entries_handler(raft_lock.clone(), requests.into_iter());
-            sleep(Duration::from_millis(100));
+            sleep(delay);
         }
         let mut guard = raft_lock.lock().unwrap();
         guard.leader_state = None;
