@@ -174,6 +174,7 @@ impl Clerk {
     // you can send an RPC with code like this:
     // if let Some(reply) = self.servers[i].get(args).wait() { /* do something */ }
     pub fn get(&self, key: String) -> String {
+        let start = std::time::Instant::now();
         info!("{}: get({:?})", self.name, key);
         let args = GetRequest {
             id: Self::new_id(),
@@ -191,7 +192,7 @@ impl Clerk {
         loop {
             match self.request(&send, &is_leader, Duration::from_millis(300)) {
                 Ok(ref message) if message.err.is_empty() => {
-                    info!("get({:?}) => {:?}", key, message);
+                    info!("get({:?}) => {:?} ({:?})", key, message, start.elapsed());
                     return message.value.clone();
                 }
                 Ok(ref message) => info!("GET: occurs error: {}, retrying...", message.err),
@@ -208,6 +209,7 @@ impl Clerk {
     // you can send an RPC with code like this:
     // let reply = self.servers[i].put_append(args).unwrap();
     fn put_append(&self, op: Op) {
+        let start = std::time::Instant::now();
         info!("{}: put_append({:?})", self.name, op);
         // You will have to modify this function.
         let args: PutAppendRequest = op.into_request(self.name.clone());
@@ -221,7 +223,12 @@ impl Clerk {
         loop {
             match self.request(&send, &is_leader, Duration::from_millis(300)) {
                 Ok(ref result) if result.err.is_empty() => {
-                    info!("put_append({:?}) => {:?}", args, result);
+                    info!(
+                        "put_append({:?}) => {:?} ({:?})",
+                        args,
+                        result,
+                        start.elapsed()
+                    );
                     return;
                 }
                 _ => {

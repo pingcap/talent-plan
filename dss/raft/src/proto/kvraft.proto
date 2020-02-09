@@ -43,12 +43,13 @@ message InstallLastCommand {
 
 message InstallKvs {
     map<string, string> kvs = 1;
+    uint64 lastIndex = 2;
 }
 
 
 message VirtualCommand {
     oneof command {
-        InstallLastCommand isc = 1;
+        InstallLastCommand ilc = 1;
         InstallKvs ikv = 2;
     }
 }

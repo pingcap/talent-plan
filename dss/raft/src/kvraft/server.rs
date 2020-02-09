@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use failure::Fail;
@@ -10,14 +11,14 @@ use futures_timer::Delay;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use uuid::Uuid;
 
-use labcodec::Message;
+use labcodec::{decode, encode, Message};
 use labrpc::RpcFuture;
 
 use crate::async_rpc;
 use crate::kvraft::server::KvError::{FailToCommit, Timeout};
 use crate::proto::kvraftpb::*;
 use crate::raft;
-use crate::raft::ApplyMsg;
+use crate::raft::{ApplyMsg, SnapshotFile};
 
 /// The generic type of boxed future.
 type FutureRef<R, E> = Box<dyn Future<Item=R, Error=E> + Send + 'static>;
@@ -104,16 +105,11 @@ impl KvCommand {
 }
 
 #[derive(Fail, Debug)]
-// TODO: 移除这个 dead_code。
-#[allow(dead_code)]
 enum KvError {
-    // TODO: 加上 cause
     #[fail(display = "Raft response error.")]
     Raft(raft::errors::Error),
     #[fail(display = "Current node isn't leader.")]
     NotLeader,
-    #[fail(display = "replicated command.")]
-    Replicated,
     #[fail(display = "The command failed to commit.")]
     FailToCommit,
     #[fail(
@@ -133,6 +129,8 @@ struct KvStateMachine {
     name: String,
     should_log: bool,
     cancel_ch: Arc<futures::sync::mpsc::Sender<Option<ApplyMsg>>>,
+    max_size: Option<usize>,
+    last_index: Arc<AtomicUsize>,
 }
 
 trait Command {
@@ -173,6 +171,7 @@ impl Command for KvCommand {
     }
 }
 
+#[derive(Debug)]
 struct CommandResponse {
     command_id: Uuid,
     reply: String,
@@ -244,12 +243,73 @@ impl KvStateMachine {
             } else {
                 CommandResponse::new(msg.get_id(), "".to_owned())
             };
-            Sender::send(sender, response).unwrap_or_else(|_| {
-                warn!(
-                    "Message notifier doesn't send rightly. \
-                     Maybe raft commits this too fast."
-                );
+            Sender::send(sender, response).unwrap_or_else(|err| {
+                if self.should_log {
+                    warn!(
+                        "Message notifier doesn't send rightly. \
+                         Maybe raft commits {:?} too fast, or too slow.",
+                        err
+                    );
+                }
             });
+        }
+    }
+
+    /// handle a virtual command from raft snapshot,
+    ///
+    /// # returns
+    /// the size of loaded log.
+    fn handle_virtual_command(&self, cmd: &[u8]) {
+        let cmd = decode::<VirtualCommand>(cmd).expect("failed to decode virtual command");
+        use crate::proto::kvraftpb::virtual_command::Command::*;
+        match cmd
+            .command
+            .expect("handle_virtual_command: cannot parse snapshot file...")
+            {
+                Ilc(last_commands) => {
+                    let mut lc = self.last_command.lock().unwrap();
+                    for (k, v) in last_commands.cmd {
+                        lc.insert(k, Uuid::from_slice(&v)
+                            .expect("handle_virtual_command: failed to parse uuid from raw bytes from snapshot."));
+                    }
+                }
+                Ikv(key_values) => {
+                    let mut kv = self.state.lock().unwrap();
+                    for (k, v) in key_values.kvs {
+                        kv.insert(k, v);
+                    }
+                    self.last_index
+                        .fetch_add(key_values.last_index as usize, Ordering::SeqCst);
+                }
+            }
+    }
+
+    fn make_snapshot(&self) -> SnapshotFile {
+        use crate::proto::kvraftpb::virtual_command::Command::*;
+        let s = self.state.as_ref().lock().unwrap();
+        let state = VirtualCommand {
+            command: Some(Ikv(InstallKvs {
+                kvs: s.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+                last_index: self.last_index.load(Ordering::SeqCst) as u64,
+            })),
+        };
+        let mut state_u8 = vec![];
+        encode(&state, &mut state_u8).unwrap();
+
+        let lc = self.last_command.lock().unwrap();
+        let last_command = VirtualCommand {
+            command: Some(Ilc(InstallLastCommand {
+                cmd: lc
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.as_bytes().to_vec()))
+                    .collect(),
+            })),
+        };
+        let mut last_command_u8 = vec![];
+        encode(&last_command, &mut last_command_u8).unwrap();
+
+        SnapshotFile {
+            commands: vec![last_command_u8, state_u8],
         }
     }
 
@@ -258,6 +318,7 @@ impl KvStateMachine {
         raft: raft::Node,
         name: String,
         should_log: bool,
+        max_size: Option<usize>,
     ) -> Self {
         let state = Arc::new(Mutex::new(BTreeMap::new()));
         let success_commands = Arc::new(Mutex::new(HashMap::new()));
@@ -266,11 +327,13 @@ impl KvStateMachine {
         let fsm = KvStateMachine {
             state,
             last_command: success_commands,
+            last_index: Arc::new(AtomicUsize::new(0)),
             waiting_channels,
             raft,
             name,
             should_log,
             cancel_ch: Arc::new(do_cancel),
+            max_size,
         };
         std::thread::spawn({
             let fsm = fsm.clone();
@@ -299,6 +362,15 @@ impl KvStateMachine {
                         if !cmd.is_readonly() {
                             fsm.handle_command(cmd)
                         }
+                        fsm.last_index.fetch_add(1, Ordering::SeqCst);
+                        if let Some(max) = fsm.max_size {
+                            if fsm.raft.log_size() > max {
+                                let last_index = fsm.last_index.load(Ordering::SeqCst);
+                                fsm.raft.take_snapshot(fsm.make_snapshot(), last_index);
+                            }
+                        }
+                    } else {
+                        fsm.handle_virtual_command(message.command.as_slice());
                     }
                 }
                 info!("FSM worker for {} ends!", fsm.name)
@@ -349,6 +421,7 @@ impl KvStateMachine {
 
 pub struct KvServer {
     pub rf: raft::Node,
+    #[allow(dead_code)]
     me: usize,
     // snapshot if log grows this big
     maxraftstate: Option<usize>,
@@ -368,7 +441,13 @@ impl KvServer {
         let (tx, apply_ch) = unbounded();
         let rf = raft::Raft::new(servers, me, persister, tx);
         let node = raft::Node::new(rf);
-        let fsm = KvStateMachine::new(apply_ch, node.clone(), format!("[{}]", me), me == 0);
+        let fsm = KvStateMachine::new(
+            apply_ch,
+            node.clone(),
+            format!("[{}]", me),
+            me == 0,
+            maxraftstate,
+        );
         KvServer {
             rf: node,
             me,
@@ -433,14 +512,9 @@ impl Node {
         // Your code here, if desired.
         let server = self.server.lock().unwrap();
         let sc = server.fsm.last_command.lock().unwrap();
-        let sc_len = sc.len();
         drop(sc);
         server.fsm.shutdown();
         server.rf.kill();
-        println!(
-            "node[{}] is died. with success_command size: {}",
-            server.me, sc_len,
-        );
     }
 
     /// The current term of this peer.

@@ -10,9 +10,11 @@ extern crate log;
 #[macro_use]
 extern crate prost_derive;
 
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::sleep;
 use std::time::Duration;
+
+use crate::TimerMsg::{Reset, Stop};
 
 pub mod kvraft;
 mod proto;
@@ -95,5 +97,63 @@ macro_rules! async_rpc {
             });
             Box::new(rx.map_err(|e| panic!("rpc: failed to execute: {}", e)))
         }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Copy)]
+enum TimerMsg {
+    Reset,
+    Stop,
+}
+
+/// A timer that will do specified task when time out.
+/// You can reset the timer to prevent this.
+/// And you can stop the timer when don't need it any more.
+#[derive(Clone)]
+struct Timer {
+    sx: Sender<TimerMsg>,
+}
+
+#[allow(dead_code)]
+impl Timer {
+    /// create a new timer.
+    /// the timer after `timeout_gen()`, do `time_up()`.
+    /// each time it is reset or fire a time up signal,
+    pub fn new(
+        timeout_gen: impl Fn() -> Duration + Send + 'static,
+        time_up: impl Fn() + Send + 'static,
+    ) -> Self {
+        use std::sync::mpsc::RecvTimeoutError::*;
+        let (sx, rx) = channel();
+        std::thread::spawn(move || loop {
+            let message = rx.recv_timeout(timeout_gen());
+            match message {
+                Err(Timeout) => {
+                    time_up();
+                }
+                Ok(TimerMsg::Reset) => debug!("Timer: timeout."),
+                Ok(TimerMsg::Stop) | Err(Disconnected) => {
+                    debug!("stop signal received, the timer will stop.");
+                    return;
+                }
+            }
+        });
+        Timer { sx }
+    }
+
+    /// reset the timer.
+    ///
+    /// # returns
+    /// if success to reset the timer, return `true`.
+    pub fn reset(&self) -> bool {
+        self.sx.send(Reset).is_ok()
+    }
+
+    /// stop the timer.
+    ///
+    /// # returns
+    /// if success to stop the timer, return `true`.
+    pub fn stop(&self) -> bool {
+        self.sx.send(Stop).is_ok()
     }
 }
