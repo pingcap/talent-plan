@@ -540,7 +540,6 @@ impl Raft {
         labcodec::encode(command, &mut buf).map_err(Error::Encode)?;
         let entry = self.make_log(buf);
         self.log.push(entry);
-        self.persist();
 
         let index = self.last_log_index();
         let term = self.term;
@@ -557,7 +556,6 @@ impl Raft {
     #[doc(hidden)]
     pub fn __suppress_deadcode(&mut self) {
         let _ = self.start(&0);
-        self.persist();
         let _ = &self.state;
         let _ = &self.me;
         let _ = &self.persister;
@@ -625,7 +623,7 @@ impl Raft {
     /// specified term.
     fn get_term_starts_at(&self, term: u64, from: usize) -> usize {
         let mut n = from;
-        while self.log.term_at(n) == term {
+        while self.log.term_at(n) == term && !self.log.is_in_snapshot(n) {
             n -= 1;
         }
         n + 1
@@ -665,6 +663,9 @@ impl Raft {
             self.apply_ch
                 .unbounded_send(self.make_apply_message(i))
                 .unwrap_or_else(|e| error!("fetal: failed to send to apply ch. because: {}. the client of raft may shutdown.", e));
+        }
+        if self.last_applied < self.commit_index {
+            self.persist();
         }
         self.last_applied = self.commit_index;
         info!(
@@ -721,7 +722,11 @@ impl Raft {
             let me = guard.me;
 
             // vote for self, then send `RequestVote` RPCs.
-            info!("NO{} started a new election of term {}.", me, guard.term);
+            info!(
+                "{} started a new election of term {}.",
+                guard.self_info(),
+                guard.term
+            );
             guard.vote_for(me);
             let peer_count = guard.peers.len();
             let send_result = (0..peer_count)
@@ -754,7 +759,7 @@ impl Raft {
 
                 // Bingo! we get enough votes.
                 if vote_count > peer_count / 2 {
-                    info!("NO{} has enough votes at term {}!", me, term_at_start);
+                    info!("{} has enough votes at term {}!", me, term_at_start);
                     break;
                 }
             }
@@ -769,7 +774,11 @@ impl Raft {
             {
                 guard.current_role = Leader;
                 guard.stop_election_timer();
-                info!("NO{} is now the leader of term {}.", me, term_at_start);
+                info!(
+                    "{} is now the leader of term {}.",
+                    guard.self_info(),
+                    term_at_start
+                );
                 drop(guard);
                 Raft::transform_to_leader(raft);
             }
@@ -1115,11 +1124,11 @@ impl Raft {
             let candidate_to_follower = guard.current_role == Candidate;
             guard.update_term(new_term);
             if leader_to_follower || candidate_to_follower {
-                info!("NO{}(currentTerm = {}, state = {:?}), get RPC(term = {}), he eventually has known, he is a follower now.",
-                      guard.me,
-                      old_term,
-                      guard.current_role,
-                      new_term);
+                info!(
+                    "{}, get RPC(term = {}), he eventually has known, he is a follower now.",
+                    guard.self_info(),
+                    new_term
+                );
                 drop(guard);
                 Raft::transform_to_follower(raft.clone());
                 return true;
@@ -1173,6 +1182,12 @@ impl Node {
             );
             return;
         }
+
+        assert!(
+            last_index <= raft.last_applied as usize,
+            "{} Try to take snapshot when not applied!",
+            raft.self_info(),
+        );
 
         if raft.is_leader() {
             info!("{} ls = {:?}", raft.self_info(), raft.leader_state);
@@ -1436,6 +1451,11 @@ impl Node {
         }
 
         let mut raft = self.raft.lock().unwrap();
+        // 防止返回乱序……
+        if raft.log.len() > args.last_included_index as usize {
+            return InstallSnapshotReply { term };
+        }
+
         raft.log = args.into();
         raft.persist();
 

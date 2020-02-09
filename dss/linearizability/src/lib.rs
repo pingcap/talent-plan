@@ -1,19 +1,19 @@
-mod bitset;
-pub mod model;
-pub mod models;
-
 use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError};
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
 use crate::bitset::Bitset;
 use crate::model::{Event, EventKind, Events, Model, Operations, Value};
+
+mod bitset;
+pub mod model;
+pub mod models;
 
 enum EntryKind {
     CallEntry,
@@ -223,6 +223,7 @@ fn check_single<M: Model>(
     model: M,
     mut subhistory: LinkedNodes<Value<M::Input, M::Output>>,
     kill: Arc<AtomicBool>,
+    pid: usize,
 ) -> bool {
     let n = subhistory.len() / 2;
     let mut linearized = Bitset::new(n);
@@ -245,6 +246,13 @@ fn check_single<M: Model>(
         }
         let matched = entry.as_ref().unwrap().borrow().matched.clone();
         entry = if let Some(matching) = matched {
+            eprintln!(
+                "LINEAR{}: matched = {:?} current = {:?}",
+                pid,
+                matching.borrow().value,
+                entry.as_ref().unwrap().borrow().value,
+            );
+
             // the return entry
             let res = model.step(
                 &state,
@@ -277,6 +285,14 @@ fn check_single<M: Model>(
                 (false, _) => entry.as_ref().unwrap().borrow().next.clone(),
             }
         } else {
+            eprintln!(
+                "LINEAR{}: calls.len() = {:?}; current (#{}) = {:?}",
+                pid,
+                calls.len(),
+                entry.as_ref().unwrap().borrow().id,
+                entry.as_ref().unwrap().borrow().value,
+            );
+
             if calls.is_empty() {
                 return false;
             }
@@ -308,13 +324,13 @@ pub fn check_operations_timeout<M: Model>(
     let mut handles = vec![];
     let kill = Arc::new(AtomicBool::new(false));
     let count = partitions.len();
-    for subhistory in partitions {
+    for (pid, subhistory) in partitions.into_iter().enumerate() {
         let tx = tx.clone();
         let kill = Arc::clone(&kill);
         let m = model.clone();
         let handle = thread::spawn(move || {
             let l = LinkedNodes::from_entries(make_entries(subhistory));
-            let _ = tx.send(check_single(m, l, kill));
+            let _ = tx.send(check_single(m, l, kill, pid));
         });
         handles.push(handle);
     }
@@ -343,13 +359,13 @@ pub fn check_events_timeout<M: Model>(
     let mut handles = vec![];
     let kill = Arc::new(AtomicBool::new(false));
     let count = partitions.len();
-    for subhistory in partitions {
+    for (pid, subhistory) in partitions.into_iter().enumerate() {
         let tx = tx.clone();
         let kill = Arc::clone(&kill);
         let m = model.clone();
         let handle = thread::spawn(move || {
             let l = LinkedNodes::from_entries(convert_entries(renumber(subhistory)));
-            let _ = tx.send(check_single(m, l, kill));
+            let _ = tx.send(check_single(m, l, kill, pid));
         });
         handles.push(handle);
     }
