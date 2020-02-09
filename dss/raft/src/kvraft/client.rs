@@ -1,14 +1,16 @@
+use std::cell::Cell;
 use std::fmt;
+use std::sync::mpsc::{channel, Receiver};
+use std::time::Duration;
+
+use futures::Future;
+use rayon::{ThreadPool, ThreadPoolBuilder};
+use uuid::Uuid;
+
+use labrpc::Error;
 
 use crate::proto::kvraftpb::*;
 use crate::select_idx;
-use futures::Future;
-use labrpc::Error;
-use rayon::{ThreadPool, ThreadPoolBuilder};
-use std::cell::Cell;
-use std::sync::mpsc::{channel, Receiver};
-use std::time::Duration;
-use uuid::Uuid;
 
 #[derive(Debug)]
 enum Op {
@@ -24,20 +26,22 @@ pub struct Clerk {
     rpc_execution_poll: ThreadPool,
 }
 
-impl Into<PutAppendRequest> for Op {
-    fn into(self) -> PutAppendRequest {
+impl Op {
+    fn into_request(self, client: String) -> PutAppendRequest {
         match self {
             Op::Put(key, value) => PutAppendRequest {
                 id: Clerk::new_id(),
                 key,
                 value,
                 op: 1,
+                client,
             },
             Op::Append(key, value) => PutAppendRequest {
                 id: Clerk::new_id(),
                 key,
                 value,
                 op: 2,
+                client,
             },
         }
     }
@@ -174,6 +178,7 @@ impl Clerk {
         let args = GetRequest {
             id: Self::new_id(),
             key: key.clone(),
+            client: self.name.clone(),
         };
 
         let send = |client: &KvClient| self.run_async(client.get(&args));
@@ -205,7 +210,7 @@ impl Clerk {
     fn put_append(&self, op: Op) {
         info!("{}: put_append({:?})", self.name, op);
         // You will have to modify this function.
-        let args: PutAppendRequest = op.into();
+        let args: PutAppendRequest = op.into_request(self.name.clone());
         let send = |client: &KvClient| self.run_async(client.put_append(&args));
         let is_leader = |reply: &Result<PutAppendReply, Error>| match reply {
             Err(_) => false,

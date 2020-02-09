@@ -16,6 +16,7 @@ message PutAppendRequest {
     Op op = 3;
     // You'll have to add definitions here.
     bytes id = 4;
+    string client = 5;
 }
 
 message PutAppendReply {
@@ -27,6 +28,7 @@ message GetRequest {
     string key = 1;
     // You'll have to add definitions here.
     bytes id = 2;
+    string client = 3;
 }
 
 message GetReply {
@@ -35,22 +37,18 @@ message GetReply {
     string value = 3;
 }
 
-message InstallSuccessCommands {
-    repeated bytes commands = 1;
+message InstallLastCommand {
+    map<string, bytes> cmd = 1;
 }
 
-message InstallEntries {
-    repeated Entry entries = 1;
+message InstallKvs {
+    map<string, string> kvs = 1;
 }
 
-message Entry {
-    string key = 1;
-    string value = 2;
-}
 
 message VirtualCommand {
     oneof command {
-        InstallSuccessCommands isc = 1;
-        InstallEntries ie = 2;
+        InstallLastCommand isc = 1;
+        InstallKvs ikv = 2;
     }
 }

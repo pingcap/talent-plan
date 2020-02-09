@@ -1,7 +1,5 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use failure::Fail;
@@ -21,22 +19,27 @@ use crate::proto::kvraftpb::*;
 use crate::raft;
 use crate::raft::ApplyMsg;
 
-#[allow(dead_code)]
+/// The generic type of boxed future.
+type FutureRef<R, E> = Box<dyn Future<Item=R, Error=E> + Send + 'static>;
+
 #[derive(Clone, Debug)]
 enum KvCommand {
     Get {
         id: Uuid,
         key: String,
+        client: String,
     },
     Put {
         id: Uuid,
         key: String,
         value: String,
+        client: String,
     },
     Append {
         id: Uuid,
         key: String,
         value: String,
+        client: String,
     },
 }
 
@@ -63,11 +66,13 @@ impl KvCommand {
                 id: build_uuid(request.id.as_slice()),
                 key: request.key,
                 value: request.value,
+                client: request.client,
             },
             Op::Append => KvCommand::Append {
                 id: build_uuid(request.id.as_slice()),
                 key: request.key,
                 value: request.value,
+                client: request.client,
             },
         }
     }
@@ -76,6 +81,7 @@ impl KvCommand {
         KvCommand::Get {
             id: build_uuid(request.id.as_slice()),
             key: request.key,
+            client: request.client,
         }
     }
 
@@ -85,6 +91,15 @@ impl KvCommand {
             KvCommand::Put { id, .. } => id,
             KvCommand::Append { id, .. } => id,
         }
+    }
+
+    fn get_client(&self) -> &str {
+        match self {
+            KvCommand::Get { client, .. } => client,
+            KvCommand::Put { client, .. } => client,
+            KvCommand::Append { client, .. } => client,
+        }
+            .as_str()
     }
 }
 
@@ -112,7 +127,7 @@ type Result<T> = std::result::Result<T, KvError>;
 #[derive(Clone)]
 struct KvStateMachine {
     state: Arc<Mutex<BTreeMap<String, String>>>,
-    success_commands: Arc<Mutex<HashSet<Uuid>>>,
+    last_command: Arc<Mutex<HashMap<String, Uuid>>>,
     waiting_channels: Arc<Mutex<BTreeMap<u64, Sender<CommandResponse>>>>,
     raft: raft::Node,
     name: String,
@@ -175,8 +190,12 @@ impl CommandResponse {
 impl KvStateMachine {
     fn handle_command(&self, cmd: KvCommand) {
         let id = cmd.get_id();
-        let mut history = self.success_commands.lock().unwrap();
-        if history.contains(&id) {
+        let mut history = self.last_command.lock().unwrap();
+        if history
+            .get(cmd.get_client())
+            .map(|i| *i == id)
+            .unwrap_or(false)
+        {
             if self.should_log {
                 warn!(
                     "{}: Replicated ID: {} get, the command {:?} won't be processed.",
@@ -185,7 +204,7 @@ impl KvStateMachine {
             }
             return;
         }
-        history.insert(id);
+        history.insert(cmd.get_client().to_owned(), id);
         drop(history);
 
         match cmd {
@@ -216,7 +235,7 @@ impl KvStateMachine {
     fn notify_at(&self, idx: u64, msg: &KvCommand) {
         let mut notifier = self.waiting_channels.lock().unwrap();
         if let Some(sender) = notifier.remove(&idx) {
-            let response = if let KvCommand::Get { id, key } = msg {
+            let response = if let KvCommand::Get { id, key, .. } = msg {
                 let state = self.state.lock().unwrap();
                 CommandResponse::new(
                     *id,
@@ -241,12 +260,12 @@ impl KvStateMachine {
         should_log: bool,
     ) -> Self {
         let state = Arc::new(Mutex::new(BTreeMap::new()));
-        let success_commands = Arc::new(Mutex::new(HashSet::new()));
+        let success_commands = Arc::new(Mutex::new(HashMap::new()));
         let waiting_channels = Arc::new(Mutex::new(BTreeMap::new()));
         let (do_cancel, cancel) = futures::sync::mpsc::channel(1);
         let fsm = KvStateMachine {
             state,
-            success_commands,
+            last_command: success_commands,
             waiting_channels,
             raft,
             name,
@@ -288,14 +307,10 @@ impl KvStateMachine {
         fsm
     }
 
-    fn start(
-        &self,
-        cmd: &(impl Message + Command),
-    ) -> Box<dyn Future<Item = Result<CommandResponse>, Error = ()> + Send + 'static> {
+    fn start(&self, cmd: &(impl Message + Command)) -> FutureRef<Result<CommandResponse>, ()> {
         use crate::raft::errors::Error;
 
         match self.raft.start(cmd) {
-            // TODO: 这里 Raft 可能会过早提交成功导致无法收到通知。
             Ok((idx, _term)) => {
                 let (sx, rx) = futures::sync::oneshot::channel();
                 let mut map = self.waiting_channels.lock().unwrap();
@@ -326,9 +341,9 @@ impl KvStateMachine {
         }
     }
 
-    fn contains_command(&self, id: Uuid) -> bool {
-        let commands = self.success_commands.lock().unwrap();
-        commands.contains(&id)
+    fn has_done(&self, client: &str, id: Uuid) -> bool {
+        let commands = self.last_command.lock().unwrap();
+        commands.get(client).map(|i| *i == id).unwrap_or(false)
     }
 }
 
@@ -367,9 +382,7 @@ impl KvServer {
     /// Only for suppressing deadcode warnings.
     #[doc(hidden)]
     pub fn __suppress_deadcode(&mut self) {
-        let _ = &self.me;
         let _ = &self.maxraftstate;
-        let _ = KvCommand::from_bytes(vec![].as_slice());
         crate::your_code_here(());
     }
 }
@@ -391,7 +404,6 @@ impl KvServer {
 #[derive(Clone)]
 pub struct Node {
     server: Arc<Mutex<KvServer>>,
-    active_thread: Arc<AtomicU64>,
     rpc_execution_pool: Arc<ThreadPool>,
 }
 
@@ -406,11 +418,9 @@ fn timeout_fut<T>() -> impl Future<Item = Result<T>, Error = ()> {
 impl Node {
     pub fn new(kv: KvServer) -> Node {
         let server = Arc::new(Mutex::new(kv));
-        let active_thread = Arc::new(AtomicU64::new(0));
         let rpc_execution_pool = Arc::new(ThreadPoolBuilder::new().num_threads(8).build().unwrap());
         Node {
             server,
-            active_thread,
             rpc_execution_pool,
         }
     }
@@ -422,12 +432,14 @@ impl Node {
     pub fn kill(&self) {
         // Your code here, if desired.
         let server = self.server.lock().unwrap();
+        let sc = server.fsm.last_command.lock().unwrap();
+        let sc_len = sc.len();
+        drop(sc);
         server.fsm.shutdown();
         server.rf.kill();
-        info!(
-            "node[{}] is died. with active thread: {}",
-            server.me,
-            self.active_thread.load(Ordering::SeqCst)
+        println!(
+            "node[{}] is died. with success_command size: {}",
+            server.me, sc_len,
         );
     }
 
@@ -452,7 +464,7 @@ impl Node {
         drop(server);
 
         let start_result = fsm.start(&arg);
-        let result = start_result
+        start_result
             .select(timeout_fut())
             .map(move |(result, _)| match result {
                 Err(KvError::NotLeader) => GetReply {
@@ -476,15 +488,13 @@ impl Node {
                 wrong_leader: false,
                 err: "FSM cancels execution.".to_owned(),
                 value: "".to_owned(),
-            });
-        self.active_thread.fetch_sub(1, Ordering::SeqCst);
-        result
+            })
     }
 
     fn do_put_append(&self, arg: PutAppendRequest) -> PutAppendReply {
         let server = self.server.lock().unwrap();
         let cmd_id = Uuid::from_slice(arg.id.as_slice()).expect("fetal: bad command id.");
-        if server.fsm.contains_command(cmd_id) {
+        if server.fsm.has_done(arg.client.as_str(), cmd_id) {
             return PutAppendReply {
                 wrong_leader: false,
                 err: "".to_owned(),
@@ -493,7 +503,7 @@ impl Node {
         let start_result = server.fsm.start(&arg);
         drop(server);
 
-        let result = start_result
+        start_result
             .select(timeout_fut())
             .map(|(result, _)| match result {
                 Err(KvError::NotLeader) => PutAppendReply {
@@ -513,9 +523,7 @@ impl Node {
             .unwrap_or_else(|((), _)| PutAppendReply {
                 wrong_leader: false,
                 err: "FSM cancels execution.".to_owned(),
-            });
-        self.active_thread.fetch_sub(1, Ordering::SeqCst);
-        result
+            })
     }
 }
 

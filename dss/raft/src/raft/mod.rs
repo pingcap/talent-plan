@@ -16,6 +16,7 @@ use labcodec::{decode, encode};
 use labrpc::RpcFuture;
 
 use crate::proto::raftpb::*;
+use crate::proto::raftpb::raft::Client;
 use crate::raft::RaftRole::{Candidate, Follower, Leader};
 use crate::raft::TimerMsg::Stop;
 use crate::select;
@@ -46,13 +47,13 @@ impl LogEntry {
     }
 }
 
-struct SnapShotFile {
-    commands: Vec<Vec<u8>>,
+pub struct SnapshotFile {
+    pub commands: Vec<Vec<u8>>,
 }
 
-impl Default for SnapShotFile {
+impl Default for SnapshotFile {
     fn default() -> Self {
-        SnapShotFile { commands: vec![] }
+        SnapshotFile { commands: vec![] }
     }
 }
 
@@ -60,7 +61,7 @@ impl Default for SnapShotFile {
 struct RaftLogWithSnapShot {
     last_included_index: u64,
     last_included_term: u64,
-    state_machine_state: SnapShotFile,
+    state_machine_state: SnapshotFile,
     commands: Vec<LogEntry>,
 }
 
@@ -69,14 +70,30 @@ impl Default for RaftLogWithSnapShot {
         RaftLogWithSnapShot {
             last_included_index: 0,
             last_included_term: 0,
-            state_machine_state: SnapShotFile::default(),
+            state_machine_state: SnapshotFile::default(),
             commands: vec![],
         }
     }
 }
 
-// TODO：修改 do_append_entries.
+impl Into<RaftLogWithSnapShot> for InstallSnapshotArgs {
+    fn into(self) -> RaftLogWithSnapShot {
+        RaftLogWithSnapShot {
+            last_included_index: self.last_included_index,
+            last_included_term: self.last_included_term,
+            state_machine_state: SnapshotFile {
+                commands: self.data,
+            },
+            commands: vec![],
+        }
+    }
+}
+
 impl RaftLogWithSnapShot {
+    fn is_in_snapshot(&self, index: usize) -> bool {
+        self.checked_offset_index(index).is_none()
+    }
+
     fn offset_index(&self, origin: usize) -> usize {
         self.checked_offset_index(origin).unwrap_or_else(||
             panic!("Trying to access a entry that is in the snapshot: snapshot last index = {}, accessing = {}",
@@ -225,20 +242,8 @@ struct SentRequest<Req, Res> {
     response: Receiver<Result<Res>>,
 }
 
-impl
-From<(
-    usize,
-    AppendEntriesArgs,
-    Receiver<Result<AppendEntriesReply>>,
-)> for SentRequest<AppendEntriesArgs, AppendEntriesReply>
-{
-    fn from(
-        origin: (
-            usize,
-            AppendEntriesArgs,
-            Receiver<Result<AppendEntriesReply>>,
-        ),
-    ) -> Self {
+impl<Arg, Rep> From<(usize, Arg, Receiver<Result<Rep>>)> for SentRequest<Arg, Rep> {
+    fn from(origin: (usize, Arg, Receiver<Result<Rep>>)) -> Self {
         SentRequest {
             follower: origin.0,
             request: origin.1,
@@ -263,8 +268,7 @@ pub struct Raft {
     // this peer's index into peers[]
     me: usize,
     state: Arc<State>,
-    // Your data here (2A, 2B, 2C).
-    // Look at the paper's Figure 2 for a description of what
+
     // state a Raft server must maintain.
     apply_ch: UnboundedSender<ApplyMsg>,
     current_role: RaftRole,
@@ -321,6 +325,13 @@ impl PersistedStatus {
             current_term: raft.term,
             voted_for: raft.voted_for.iter().map(|x| *x as u64).collect(),
             logs: raft.log.iter().cloned().map(Into::into).collect(),
+        }
+    }
+}
+
+impl Snapshot {
+    fn by_raft(raft: &Raft) -> Self {
+        Snapshot {
             state_machine_state: raft.log.state_machine_state.commands.clone(),
             last_index_of_snapshot: raft.log.last_included_index,
             last_term_of_snapshot: raft.log.last_included_term,
@@ -344,6 +355,7 @@ impl Raft {
         apply_ch: UnboundedSender<ApplyMsg>,
     ) -> Raft {
         let raft_state = persister.raft_state();
+        let snapshot = persister.snapshot();
         // Your initialization code here (2A, 2B, 2C).
         let peer_count = peers.len();
         let config = RaftConfig::default();
@@ -370,7 +382,7 @@ impl Raft {
         };
 
         // initialize from state persisted before a crash
-        rf.restore(&raft_state);
+        rf.restore(&raft_state, &snapshot);
 
         rf
     }
@@ -385,114 +397,73 @@ impl Raft {
         // labcodec::encode(&self.yyy, &mut data).unwrap();
         // self.persister.save_raft_state(data);
         let persisted = PersistedStatus::by_raft(self);
-        let mut buf = vec![];
-        encode(&persisted, &mut buf).unwrap();
-        self.persister.save_raft_state(buf);
+        let snapshot = Snapshot::by_raft(self);
+        let mut log_buf = vec![];
+        encode(&persisted, &mut log_buf).unwrap();
+        let mut snapshot_buf = vec![];
+        encode(&snapshot, &mut snapshot_buf).unwrap();
+        self.persister
+            .save_state_and_snapshot(log_buf, snapshot_buf);
     }
 
     /// restore previously persisted state.
-    fn restore(&mut self, data: &[u8]) {
-        if data.is_empty() {
+    fn restore(&mut self, log: &[u8], snapshot: &[u8]) {
+        if log.is_empty() && snapshot.is_empty() {
             info!("{} bootstrap without any state!", self.self_info());
             return;
         }
-        match decode::<PersistedStatus>(data) {
-            Ok(state) => {
-                info!("{} restored to: {:?}", self.self_info(), state);
+        decode::<PersistedStatus>(log).and_then(|state|
+            decode::<Snapshot>(snapshot).map(|ss| {
                 self.term = state.current_term;
                 self.log = RaftLogWithSnapShot {
-                    last_included_index: state.last_index_of_snapshot,
-                    last_included_term: state.last_term_of_snapshot,
-                    state_machine_state: SnapShotFile {
-                        commands: state.state_machine_state,
+                    last_included_index: ss.last_index_of_snapshot,
+                    last_included_term: ss.last_term_of_snapshot,
+                    state_machine_state: SnapshotFile {
+                        commands: ss.state_machine_state,
                     },
                     commands: state.logs.into_iter().map(Into::into).collect(),
                 };
                 self.voted_for = state.voted_for.first().map(|x| *x as usize);
-            }
-            Err(e) => {
-                panic!("Failed to decode: {:?}", e);
-            }
-        };
-        // Your code here (2C).
-        // Example:
-        // match labcodec::decode(data) {
-        //     Ok(o) => {
-        //         self.xxx = o.xxx;
-        //         self.yyy = o.yyy;
-        //     }
-        //     Err(e) => {
-        //         panic!("{:?}", e);
-        //     }
-        // }
+
+                // let apply the snapshots message to state machine firstly...
+                for e in self.log.state_machine_state.commands.iter() {
+                    let msg = ApplyMsg {
+                        command_valid: false,
+                        command: e.clone(),
+                        command_index: 0,
+                    };
+                    if self.apply_ch.unbounded_send(msg).is_err() {
+                        error!("failed to send snapshot state, which probably cause unexpected behavior.");
+                    }
+                }
+            })).expect("failed to decode persisted status.");
     }
 
-    /// example code to send a RequestVote RPC to a server.
-    /// server is the index of the target server in peers.
-    /// expects RPC arguments in args.
+    /// send a rpc request to a peer.
     ///
-    /// The labrpc package simulates a lossy network, in which servers
-    /// may be unreachable, and in which requests and replies may be lost.
-    /// This method sends a request and waits for a reply. If a reply arrives
-    /// within a timeout interval, This method returns Ok(_); otherwise
-    /// this method returns Err(_). Thus this method may not return for a while.
-    /// An Err(_) return can be caused by a dead server, a live server that
-    /// can't be reached, a lost request, or a lost reply.
+    /// # arguments
+    /// - server: the rpc endpoint index.
+    /// - args: the rpc args.
+    /// - rpc: the code segment that uses client and args to send rpc.
     ///
-    /// This method is guaranteed to return (perhaps after a delay) *except* if
-    /// the handler function on the server side does not return.  Thus there
-    /// is no need to implement your own timeouts around this method.
-    ///
-    /// look at the comments in ../labrpc/src/lib.rs for more details.
-    fn send_request_vote(
+    /// # returns
+    /// a `SentRequest` struct.
+    fn send_request<Arg, Rep: Send + 'static>(
         &self,
         server: usize,
-        args: &RequestVoteArgs,
-    ) -> Receiver<Result<RequestVoteReply>> {
+        args: Arg,
+        rpc: impl Fn(&Client, &Arg) -> RpcFuture<Rep>,
+    ) -> SentRequest<Arg, Rep> {
         let peer = &self.peers[server];
-        let (tx, rx) = channel::<Result<RequestVoteReply>>();
-        peer.spawn(
-            peer.request_vote(&args)
-                .map_err(Error::Rpc)
-                .then(move |res| {
-                    let result_ok = res.is_ok();
-                    let result = tx.send(res);
-                    if let Err(e) = result {
-                        if result_ok {
-                            debug!(
-                                "send_request_vote: result of RPC({:?}) is unused. since: {:?}",
-                                e.0, e
-                            );
-                        }
-                    }
-                    Ok(())
-                }),
-        );
-        rx
-    }
-
-    fn send_append_entries(
-        &self,
-        server: usize,
-        args: &AppendEntriesArgs,
-    ) -> Receiver<Result<AppendEntriesReply>> {
-        let peer = &self.peers[server];
-        let (tx, rx) = channel::<Result<AppendEntriesReply>>();
-        peer.spawn(
-            peer.append_entries(&args)
-                .map_err(Error::Rpc)
-                .then(move |res| {
-                    let result = tx.send(res);
-                    if let Err(e) = result {
-                        debug!(
-                            "send_append_entries: result of RPC({:?}) is unused. since: {:?}",
-                            e.0, e
-                        );
-                    }
-                    Ok(())
-                }),
-        );
-        rx
+        let (tx, rx) = channel::<Result<Rep>>();
+        peer.spawn(rpc(peer, &args).map_err(Error::Rpc).then(move |res| {
+            let result = tx.send(res);
+            if let Err(e) = result {
+                debug!("send_request: result of RPC is unused. since: {:?}", e);
+            }
+            Ok(())
+        }));
+        SentRequest::from((server, args, rx))
     }
 
     fn self_info(&self) -> String {
@@ -542,7 +513,6 @@ impl Raft {
     #[doc(hidden)]
     pub fn __suppress_deadcode(&mut self) {
         let _ = self.start(&0);
-        let _ = self.send_request_vote(0, &Default::default());
         self.persist();
         let _ = &self.state;
         let _ = &self.me;
@@ -592,6 +562,9 @@ fn reverse_order<T: Ord>(a: &T, b: &T) -> Ordering {
     b.cmp(a)
 }
 
+/// Find the mid number of the items array.
+/// This function assumes that the `items` array contains a 'supreme' element,
+/// which is the `match_index` of the current node itself.
 fn mid<T: Ord>(items: &mut [T]) -> &T {
     items.sort_by(reverse_order);
     let mid = (items.len() - 1) / 2;
@@ -599,10 +572,13 @@ fn mid<T: Ord>(items: &mut [T]) -> &T {
 }
 
 impl Raft {
+    /// check if the current node is leader.
     fn is_leader(&self) -> bool {
         self.current_role == Leader
     }
 
+    /// find a index in the log where contains the first log entry of the
+    /// specified term.
     fn get_term_starts_at(&self, term: u64, from: usize) -> usize {
         let mut n = from;
         while self.log.term_at(n) == term {
@@ -611,6 +587,11 @@ impl Raft {
         n + 1
     }
 
+    /// calculate the next commit index by counting replicates.
+    ///
+    /// # panics
+    /// if `!self.is_leader()`, which means current node is a probably follower,
+    /// follower should never try to commit log.
     fn next_commit_index(&self) -> u64 {
         if !self.is_leader() {
             panic!("fetal: try to fetch leader state on non-leader node");
@@ -624,6 +605,7 @@ impl Raft {
         *mid(valid_state.as_mut_slice())
     }
 
+    /// make a `ApplyMessage` with the log entry at `index`.
     fn make_apply_message(&self, index: u64) -> ApplyMsg {
         let log = &self.log[index as usize];
         ApplyMsg {
@@ -633,6 +615,7 @@ impl Raft {
         }
     }
 
+    /// Apply logs by current `commit_index` to state machine.
     fn apply_logs(&mut self) {
         for i in (self.last_applied + 1)..=(self.commit_index) {
             self.apply_ch
@@ -642,6 +625,10 @@ impl Raft {
         self.last_applied = self.commit_index;
     }
 
+    /// Leader commit its indices by this function.
+    /// Comparing to `next_commit_index`, this function will do some extra checking.
+    /// For example, this function checks term of last log entry to prevent committing log entries
+    /// from last term by counting replicas.
     fn leader_commit_logs(&mut self) {
         let next = self.next_commit_index();
         assert!((next as usize) <= self.log.len(),
@@ -662,6 +649,7 @@ impl Raft {
         self.log.last_term()
     }
 
+    /// make `RequestVoteArgs` by current state of self.
     fn make_request_vote_args(&self) -> RequestVoteArgs {
         RequestVoteArgs {
             term: self.term,
@@ -671,10 +659,10 @@ impl Raft {
         }
     }
 
-    // TODO: 错综复杂的 Mutex 获取、释放关系……贸然重构或许会有些危险……
-    // TODO：这种方式一开始就是 error-prone 的吗？
+    /// transform the raft node to candidate.
     fn transform_to_candidate(raft: Arc<Mutex<Self>>) {
         std::thread::spawn(move || {
+            // some basic state transform, and save some cloneable information.
             let mut guard = raft.lock().unwrap();
             guard.current_role = Candidate;
             // make the borrow checker happy.
@@ -682,16 +670,24 @@ impl Raft {
             guard.update_term(old_term + 1);
             let term_at_start = guard.term;
             let me = guard.me;
+
+            // vote for self, then send `RequestVote` RPCs.
             info!("NO{} started a new election of term {}.", me, guard.term);
             guard.vote_for(me);
             let peer_count = guard.peers.len();
             let send_result = (0..peer_count)
                 .filter(|i| *i != me)
-                .map(|i| guard.send_request_vote(i, &guard.make_request_vote_args()))
+                .map(|i| {
+                    guard.send_request(i, guard.make_request_vote_args(), |client, arg| {
+                        client.request_vote(arg)
+                    })
+                })
+                .map(|req| req.response)
                 .collect::<Vec<Receiver<_>>>();
             drop(guard);
-            let data_channel = select(send_result.into_iter());
 
+            // let's poll on the requests...
+            let data_channel = select(send_result.into_iter());
             let mut vote_count = 1;
             while let Ok(result) = data_channel.recv_timeout(Duration::from_millis(300)) {
                 if result.is_err() {
@@ -706,12 +702,15 @@ impl Raft {
                 }
 
                 vote_count += if vote_result.vote_granted { 1 } else { 0 };
+
+                // Bingo! we get enough votes.
                 if vote_count > peer_count / 2 {
                     info!("NO{} has enough votes at term {}!", me, term_at_start);
                     break;
                 }
             }
 
+            // 做一些登基前的准备工作，同时测试自身是否已经被弹劾了。
             let mut guard = raft.lock().unwrap();
             if vote_count > peer_count / 2
                 // ensure that we didn't start another term of election...
@@ -728,6 +727,10 @@ impl Raft {
         });
     }
 
+    /// modify leader state by a response of `AppendEntries`.
+    ///
+    /// # panics
+    /// if `!self.is_leader()`.
     fn modify_state_by_append_entries(
         &mut self,
         request: &AppendEntriesArgs,
@@ -816,6 +819,7 @@ impl Raft {
         }
     }
 
+    #[allow(dead_code)]
     fn send_append_entries_requests<F>(
         &self,
         mut factory: F,
@@ -828,10 +832,30 @@ impl Raft {
             .filter(|i| *i != self.me)
             .map(|i| {
                 let request = factory(self, i);
-                let response = self.send_append_entries(i, &request);
-                SentRequest::from((i, request, response))
+                self.send_request(i, request, |client, arg| client.append_entries(arg))
             })
             .collect()
+    }
+
+    fn need_install_snapshot(&self, server: usize) -> bool {
+        if !self.is_leader() {
+            panic!("Calling need_install_snapshot in a non-leader node.")
+        }
+        let ls = self
+            .leader_state
+            .as_ref()
+            .expect("fetal: leader node without leader state.");
+        self.log.is_in_snapshot(ls.next_index[server] as usize)
+    }
+
+    fn make_install_snapshot_args(&self) -> InstallSnapshotArgs {
+        InstallSnapshotArgs {
+            term: self.term,
+            leader_id: self.me as u64,
+            last_included_term: self.log.last_included_term,
+            last_included_index: self.log.last_included_index,
+            data: self.log.state_machine_state.commands.clone(),
+        }
     }
 
     // ……我们用了与 paper 中不同的办法来发送 AppendEntries.
@@ -847,36 +871,63 @@ impl Raft {
     // 另：此处的风格更加接近一种 "micro-batch"，即统计一段时间内所有的 entries 然后一次发送。
     // 这样的做法会增加客户端的延迟（客户平均至少需要等待半个 `AppendEntries` 的周期才能获得确定提交的相应。），
     // 但是能减少 RPC 的数量，在网络不稳定的情况（这是少数情况……我认为如此……）会增加 Leader 失效的概率。
+    /// 登基成为 Leader。
     fn transform_to_leader(raft_lock: Arc<Mutex<Raft>>) {
+        // some basic state creation.
         let mut guard = raft_lock.lock().unwrap();
         let delay = guard.extra.leader_append_entries_delay;
         guard.try_send_to_election_timer(Stop);
         guard.leader_state = Some(LeaderState::by_raft(guard.deref()));
         drop(guard);
+
+        // the loop of leader lifetime.
         loop {
             let mut raft = raft_lock.lock().unwrap();
+            // leader is died.
             if !raft.is_leader() {
                 break;
             }
+            // after every turn send `AppendEntries`, try to commit logs.
             raft.leader_commit_logs();
             let raft_info = raft.self_info();
-
             info!("{}: leader_state = {:?}", raft_info, raft.leader_state);
-            let requests =
-                raft.send_append_entries_requests(|raft, i| raft.make_append_entries_for(i));
+
+            let mut append_entries_reqs = vec![];
+            let mut install_snapshot_reqs = vec![];
+            // send requests.
+            for i in 0..raft.peers.len() {
+                if i != raft.me {
+                    if raft.need_install_snapshot(i) {
+                        install_snapshot_reqs.push(raft.send_request(
+                            i,
+                            raft.make_install_snapshot_args(),
+                            |client, args| client.install_snapshot(args),
+                        ));
+                    } else {
+                        append_entries_reqs.push(raft.send_request(
+                            i,
+                            raft.make_append_entries_for(i),
+                            |client, args| client.append_entries(args),
+                        ))
+                    }
+                }
+            }
             drop(raft);
-            Raft::spawn_append_entries_handler(
+
+            // handle AppendEntries.
+            Raft::spawn_handler(
                 raft_lock.clone(),
-                requests.into_iter(),
+                append_entries_reqs.into_iter(),
                 Raft::handle_append_entries,
             );
+            assert!(install_snapshot_reqs.is_empty());
             sleep(delay);
         }
         let mut guard = raft_lock.lock().unwrap();
         guard.leader_state = None;
     }
 
-    fn spawn_append_entries_handler<Req: Debug + Send + 'static, Res: Send + 'static>(
+    fn spawn_handler<Req: Debug + Send + 'static, Res: Send + 'static>(
         raft_lock: Arc<Mutex<Self>>,
         requests: impl Iterator<Item=SentRequest<Req, Res>>,
         handler: impl Fn(Arc<Mutex<Raft>>, &Req, &Res, usize) + Send + Sync + 'static,
@@ -1002,6 +1053,9 @@ impl Raft {
     }
 
     /// check whether current term is out-dated.
+    /// If it thinks current node is out-dated, transform current node to follower.
+    ///
+    /// # returns
     /// returns `true` if the raft peer become follower since this function.
     fn check_term(raft: Arc<Mutex<Raft>>, new_term: u64) -> bool {
         let mut guard = raft.lock().unwrap();
@@ -1065,10 +1119,23 @@ enum FailedAppendEntries {
 }
 
 impl Node {
+    /// take the snapshot of `state`, with `last_included_index = last_index`.
+    pub fn take_snapshot(&self, state: SnapshotFile, last_index: usize) {
+        let mut raft = self.raft.lock().unwrap();
+        let remained_log_starts = raft.log.offset_index(last_index) + 1;
+        let new_log = RaftLogWithSnapShot {
+            last_included_index: last_index as u64,
+            last_included_term: raft.log.term_at(last_index),
+            state_machine_state: state,
+            commands: raft.log.commands.drain(remained_log_starts..).collect(),
+        };
+        raft.log = new_log;
+        raft.persist();
+    }
+
     /// Create a new raft service.
     pub fn new(raft: Raft) -> Node {
         // Your code here.
-        // TODO: 为恢复到不同状态的节点配置不同的初始化函数。(2C)
         info!("new node NO「{}」started.", raft.me);
         let pool = rayon::ThreadPoolBuilder::new()
             // Assume that every peer sends rpc to me.
@@ -1226,7 +1293,6 @@ impl Node {
         Ok(())
     }
 
-    /// This function will be executed in a OS thread, don't worry even it blocks.
     fn do_append_entries(&self, args: AppendEntriesArgs) -> AppendEntriesReply {
         let success = self.do_append_entries_judge(args);
         match success {
@@ -1267,7 +1333,6 @@ impl Node {
             args,
             granted
         );
-        // TODO: 这儿似乎有一些风险，如果发生活锁，那么请来看看这里。
         if granted {
             raft.reset_election_timer();
             // NOTE：即便没有设置投票者……（就是说，一个节点可以在一个 term 中投多个票）
@@ -1280,6 +1345,20 @@ impl Node {
             vote_granted: granted,
         }
     }
+
+    fn do_install_snapshot(&self, args: InstallSnapshotArgs) -> InstallSnapshotReply {
+        self.check_term(args.term);
+        let term = self.term();
+        if args.term < term {
+            return InstallSnapshotReply { term };
+        }
+
+        let mut raft = self.raft.lock().unwrap();
+        raft.log = args.into();
+        raft.persist();
+
+        InstallSnapshotReply { term: raft.term }
+    }
 }
 
 impl RaftService for Node {
@@ -1288,8 +1367,5 @@ impl RaftService for Node {
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
     async_rpc! { request_vote(RequestVoteArgs) -> RequestVoteReply where uses Self::do_request_vote }
     async_rpc! { append_entries(AppendEntriesArgs) -> AppendEntriesReply where uses Self::do_append_entries }
-
-    fn install_snapshot(&self, _req: InstallSnapshotArgs) -> RpcFuture<InstallSnapshotReply> {
-        unimplemented!()
-    }
+    async_rpc! { install_snapshot(InstallSnapshotArgs) -> InstallSnapshotReply where uses Self::do_install_snapshot }
 }
