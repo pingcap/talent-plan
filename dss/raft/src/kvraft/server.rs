@@ -279,7 +279,7 @@ impl KvStateMachine {
                         kv.insert(k, v);
                     }
                     self.last_index
-                        .fetch_add(key_values.last_index as usize, Ordering::SeqCst);
+                        .store(key_values.last_index as usize, Ordering::SeqCst);
                 }
             }
     }
@@ -362,7 +362,8 @@ impl KvStateMachine {
                         if !cmd.is_readonly() {
                             fsm.handle_command(cmd)
                         }
-                        fsm.last_index.fetch_add(1, Ordering::SeqCst);
+                        fsm.last_index
+                            .store(message.command_index as usize, Ordering::SeqCst);
                         if let Some(max) = fsm.max_size {
                             if fsm.raft.log_size() > max {
                                 let last_index = fsm.last_index.load(Ordering::SeqCst);
