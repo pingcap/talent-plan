@@ -10,9 +10,12 @@ extern crate log;
 #[macro_use]
 extern crate prost_derive;
 
+use std::cell::RefCell;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::sleep;
 use std::time::Duration;
+
+use rayon::ThreadPool;
 
 use crate::TimerMsg::{Reset, Stop};
 
@@ -95,7 +98,7 @@ macro_rules! async_rpc {
                         )
                     });
             });
-            Box::new(rx.map_err(|e| panic!("rpc: failed to execute: {}", e)))
+            Box::new(rx.map_err(|_| labrpc::Error::Stopped))
         }
     }
 }
@@ -155,5 +158,47 @@ impl Timer {
     /// if success to stop the timer, return `true`.
     pub fn stop(&self) -> bool {
         self.sx.send(Stop).is_ok()
+    }
+}
+
+// we make sure that only call to ``
+unsafe impl Sync for ThreadPoolWithDrop {}
+
+struct ThreadPoolWithDrop {
+    t: RefCell<Option<ThreadPool>>,
+}
+
+impl Into<ThreadPoolWithDrop> for ThreadPool {
+    fn into(self) -> ThreadPoolWithDrop {
+        ThreadPoolWithDrop {
+            t: RefCell::new(Some(self)),
+        }
+    }
+}
+
+impl ThreadPoolWithDrop {
+    fn spawn(&self, f: impl FnOnce() + Send + 'static) {
+        let b = self.t.try_borrow();
+        if b.is_err() {
+            warn!("spawn on a dropping pool -- nop.");
+            return;
+        }
+        b.unwrap()
+            .as_ref()
+            .expect("spawn on a dropped thread pool.")
+            .spawn(f)
+    }
+
+    unsafe fn terminate(&self) {
+        drop(self.t.borrow_mut().take())
+    }
+
+    #[allow(dead_code)]
+    fn is_terminated(&self) -> bool {
+        let b = self.t.try_borrow();
+        if b.is_err() {
+            return true;
+        }
+        b.unwrap().is_none()
     }
 }

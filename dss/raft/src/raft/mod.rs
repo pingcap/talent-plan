@@ -9,13 +9,13 @@ use std::time::Duration;
 use futures::Future;
 use futures::sync::mpsc::UnboundedSender;
 use rand::Rng;
-use rayon::{ThreadPool, ThreadPoolBuilder};
+use rayon::ThreadPoolBuilder;
 
 use labcodec::{decode, encode};
 use labrpc::RpcFuture;
 
 use crate::{
-    select, Timer,
+    select, ThreadPoolWithDrop, Timer,
     TimerMsg::{self, *},
 };
 use crate::proto::raftpb::*;
@@ -286,7 +286,7 @@ pub struct Raft {
 
     // leader state
     leader_state: Option<LeaderState>,
-    leader_execution_pool: ThreadPool,
+    leader_execution_pool: ThreadPoolWithDrop,
 
     // misc
     extra: RaftConfig,
@@ -410,7 +410,8 @@ impl Raft {
                 .thread_name(move |n| format!("[`{}`] leader execution worker ({})", me, n))
                 .num_threads(((peer_count as f64) * config.latency_tolerance_factor) as usize)
                 .build()
-                .unwrap(),
+                .unwrap()
+                .into(),
             extra: config,
             log_size: 0,
             last_append_entries_size: 0,
@@ -613,7 +614,7 @@ impl Raft {
 #[derive(Clone)]
 pub struct Node {
     raft: Arc<Mutex<Raft>>,
-    rpc_execution_pool: Arc<rayon::ThreadPool>,
+    rpc_execution_pool: Arc<ThreadPoolWithDrop>,
 }
 
 impl Into<LogEntry> for ProtoEntry {
@@ -1265,7 +1266,7 @@ impl Node {
         Raft::transform_to_follower(raft.clone());
         Node {
             raft: raft.clone(),
-            rpc_execution_pool: Arc::new(pool),
+            rpc_execution_pool: Arc::new(pool.into()),
         }
     }
 
@@ -1337,6 +1338,9 @@ impl Node {
         guard.current_role = Follower;
         // stop follower timer.
         guard.try_send_to_election_timer(Stop);
+        unsafe {
+            guard.leader_execution_pool.terminate();
+        }
         info!("NO{} is dead.", guard.me);
     }
 

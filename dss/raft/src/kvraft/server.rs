@@ -532,8 +532,6 @@ impl Node {
     pub fn kill(&self) {
         // Your code here, if desired.
         let server = self.server.lock().unwrap();
-        let sc = server.fsm.last_command.lock().unwrap();
-        drop(sc);
         server.fsm.shutdown();
         server.rf.kill();
     }
