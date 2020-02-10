@@ -378,7 +378,7 @@ impl KvStateMachine {
                         fsm.last_index
                             .store(message.command_index as usize, Ordering::SeqCst);
                         if let Some(max) = fsm.max_size {
-                            // if the log lost behind too much, don't snapshot it, just hurry up to crash the log.
+                            // if the log lost behind too much, don't snapshot it, just hurry up to reach the log.
                             if fsm.raft.log_size() > (max as f64 * 0.9) as usize
                                 && diff_idx < Ord::max(1, (max / 50) as u64)
                             {

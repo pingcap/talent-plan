@@ -1,3 +1,30 @@
+//! The raft implementation.
+//!
+//! # Raft(lab 2)
+//! ## general
+//! Generally, it starts at `transform_to_follower`, and transform states by the
+//! `transform_*` family, all of which accepts `Arc<Mutex<Raft>>`.
+//! All rpc handlers are blocking(!), so `async_rpc!` macro simply start new thread for handler, incase of
+//! them blocks the coroutine runtime.
+//! This implementation uses thread model, which will bear more context switch and inter-core sync overhead.
+//! But for the coroutine approach, `future 0.1`, which is really tricky for me to adapt it with `async/.await`,
+//! I don't think I can do it well, or at least, be happy when facing chaotic type and compile error information.
+//! All tests just have run on Windows and macOS... I wish it won't fail on Linux...
+//!
+//! ## where to find algorithm implementation
+//! ### election(2A)
+//! election starts from `election_timer` fires, and call to `transform_to_candidate`.
+//! handler of `RequestVotes` is `do_request_votes`.
+//!
+//! ### log replication(2B)
+//! leader sending rpc starts from `transform_to_leader`, but most of logic is in `modify_state_by_append_entries`.
+//! follower handles rpc starts from `do_append_entries`, but most of logic is in `do_append_entries_judge`.
+//!
+//! ### persist(2C)
+//! Persisting logic is in `persist` and `restore` function.
+//! The optimization that needed for passing `unreliable_figure8_2c` logic is in `do_append_entries`(follower site),
+//! and `modify_state_by_append_entries`(leader site).
+//!
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::ops::{Index, RangeFrom};
@@ -34,20 +61,7 @@ pub mod persister;
 #[cfg(test)]
 mod tests;
 
-//TODO: Remove them, if desired.
-#[allow(dead_code)]
-static PLACE_HOLDER: [u8; 4] = [0xca, 0xfe, 0xba, 0xbe];
-
-#[allow(dead_code)]
-impl LogEntry {
-    fn null() -> LogEntry {
-        LogEntry {
-            term: 0,
-            data: Vec::from(&PLACE_HOLDER[..]),
-        }
-    }
-}
-
+/// the snapshot of raft state.
 pub struct SnapshotFile {
     pub commands: Vec<Vec<u8>>,
 }
@@ -286,15 +300,17 @@ pub struct Raft {
 
     // leader state
     leader_state: Option<LeaderState>,
+    /// the thread pool to execute leader rpc.
     leader_execution_pool: ThreadPoolWithDrop,
 
     // misc
+    /// config, including timeout and thread pool size.
     extra: RaftConfig,
+    /// the byte size of log of last snapshot.
     log_size: usize,
-
-    last_append_entries_size: usize,
 }
 
+/// A raft log entry.
 #[derive(Clone, Debug)]
 struct LogEntry {
     pub data: Vec<u8>,
@@ -351,7 +367,7 @@ impl PersistedStatus {
         //
         // Finally, what did I do?
         // Just take a snapshot at `kvraft::server::Node::kill`,
-        // which is tricky, but effective :).
+        // which is tricky, but maybe effective :).
         let logs = raft.log.iter().cloned().map(Into::into).collect();
 
         PersistedStatus {
@@ -414,7 +430,6 @@ impl Raft {
                 .into(),
             extra: config,
             log_size: 0,
-            last_append_entries_size: 0,
         };
 
         // initialize from state persisted before a crash
@@ -483,6 +498,8 @@ impl Raft {
             .expect("failed to decode persisted status.");
     }
 
+    /// apply snapshot to state machine.
+    /// This updates `last_applied`.
     fn apply_snapshot(&mut self) {
         for e in self.log.state_machine_state.commands.iter() {
             let msg = ApplyMsg {
@@ -533,6 +550,7 @@ impl Raft {
         SentRequest::from((server, args, rx))
     }
 
+    /// get the current state string of this raft.
     fn self_info(&self) -> String {
         format!(
             "[{} t{} c{} a{} l{} s{} {:?}]",
@@ -546,17 +564,30 @@ impl Raft {
         )
     }
 
+    /// make a new log entry contains `data`.
     fn make_log(&self, data: Vec<u8>) -> LogEntry {
         LogEntry::new(data, self.term)
     }
 
+    /// show log terms of current node.
     fn log_info(&self) -> String {
-        format!("{:?}", self.log.iter().map(|e| e.term).collect::<Vec<_>>())
+        format!(
+            "({} snapshots omitted.) {:?}",
+            self.log.last_included_index,
+            self.log.iter().map(|e| e.term).collect::<Vec<_>>()
+        )
     }
 
+    /// add a new command to the raft cluster.
+    ///
+    /// # returns
+    /// when success, return the (index, term) 2-tuple of the command.
+    /// (this doesn't means that this command will eventually appears at there,
+    ///  before committed, this command can be lost.)
+    /// if this raft isn't leader, return `NotLeader`.
     fn start<M>(&mut self, command: &M) -> Result<(u64, u64)>
-    where
-        M: labcodec::Message,
+        where
+            M: labcodec::Message,
     {
         let is_leader = self.current_role == Leader;
         if !is_leader {
@@ -721,15 +752,19 @@ impl Raft {
         }
     }
 
+    /// Get the index of last log.
+    /// which is the same as log size.
     fn last_log_index(&self) -> u64 {
         self.log.len() as u64
     }
 
+    /// Get the term of last log.
+    /// If no log stored, returns `0`.
     fn last_log_term(&self) -> u64 {
         self.log.last_term()
     }
 
-    /// make `RequestVoteArgs` by current state of self.
+    /// make `RequestVoteArgs` rpc argument by current state of self.
     fn make_request_vote_args(&self) -> RequestVoteArgs {
         RequestVoteArgs {
             term: self.term,
@@ -849,6 +884,8 @@ impl Raft {
                 panic!("A debug magic number appears, which might means InvalidLeader message has handled by incorrect way.\n\
                 Debug info: ({:?}) => {:?} self = {}", request, response, self_info);
             }
+            // does follower matches at `conflicted_term`?
+            // we have log matching property, don't worry about send from this directly.
             let can_match = self.log.term_at(next_index) == response.conflicted_term;
             let real_next = if can_match {
                 next_index
@@ -860,6 +897,9 @@ impl Raft {
         }
     }
 
+    /// leader `AppendEntries` response handler.
+    /// This do some basic state transform, and check term, authorship,
+    /// then delegate tasks to `modify_state_by_append_entries`.
     fn handle_append_entries(
         raft_lock: Arc<Mutex<Self>>,
         request: &AppendEntriesArgs,
@@ -883,6 +923,7 @@ impl Raft {
         raft.modify_state_by_append_entries(request, response, follower);
     }
 
+    /// make `AppendEntriesArgs` by current state and target follower.
     fn make_append_entries_for(&self, server: usize) -> AppendEntriesArgs {
         let leader_state = self
             .leader_state
@@ -903,24 +944,8 @@ impl Raft {
         }
     }
 
-    #[allow(dead_code)]
-    fn send_append_entries_requests<F>(
-        &self,
-        mut factory: F,
-    ) -> Vec<SentRequest<AppendEntriesArgs, AppendEntriesReply>>
-        where
-            F: FnMut(&Raft, usize) -> AppendEntriesArgs,
-    {
-        let peer_len = self.peers.len();
-        (0..peer_len)
-            .filter(|i| *i != self.me)
-            .map(|i| {
-                let request = factory(self, i);
-                self.send_request(i, request, |client, arg| client.append_entries(arg))
-            })
-            .collect()
-    }
-
+    /// check whether a follower is so far behind, that needs
+    /// leader sending a `InstallSnapshot` rpc to sync with.
     fn need_install_snapshot(&self, server: usize) -> bool {
         if !self.is_leader() {
             panic!("Calling need_install_snapshot in a non-leader node.")
@@ -932,6 +957,7 @@ impl Raft {
         self.log.is_in_snapshot(ls.next_index[server] as usize)
     }
 
+    /// make `InstallSnapshotArgs` by current state.
     fn make_install_snapshot_args(&self) -> InstallSnapshotArgs {
         InstallSnapshotArgs {
             term: self.term,
@@ -942,9 +968,10 @@ impl Raft {
         }
     }
 
-    /// 登基成为 Leader。
+    /// transform to Leader。
     fn transform_to_leader(raft_lock: Arc<Mutex<Raft>>) {
         use std::sync::mpsc::RecvTimeoutError;
+
         // some basic state creation.
         let mut guard = raft_lock.lock().unwrap();
         guard.current_role = Leader;
@@ -955,6 +982,9 @@ impl Raft {
         drop(guard);
 
         // the loop of leader lifetime.
+        // when `start` called, the `rx` channel will fire a `()` message.
+        // then... we make `AppendEntries` or `InstallSnapshot` to distribute it.
+        // or... timeout, we send heartbeat to ensure authorization of our leader.
         while let Err(RecvTimeoutError::Timeout) | Ok(()) = rx.recv_timeout(delay) {
             let raft = raft_lock.lock().unwrap();
             // leader is died.
@@ -970,6 +1000,7 @@ impl Raft {
                 raft.log.len()
             );
 
+            // NOTE: we can do this by some way more functional...
             let mut append_entries_reqs = vec![];
             let mut install_snapshot_reqs = vec![];
             // send requests.
@@ -1008,6 +1039,7 @@ impl Raft {
         guard.leader_state = None;
     }
 
+    /// leader `InstallSnapshot` reply handler.
     fn handle_install_snapshot(
         raft_lock: Arc<Mutex<Raft>>,
         _req: &InstallSnapshotArgs,
@@ -1030,6 +1062,9 @@ impl Raft {
         raft.leader_commit_logs()
     }
 
+    /// spawn a handler of some request.
+    /// this function uses for the common pattern of sending rpc:
+    /// timeout, error-handling, thread spawning.
     fn spawn_handler<Req: Debug + Send + 'static, Res: Send + 'static>(
         raft_lock: Arc<Mutex<Self>>,
         requests: impl Iterator<Item=SentRequest<Req, Res>>,
@@ -1065,6 +1100,12 @@ impl Raft {
         });
     }
 
+    /// try send a message to election timer.
+    ///
+    /// # return
+    ///
+    /// if success to send, return `true`.
+    /// otherwise, `false`.
     fn try_send_to_election_timer(&self, message: TimerMsg) -> bool {
         self.election_timer
             .as_ref()
@@ -1073,6 +1114,8 @@ impl Raft {
             .unwrap_or(false)
     }
 
+    /// like `try_send_to_election_timer`, but unchecked.
+    /// when failed, a warn message will fire.
     fn send_to_election_timer(&self, message: TimerMsg) {
         if !self.try_send_to_election_timer(message) {
             warn!(
@@ -1083,6 +1126,9 @@ impl Raft {
         }
     }
 
+    /// reset the election timer.
+    /// when receiving `AppendEntries` or `InstallSnapshot`
+    /// from valid leader, call this.
     fn reset_election_timer(&self) {
         if self.is_leader() {
             warn!(
@@ -1094,15 +1140,24 @@ impl Raft {
         self.send_to_election_timer(TimerMsg::Reset);
     }
 
+    /// stop the election timer.
+    /// when trans to leader, call this.
     fn stop_election_timer(&self) {
         self.send_to_election_timer(TimerMsg::Stop);
     }
 
+    /// generate the next election timeout.
     fn generate_election_timeout() -> Duration {
         let range = rand::thread_rng().gen_range(150, 300);
         Duration::from_millis(range)
     }
 
+    /// update self.term.
+    /// instead of set self.term directly, this function makes sure that
+    /// term will increasing monotonically, and do works like persisting.
+    ///
+    /// # panics
+    /// if the new term not greater than current term.
     fn update_term(&mut self, new_term: u64) {
         assert!(
             self.term <= new_term,
@@ -1119,6 +1174,7 @@ impl Raft {
         self.term = new_term;
     }
 
+    /// transform raft state to follower.
     fn transform_to_follower(raft: Arc<Mutex<Raft>>) {
         let mut guard = raft.lock().unwrap();
         guard.try_send_to_election_timer(Stop);
@@ -1129,6 +1185,8 @@ impl Raft {
         }));
     }
 
+    /// check whether self should grant vote to candidate
+    /// that issues this `RequestVoteArgs`.
     fn check_grant(&mut self, args: &RequestVoteArgs) -> bool {
         if args.term < self.term {
             return false;
@@ -1137,7 +1195,7 @@ impl Raft {
             self.voted_for.is_none() || self.voted_for == Some(args.candidate_id as usize);
         let self_should_vote = (args.last_log_term > self.last_log_term())
             || (args.last_log_term == self.last_log_term()
-                && args.last_log_index >= self.last_log_index());
+            && args.last_log_index >= self.last_log_index());
         self_can_vote && self_should_vote
     }
 
@@ -1167,6 +1225,21 @@ impl Raft {
         false
     }
 
+    /// diff the log with remote log (probably get by `AppendEntries` from leader)
+    /// matches the current log.
+    ///
+    /// # arguments
+    /// - base is the start point of remote log, the checking to local log will start at this point.
+    /// - entries is the remote log.
+    ///
+    /// # returns
+    /// the length that matches.
+    ///
+    /// # example
+    /// let `self.log   = [1,1,2,3,3]`
+    /// and `remote log = [*,1,2,4]`
+    /// check_and_trunc_log(2, [1,2,4]) returns 2.
+    /// (Raft log starts at index 1, this function, along with `RaftLogWithSnapshot`, follows this.)
     fn check_and_trunc_log(&mut self, base: usize, entries: &[LogEntry]) -> usize {
         for (offset, remote) in entries.iter().enumerate() {
             if self.log.term_at(base + offset) != remote.term {
@@ -1177,10 +1250,16 @@ impl Raft {
         entries.len()
     }
 
+    /// vote for the candidate.
+    /// comparing to set `self.voted_for` directly, this function checks current vote state,
+    /// and persist current state.
+    ///
+    /// # panics
+    /// if the current node has voted for someone.
     fn vote_for(&mut self, candidate: usize) {
         let voted = self.voted_for.map(|x| candidate != x).unwrap_or(false);
         if voted {
-            warn!(
+            panic!(
                 "{} trying to vote {}, but it has voted for {}",
                 self.self_info(),
                 candidate,
@@ -1310,11 +1389,13 @@ impl Node {
         }
     }
 
+    /// get the current `commit_index` of raft.
     pub fn commit_index(&self) -> u64 {
         let rf = self.raft.lock().unwrap();
         rf.commit_index
     }
 
+    /// reset the election timer of raft.
     pub fn reset_timer(&self) {
         let guard = self.raft.lock().unwrap();
         guard.reset_election_timer();
@@ -1401,7 +1482,6 @@ impl Node {
         // 4. Append any new entries.
         let new_logs: Vec<LogEntry> = entries.drain(new_log_base..).collect();
         let log_changed = !new_logs.is_empty();
-        raft.last_append_entries_size = new_logs.len();
         for entry in new_logs.into_iter() {
             raft.log.push(entry)
         }
@@ -1421,6 +1501,7 @@ impl Node {
         Ok(())
     }
 
+    /// follower handler for `AppendEntries`.
     fn do_append_entries(&self, args: AppendEntriesArgs) -> AppendEntriesReply {
         let success = self.do_append_entries_judge(args);
         match success {
@@ -1450,6 +1531,7 @@ impl Node {
         }
     }
 
+    /// follower handler for `RequestVote`.
     fn do_request_vote(&self, args: RequestVoteArgs) -> RequestVoteReply {
         self.check_term(args.term);
         let mut raft = self.raft.lock().unwrap();
@@ -1474,6 +1556,7 @@ impl Node {
         }
     }
 
+    /// follower handler for `InstallSnapshot`
     fn do_install_snapshot(&self, args: InstallSnapshotArgs) -> InstallSnapshotReply {
         self.check_term(args.term);
         let term = self.term();
@@ -1482,11 +1565,13 @@ impl Node {
         }
 
         let mut raft = self.raft.lock().unwrap();
+        // this is from a valid leader, reset election timer.
+        raft.reset_election_timer();
+
         // 防止返回乱序……
         if raft.log.len() > args.last_included_index as usize {
             return InstallSnapshotReply { term };
         }
-
         raft.log = args.into();
 
         let last_included_index = raft.log.last_included_index;
