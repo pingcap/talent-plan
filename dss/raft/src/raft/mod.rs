@@ -327,7 +327,13 @@ impl PersistedStatus {
         PersistedStatus {
             current_term: raft.term,
             voted_for: raft.voted_for.iter().map(|x| *x as u64).collect(),
-            logs: raft.log.iter().cloned().map(Into::into).collect(),
+            logs: raft
+                .log
+                .iter()
+                .take(raft.log.offset_index(raft.commit_index as usize + 1))
+                .cloned()
+                .map(Into::into)
+                .collect(),
         }
     }
 }
@@ -1082,7 +1088,7 @@ impl Raft {
             new_term
         );
         if new_term != self.term {
-            info!("NO{} is now set to term {}", self.me, new_term);
+            info!("{} is now set to term {}", self.self_info(), new_term);
             self.voted_for = None;
             self.persist();
         }
@@ -1457,10 +1463,10 @@ impl Node {
         }
 
         raft.log = args.into();
-        raft.persist();
 
         let last_included_index = raft.log.last_included_index;
         raft.commit_index = last_included_index;
+        raft.persist();
         raft.apply_snapshot();
         info!(
             "{} Installed snapshot to index {}.",

@@ -365,7 +365,7 @@ impl KvStateMachine {
                         fsm.last_index
                             .store(message.command_index as usize, Ordering::SeqCst);
                         if let Some(max) = fsm.max_size {
-                            if fsm.raft.log_size() > max {
+                            if fsm.raft.log_size() > (max as f64 * 0.9) as usize {
                                 let last_index = fsm.last_index.load(Ordering::SeqCst);
                                 fsm.raft.take_snapshot(fsm.make_snapshot(), last_index);
                             }
