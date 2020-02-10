@@ -12,7 +12,7 @@ use labrpc::Error;
 use crate::proto::kvraftpb::*;
 use crate::select_idx;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Op {
     Put(String, String),
     Append(String, String),
@@ -58,7 +58,7 @@ impl Clerk {
         // You'll have to add code here.
         // Clerk { name, servers }
         let pool = ThreadPoolBuilder::new()
-            .num_threads(servers.len() * 2)
+            .num_threads(Ord::max(1, servers.len() / 2))
             .build()
             .unwrap();
         Clerk {
@@ -175,12 +175,13 @@ impl Clerk {
     // if let Some(reply) = self.servers[i].get(args).wait() { /* do something */ }
     pub fn get(&self, key: String) -> String {
         let start = std::time::Instant::now();
-        info!("{}: get({:?})", self.name, key);
         let args = GetRequest {
             id: Self::new_id(),
             key: key.clone(),
             client: self.name.clone(),
         };
+        let id = Uuid::from_slice(args.id.as_slice()).unwrap();
+        info!("{}: {} get({:?})", self.name, id, key);
 
         let send = |client: &KvClient| self.run_async(client.get(&args));
         let is_leader = |reply: &Result<GetReply, Error>| match reply {
@@ -192,7 +193,13 @@ impl Clerk {
         loop {
             match self.request(&send, &is_leader, Duration::from_millis(300)) {
                 Ok(ref message) if message.err.is_empty() => {
-                    info!("get({:?}) => {:?} ({:?})", key, message, start.elapsed());
+                    info!(
+                        "{} get({:?}) => {:?} ({:?})",
+                        id,
+                        key,
+                        message,
+                        start.elapsed()
+                    );
                     return message.value.clone();
                 }
                 Ok(ref message) => info!("GET: occurs error: {}, retrying...", message.err),
@@ -210,9 +217,10 @@ impl Clerk {
     // let reply = self.servers[i].put_append(args).unwrap();
     fn put_append(&self, op: Op) {
         let start = std::time::Instant::now();
-        info!("{}: put_append({:?})", self.name, op);
         // You will have to modify this function.
-        let args: PutAppendRequest = op.into_request(self.name.clone());
+        let args: PutAppendRequest = op.clone().into_request(self.name.clone());
+        let id = Uuid::from_slice(args.id.as_slice()).unwrap();
+        info!("{}: {} put_append({:?})", self.name, id, op);
         let send = |client: &KvClient| self.run_async(client.put_append(&args));
         let is_leader = |reply: &Result<PutAppendReply, Error>| match reply {
             Err(_) => false,
@@ -224,7 +232,8 @@ impl Clerk {
             match self.request(&send, &is_leader, Duration::from_millis(300)) {
                 Ok(ref result) if result.err.is_empty() => {
                     info!(
-                        "put_append({:?}) => {:?} ({:?})",
+                        "{} put_append({:?}) => {:?} ({:?})",
+                        id,
                         args,
                         result,
                         start.elapsed()

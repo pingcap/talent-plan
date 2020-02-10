@@ -175,13 +175,15 @@ impl Command for KvCommand {
 struct CommandResponse {
     command_id: Uuid,
     reply: String,
+    command_idx: usize,
 }
 
 impl CommandResponse {
-    fn new(id: Uuid, reply: String) -> Self {
+    fn new(id: Uuid, reply: String, idx: usize) -> Self {
         CommandResponse {
             command_id: id,
             reply,
+            command_idx: idx,
         }
     }
 }
@@ -229,6 +231,10 @@ impl KvStateMachine {
         let mut wc = self.waiting_channels.lock().unwrap();
         // drop all pending channels.
         wc.clear();
+
+        // shrink log size (synchronously) to make tester happy.
+        let last_index = self.last_index.load(Ordering::SeqCst);
+        self.raft.take_snapshot(self.make_snapshot(), last_index);
     }
 
     fn notify_at(&self, idx: u64, msg: &KvCommand) {
@@ -239,9 +245,10 @@ impl KvStateMachine {
                 CommandResponse::new(
                     *id,
                     state.get(key).cloned().unwrap_or_else(|| "".to_owned()),
+                    idx as usize,
                 )
             } else {
-                CommandResponse::new(msg.get_id(), "".to_owned())
+                CommandResponse::new(msg.get_id(), "".to_owned(), idx as usize)
             };
             Sender::send(sender, response).unwrap_or_else(|err| {
                 if self.should_log {
@@ -341,12 +348,6 @@ impl KvStateMachine {
             move || {
                 let mut i = apply_ch.map(Some).select(cancel).wait();
                 while let Some(Ok(Some(message))) = i.next() {
-                    if should_log {
-                        debug!(
-                            "{}: message[{}] received...",
-                            fsm.name, message.command_index
-                        );
-                    }
                     if message.command_valid {
                         let command = KvCommand::from_bytes(message.command.as_slice());
                         if command.is_none() {
@@ -354,14 +355,26 @@ impl KvStateMachine {
                         }
                         let cmd = command.unwrap();
                         if should_log {
-                            debug!("request: {:?}", cmd.get_id());
+                            info!(
+                                "{} {} => idx {} (Committed)",
+                                fsm.name,
+                                cmd.get_id(),
+                                message.command_index
+                            );
                         }
-
                         fsm.notify_at(message.command_index, &cmd);
 
                         if !cmd.is_readonly() {
-                            fsm.handle_command(cmd)
+                            fsm.handle_command(cmd);
                         }
+                        let last_index = fsm.last_index.load(Ordering::SeqCst);
+                        if last_index >= message.command_index as usize {
+                            panic!(
+                                "fetal: last_index = {} but receive a log entry at {}",
+                                last_index, message.command_index
+                            );
+                        }
+
                         fsm.last_index
                             .store(message.command_index as usize, Ordering::SeqCst);
                         if let Some(max) = fsm.max_size {
@@ -390,7 +403,7 @@ impl KvStateMachine {
                 map.insert(idx, sx);
                 let cmd_id = cmd.get_id();
                 let should_log = self.should_log;
-                debug!("{}: started message[{}]", self.name, idx);
+                info!("{}: cmd {} => idx {}", self.name, cmd.get_id(), idx);
                 Box::new(
                     rx.map(move |cmd| {
                         if cmd.command_id == cmd_id {
@@ -497,8 +510,15 @@ fn timeout_fut<T>() -> impl Future<Item = Result<T>, Error = ()> {
 
 impl Node {
     pub fn new(kv: KvServer) -> Node {
+        let i = kv.me;
         let server = Arc::new(Mutex::new(kv));
-        let rpc_execution_pool = Arc::new(ThreadPoolBuilder::new().num_threads(8).build().unwrap());
+        let rpc_execution_pool = Arc::new(
+            ThreadPoolBuilder::new()
+                .num_threads(0)
+                .thread_name(move |n| format!("rpc executor for kv server {}({})", i, n))
+                .build()
+                .unwrap(),
+        );
         Node {
             server,
             rpc_execution_pool,
@@ -585,7 +605,7 @@ impl Node {
                     wrong_leader: true,
                     err: "not leader".to_owned(),
                 },
-                Ok(_) => PutAppendReply {
+                Ok(_resp) => PutAppendReply {
                     wrong_leader: false,
                     err: "".to_owned(),
                 },
