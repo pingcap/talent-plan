@@ -535,12 +535,13 @@ impl Raft {
 
     fn self_info(&self) -> String {
         format!(
-            "[{} t{} c{} a{} l{} {:?}]",
+            "[{} t{} c{} a{} l{} s{} {:?}]",
             self.me,
             self.term,
             self.commit_index,
             self.last_applied,
             self.log.len(),
+            self.log.last_included_index,
             self.current_role,
         )
     }
@@ -614,7 +615,6 @@ impl Raft {
 #[derive(Clone)]
 pub struct Node {
     raft: Arc<Mutex<Raft>>,
-    rpc_execution_pool: Arc<ThreadPoolWithDrop>,
 }
 
 impl Into<LogEntry> for ProtoEntry {
@@ -1256,18 +1256,9 @@ impl Node {
         // Your code here.
         let me = raft.me;
         info!("new node NO「{}」started.", me);
-        let pool = rayon::ThreadPoolBuilder::new()
-            // Assume that every peer sends rpc to me.
-            .num_threads(raft.peers.len() - 1)
-            .thread_name(move |i| format!("[{}] rpc executor({})", me, i))
-            .build()
-            .unwrap_or_else(|e| panic!("fetal: failed to build thread pool: {}", e));
         let raft = Arc::new(Mutex::new(raft));
         Raft::transform_to_follower(raft.clone());
-        Node {
-            raft: raft.clone(),
-            rpc_execution_pool: Arc::new(pool.into()),
-        }
+        Node { raft: raft.clone() }
     }
 
     /// the service using Raft (e.g. a k/v server) wants to start
@@ -1317,6 +1308,11 @@ impl Node {
             term: self.term(),
             is_leader: self.is_leader(),
         }
+    }
+
+    pub fn commit_index(&self) -> u64 {
+        let rf = self.raft.lock().unwrap();
+        rf.commit_index
     }
 
     pub fn reset_timer(&self) {

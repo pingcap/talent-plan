@@ -8,7 +8,6 @@ use futures::{Future, Sink, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::sync::oneshot::Sender;
 use futures_timer::Delay;
-use rayon::{ThreadPool, ThreadPoolBuilder};
 use uuid::Uuid;
 
 use labcodec::{decode, encode, Message};
@@ -375,10 +374,14 @@ impl KvStateMachine {
                             );
                         }
 
+                        let diff_idx = fsm.raft.commit_index() - message.command_index;
                         fsm.last_index
                             .store(message.command_index as usize, Ordering::SeqCst);
                         if let Some(max) = fsm.max_size {
-                            if fsm.raft.log_size() > (max as f64 * 0.9) as usize {
+                            // if the log lost behind too much, don't snapshot it, just hurry up to crash the log.
+                            if fsm.raft.log_size() > (max as f64) as usize
+                                && diff_idx < Ord::max(1, (max / 50) as u64)
+                            {
                                 let last_index = fsm.last_index.load(Ordering::SeqCst);
                                 fsm.raft.take_snapshot(fsm.make_snapshot(), last_index);
                             }
@@ -497,7 +500,6 @@ impl KvServer {
 #[derive(Clone)]
 pub struct Node {
     server: Arc<Mutex<KvServer>>,
-    rpc_execution_pool: Arc<ThreadPool>,
 }
 
 static RAFT_COMMIT_TIMEOUT: Duration = Duration::from_millis(300);
@@ -510,19 +512,8 @@ fn timeout_fut<T>() -> impl Future<Item = Result<T>, Error = ()> {
 
 impl Node {
     pub fn new(kv: KvServer) -> Node {
-        let i = kv.me;
         let server = Arc::new(Mutex::new(kv));
-        let rpc_execution_pool = Arc::new(
-            ThreadPoolBuilder::new()
-                .num_threads(0)
-                .thread_name(move |n| format!("rpc executor for kv server {}({})", i, n))
-                .build()
-                .unwrap(),
-        );
-        Node {
-            server,
-            rpc_execution_pool,
-        }
+        Node { server }
     }
 
     /// the tester calls Kill() when a KVServer instance won't

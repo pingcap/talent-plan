@@ -89,7 +89,7 @@ macro_rules! async_rpc {
         fn $name(&self, args: $arg) -> RpcFuture<$rel> {
             let (sx, rx) = futures::sync::oneshot::channel();
             let myself = self.clone();
-            self.rpc_execution_pool.spawn(move || {
+            std::thread::spawn(move || {
                 sx.send($handler(&myself, args))
                     .unwrap_or_else(|args| {
                         warn!(
@@ -183,10 +183,12 @@ impl ThreadPoolWithDrop {
             warn!("spawn on a dropping pool -- nop.");
             return;
         }
-        b.unwrap()
-            .as_ref()
-            .expect("spawn on a dropped thread pool.")
-            .spawn(f)
+        let p = b.unwrap();
+        if p.is_none() {
+            warn!("spawn on a dropping pool -- nop.");
+            return;
+        }
+        p.as_ref().unwrap().spawn(f)
     }
 
     unsafe fn terminate(&self) {
