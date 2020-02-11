@@ -105,14 +105,14 @@ impl KvCommand {
 
 #[derive(Fail, Debug)]
 enum KvError {
-    #[fail(display = "Raft response error.")]
+    #[fail(display = "Raft internal error.")]
     Raft(raft::errors::Error),
     #[fail(display = "Current node isn't leader.")]
     NotLeader,
     #[fail(display = "The command failed to commit.")]
     FailToCommit,
     #[fail(
-        display = "The command spend too mach time to commit, maybe leader is died or network partition occurs."
+        display = "The command spend too mach time for commit, maybe leader is died or network partition occurs."
     )]
     Timeout,
 }
@@ -121,19 +121,33 @@ type Result<T> = std::result::Result<T, KvError>;
 
 #[derive(Clone)]
 struct KvStateMachine {
+    /// Current state.
     state: Arc<Mutex<BTreeMap<String, String>>>,
+    /// Last command id of each client.
     last_command: Arc<Mutex<HashMap<String, Uuid>>>,
+    /// `Waker` for commands started, but waiting to be committed.
     waiting_channels: Arc<Mutex<BTreeMap<u64, Sender<CommandResponse>>>>,
+    /// The consensus algorithm.
     raft: raft::Node,
+    /// The state machine name, for debug usage only.
     name: String,
+    /// Should the current state machine log.
     should_log: bool,
+    /// The internal channel to stop state machine.
     cancel_ch: Arc<futures::sync::mpsc::Sender<Option<ApplyMsg>>>,
+    /// Max raft state, if raft log grow too large, will trigger a snapshot.
+    ///
+    /// `None` for never snapshot.
     max_size: Option<usize>,
+    /// Index of last applied command to the state machine.
     last_index: Arc<AtomicUsize>,
 }
 
+/// Command basic abstraction.
 trait Command {
+    /// Get the command id.
     fn get_id(&self) -> Uuid;
+    /// Get whether the command is read-only.
     fn is_readonly(&self) -> bool;
 }
 
@@ -171,6 +185,7 @@ impl Command for KvCommand {
 }
 
 #[derive(Debug)]
+/// a generic response to client of `KvStateMachine`.
 struct CommandResponse {
     command_id: Uuid,
     reply: String,
@@ -187,7 +202,9 @@ impl CommandResponse {
     }
 }
 
+/// A state machine that records key value.
 impl KvStateMachine {
+    /// transform state by a committed command.
     fn handle_command(&self, cmd: KvCommand) {
         let id = cmd.get_id();
         let mut history = self.last_command.lock().unwrap();
@@ -221,6 +238,7 @@ impl KvStateMachine {
         }
     }
 
+    /// shutdown the state machine.
     fn shutdown(&self) {
         (&*self.cancel_ch)
             .clone()
@@ -241,6 +259,8 @@ impl KvStateMachine {
         self.raft.take_snapshot(self.make_snapshot(), last_index);
     }
 
+    /// notify the waiter that waiting on index `idx`,
+    /// with message `msg`.
     fn notify_at(&self, idx: u64, msg: &KvCommand) {
         let mut notifier = self.waiting_channels.lock().unwrap();
         if let Some(sender) = notifier.remove(&idx) {
@@ -266,7 +286,9 @@ impl KvStateMachine {
         }
     }
 
-    /// handle a virtual command from raft snapshot,
+    /// handle a virtual command from raft snapshot.
+    ///
+    /// i.e. load data from snapshot.
     fn handle_virtual_command(&self, cmd: &[u8]) {
         let cmd = decode::<VirtualCommand>(cmd).expect("failed to decode virtual command");
         use crate::proto::kvraftpb::virtual_command::Command::*;
@@ -417,6 +439,11 @@ impl KvStateMachine {
             .store(message.command_index as usize, Ordering::SeqCst);
     }
 
+    /// start a new command.
+    ///
+    /// # returns
+    /// The future that presents the result of this command.
+    /// If command is `Get`, the value of that key will be returned at `reply` field of `CommandResponse`.
     fn start(&self, cmd: &(impl Message + Command)) -> FutureRef<Result<CommandResponse>, ()> {
         use crate::raft::errors::Error;
 
@@ -451,12 +478,18 @@ impl KvStateMachine {
         }
     }
 
+    /// check some client's operation has done.
+    ///
+    /// We assume that all clients are SYNCHRONOUS, which means, a client just request once each time.
+    /// Before receiving an 'Ok' response from server, it would never start any new request.
     fn has_done(&self, client: &str, id: Uuid) -> bool {
         let commands = self.last_command.lock().unwrap();
         commands.get(client).map(|i| *i == id).unwrap_or(false)
     }
 }
 
+/// a thin wrapper of `KvStateMachine`.
+/// connect raft and `KvStateMachine`.
 pub struct KvServer {
     pub rf: raft::Node,
     #[allow(dead_code)]

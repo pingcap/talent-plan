@@ -23,7 +23,7 @@ pub struct Clerk {
     pub servers: Vec<KvClient>,
     // You will have to modify this struct.
     leader: Cell<Option<usize>>,
-    rpc_execution_poll: ThreadPool,
+    rpc_execution_pool: ThreadPool,
 }
 
 impl Op {
@@ -65,10 +65,11 @@ impl Clerk {
             name,
             servers,
             leader: Cell::new(None),
-            rpc_execution_poll: pool,
+            rpc_execution_pool: pool,
         }
     }
 
+    /// Run a future at the thread pool.
     fn run_async<I, E>(
         &self,
         f: impl Future<Item = I, Error = E> + Send + 'static,
@@ -78,7 +79,7 @@ impl Clerk {
         E: Send + 'static,
     {
         let (sx, rx) = channel();
-        self.rpc_execution_poll.spawn(move || {
+        self.rpc_execution_pool.spawn(move || {
             let _ = sx.send(f.wait());
         });
         rx
@@ -89,6 +90,12 @@ impl Clerk {
         id.as_bytes().to_vec()
     }
 
+    /// try send to current leader by `send` function.
+    ///
+    /// # returns
+    /// if current leader is valid, and request success, return `Some` of send result.
+    ///
+    /// if current leader is changed or absent, return `None` and set `self.leader` to `None`.
     fn try_send_to_current_leader<R>(
         &self,
         send: impl Fn(&KvClient) -> Receiver<R>,
@@ -118,6 +125,12 @@ impl Clerk {
         None
     }
 
+    /// check the leadership and send then send the request.
+    ///
+    /// # return
+    /// It will never return if no leader found.
+    ///
+    /// Once success, return the item provided by `send` function.
     fn check_leader_and_send<R: Send + 'static>(
         &self,
         send: impl Fn(&KvClient) -> Receiver<R>,
@@ -147,6 +160,14 @@ impl Clerk {
         }
     }
 
+    /// make a request.
+    ///
+    /// This send to current leader first, when fail, it will try to find new leader.
+    ///
+    /// This function will never return if no leader find or rpc continuing fail.
+    ///
+    /// # returns
+    /// the item provided by `send` function.
     fn request<R: Send + 'static>(
         &self,
         send: impl Fn(&KvClient) -> Receiver<R>,

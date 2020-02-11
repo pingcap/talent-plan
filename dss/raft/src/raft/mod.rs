@@ -1230,9 +1230,10 @@ impl Raft {
     /// the length that matches.
     ///
     /// # example
-    /// let `self.log   = [1,1,2,3,3]`
-    /// and `remote log = [*,1,2,4]`
-    /// check_and_trunc_log(2, [1,2,4]) returns 2.
+    /// let `self.log   = [1,1,2,3,3]`,
+    /// and `remote log = [1,2,4]`,
+    /// `check_and_trunc_log(2, [1,2,4])` returns `2` (for `[1,2]` of remote log matches).
+    /// and leaving `self.log = [1,1,2]` (truncate any log entries that doesn't matches).
     /// (Raft log starts at index 1, this function, along with `RaftLogWithSnapshot`, follows this.)
     fn check_and_trunc_log(&mut self, base: usize, entries: &[LogEntry]) -> usize {
         for (offset, remote) in entries.iter().enumerate() {
