@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use failure::Fail;
+use futures::{Future, Sink, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::sync::oneshot::Sender;
-use futures::{Future, Sink, Stream};
 use futures_timer::Delay;
 use uuid::Uuid;
 
@@ -112,9 +112,30 @@ enum KvError {
     #[fail(display = "The command failed to commit.")]
     FailToCommit,
     #[fail(
-        display = "The command spend too mach time for commit, maybe leader is died or network partition occurs."
+    display = "The command spend too mach time for commit, maybe leader is died or network partition occurs."
     )]
     Timeout,
+}
+
+pub mod err_codes {
+    pub const KVERR_RAFT: u32 = 1;
+    pub const KVERR_NOT_LEADER: u32 = 2;
+    pub const KVERR_FAIL_TO_COMMIT: u32 = 3;
+    pub const KVERR_TIMEOUT: u32 = 4;
+    pub const KVERR_CLOESD: u32 = 5;
+}
+
+impl KvError {
+    fn get_code(&self) -> u32 {
+        use self::err_codes::*;
+        use KvError::*;
+        match self {
+            Raft(_) => KVERR_RAFT,
+            NotLeader => KVERR_NOT_LEADER,
+            FailToCommit => KVERR_FAIL_TO_COMMIT,
+            Timeout => KVERR_TIMEOUT,
+        }
+    }
 }
 
 type Result<T> = std::result::Result<T, KvError>;
@@ -609,16 +630,19 @@ impl Node {
                     wrong_leader: true,
                     err: "not leader".to_owned(),
                     value: "".to_owned(),
+                    err_code: KvError::NotLeader.get_code(),
                 },
                 Ok(cmd) => GetReply {
                     wrong_leader: false,
                     err: "".to_owned(),
                     value: cmd.reply,
+                    err_code: 0,
                 },
                 Err(e) => GetReply {
                     wrong_leader: false,
                     err: format!("ERROR: {}", e),
                     value: "".to_owned(),
+                    err_code: e.get_code(),
                 },
             })
             .wait()
@@ -626,6 +650,7 @@ impl Node {
                 wrong_leader: false,
                 err: "FSM cancels execution.".to_owned(),
                 value: "".to_owned(),
+                err_code: err_codes::KVERR_CLOESD,
             })
     }
 
@@ -636,6 +661,7 @@ impl Node {
             return PutAppendReply {
                 wrong_leader: false,
                 err: "".to_owned(),
+                err_code: 0,
             };
         }
         let start_result = server.fsm.start(&arg);
@@ -647,20 +673,24 @@ impl Node {
                 Err(KvError::NotLeader) => PutAppendReply {
                     wrong_leader: true,
                     err: "not leader".to_owned(),
+                    err_code: KvError::NotLeader.get_code(),
                 },
                 Ok(_resp) => PutAppendReply {
                     wrong_leader: false,
                     err: "".to_owned(),
+                    err_code: 0,
                 },
                 Err(e) => PutAppendReply {
                     wrong_leader: false,
                     err: format!("{}", e),
+                    err_code: e.get_code(),
                 },
             })
             .wait()
             .unwrap_or_else(|((), _)| PutAppendReply {
                 wrong_leader: false,
                 err: "FSM cancels execution.".to_owned(),
+                err_code: err_codes::KVERR_CLOESD,
             })
     }
 }

@@ -22,6 +22,7 @@ message PutAppendRequest {
 message PutAppendReply {
     bool wrong_leader = 1;
     string err = 2;
+    uint32 errCode = 3;
 }
 
 message GetRequest {
@@ -32,9 +33,10 @@ message GetRequest {
 }
 
 message GetReply {
-    bool wrong_leader = 1;
+    bool wrongLeader = 1;
     string err = 2;
     string value = 3;
+    uint32 errCode = 4;
 }
 
 message InstallLastCommand {
