@@ -79,10 +79,8 @@ fn select_idx<T: Send + 'static, I: Iterator<Item = Receiver<T>>>(
 }
 
 /// declare a rpc endpoint, that instead of uses async functions(i.e. functions in the future context)
-/// to describe our logic, uses the sync function `$handler` to pass the rpc.
-/// This macro requires `self` has a struct named `rpc_execution_pool`.
-/// This will spawn a new thread on `rpc_execution_pool` each time the rpc endpoint called.
-/// TODO: allow rename to this pool.
+/// to describe our logic, uses the sync function `$handler` to handle the rpc.
+/// This will spawn a new thread each time the rpc endpoint called.
 #[macro_export]
 macro_rules! async_rpc {
     ($name:ident($arg:ty) -> $rel:ty where uses $handler:expr) => {
@@ -161,7 +159,7 @@ impl Timer {
     }
 }
 
-// we make sure that only call to ``
+// we make sure that only call to `terminate` breaks the borrow rule.
 unsafe impl Sync for ThreadPoolWithDrop {}
 
 struct ThreadPoolWithDrop {

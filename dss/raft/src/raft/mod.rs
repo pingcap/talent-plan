@@ -4,8 +4,10 @@
 //! ## general
 //! Generally, it starts at `transform_to_follower`, and transform states by the
 //! `transform_*` family, all of which accepts `Arc<Mutex<Raft>>`.
+//!
 //! All rpc handlers are blocking(!), so `async_rpc!` macro simply start new thread for handler, incase of
 //! them blocks the coroutine runtime.
+//!
 //! This implementation uses thread model, which will bear more context switch and inter-core sync overhead.
 //! But for the coroutine approach, `future 0.1`, which is really tricky for me to adapt it with `async/.await`,
 //! I don't think I can do it well, or at least, be happy when facing chaotic type and compile error information.
@@ -14,14 +16,17 @@
 //! ## where to find algorithm implementation
 //! ### election(2A)
 //! election starts from `election_timer` fires, and call to `transform_to_candidate`.
+//!
 //! handler of `RequestVotes` is `do_request_votes`.
 //!
 //! ### log replication(2B)
 //! leader sending rpc starts from `transform_to_leader`, but most of logic is in `modify_state_by_append_entries`.
+//!
 //! follower handles rpc starts from `do_append_entries`, but most of logic is in `do_append_entries_judge`.
 //!
 //! ### persist(2C)
 //! Persisting logic is in `persist` and `restore` function.
+//!
 //! The optimization that needed for passing `unreliable_figure8_2c` logic is in `do_append_entries`(follower site),
 //! and `modify_state_by_append_entries`(leader site).
 //!
@@ -442,11 +447,6 @@ impl Raft {
     /// where it can later be retrieved after a crash and restart.
     /// see paper's Figure 2 for a description of what should be persistent.
     fn persist(&mut self) {
-        // Your code here (2C).
-        // Example:
-        // labcodec::encode(&self.xxx, &mut data).unwrap();
-        // labcodec::encode(&self.yyy, &mut data).unwrap();
-        // self.persister.save_raft_state(data);
         let persisted = PersistedStatus::by_raft(self);
         let snapshot = Snapshot::by_raft(self);
         let mut log_buf = vec![];
@@ -456,12 +456,6 @@ impl Raft {
         encode(&snapshot, &mut snapshot_buf).unwrap();
         self.persister
             .save_state_and_snapshot(log_buf, snapshot_buf);
-
-        //        println!(
-        //            "{} persisted (log.len() = {})",
-        //            self.self_info(),
-        //            self.log.len()
-        //        );
     }
 
     /// restore previously persisted state.
@@ -1342,7 +1336,7 @@ impl Node {
 
     /// the service using Raft (e.g. a k/v server) wants to start
     /// agreement on the next command to be appended to Raft's log. if this
-    /// server isn't the leader, returns [`Error::NotLeader`]. otherwise start
+    /// server isn't the leader, returns [Error::NotLeader]. otherwise start
     /// the agreement and return immediately. there is no guarantee that this
     /// command will ever be committed to the Raft log, since the leader
     /// may fail or lose an election. even if the Raft instance has been killed,
