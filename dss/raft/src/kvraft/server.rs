@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, Mutex, MutexGuard};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use failure::Fail;
-use futures::{Future, Sink, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::sync::oneshot::Sender;
+use futures::{Future, Sink, Stream};
 use futures_timer::Delay;
 use uuid::Uuid;
 
@@ -20,7 +20,7 @@ use crate::raft;
 use crate::raft::{ApplyMsg, SnapshotFile};
 
 /// The generic type of boxed future.
-type FutureRef<R, E> = Box<dyn Future<Item=R, Error=E> + Send + 'static>;
+type FutureRef<R, E> = Box<dyn Future<Item = R, Error = E> + Send + 'static>;
 
 #[derive(Clone, Debug)]
 enum KvCommand {
@@ -99,7 +99,7 @@ impl KvCommand {
             KvCommand::Put { client, .. } => client,
             KvCommand::Append { client, .. } => client,
         }
-            .as_str()
+        .as_str()
     }
 }
 
@@ -226,7 +226,12 @@ impl KvStateMachine {
             .clone()
             .send(None)
             .wait()
-            .unwrap_or_else(|e| panic!("Failed to shutdown kv machine, because: {}", e));
+            .unwrap_or_else(|e| {
+                panic!(
+                    "{} Failed to shutdown kv machine, because: {}",
+                    self.name, e
+                )
+            });
         let mut wc = self.waiting_channels.lock().unwrap();
         // drop all pending channels.
         wc.clear();
@@ -262,34 +267,32 @@ impl KvStateMachine {
     }
 
     /// handle a virtual command from raft snapshot,
-    ///
-    /// # returns
-    /// the size of loaded log.
     fn handle_virtual_command(&self, cmd: &[u8]) {
         let cmd = decode::<VirtualCommand>(cmd).expect("failed to decode virtual command");
         use crate::proto::kvraftpb::virtual_command::Command::*;
         match cmd
             .command
             .expect("handle_virtual_command: cannot parse snapshot file...")
-            {
-                Ilc(last_commands) => {
-                    let mut lc = self.last_command.lock().unwrap();
-                    for (k, v) in last_commands.cmd {
-                        lc.insert(k, Uuid::from_slice(&v)
+        {
+            Ilc(last_commands) => {
+                let mut lc = self.last_command.lock().unwrap();
+                for (k, v) in last_commands.cmd {
+                    lc.insert(k, Uuid::from_slice(&v)
                             .expect("handle_virtual_command: failed to parse uuid from raw bytes from snapshot."));
-                    }
-                }
-                Ikv(key_values) => {
-                    let mut kv = self.state.lock().unwrap();
-                    for (k, v) in key_values.kvs {
-                        kv.insert(k, v);
-                    }
-                    self.last_index
-                        .store(key_values.last_index as usize, Ordering::SeqCst);
                 }
             }
+            Ikv(key_values) => {
+                let mut kv = self.state.lock().unwrap();
+                for (k, v) in key_values.kvs {
+                    kv.insert(k, v);
+                }
+                self.last_index
+                    .store(key_values.last_index as usize, Ordering::SeqCst);
+            }
+        }
     }
 
+    /// make a snapshot file of current state of the state machine.
     fn make_snapshot(&self) -> SnapshotFile {
         use crate::proto::kvraftpb::virtual_command::Command::*;
         let s = self.state.as_ref().lock().unwrap();
@@ -348,40 +351,27 @@ impl KvStateMachine {
                 let mut i = apply_ch.map(Some).select(cancel).wait();
                 while let Some(Ok(Some(message))) = i.next() {
                     if message.command_valid {
-                        let command = KvCommand::from_bytes(message.command.as_slice());
-                        if command.is_none() {
-                            panic!("Invalid message received.")
-                        }
-                        let cmd = command.unwrap();
-                        if should_log {
-                            info!(
-                                "{} {} => idx {} (Committed)",
-                                fsm.name,
-                                cmd.get_id(),
-                                message.command_index
-                            );
-                        }
-                        fsm.notify_at(message.command_index, &cmd);
-
-                        if !cmd.is_readonly() {
-                            fsm.handle_command(cmd);
-                        }
                         let last_index = fsm.last_index.load(Ordering::SeqCst);
                         if last_index >= message.command_index as usize {
-                            panic!(
-                                "fetal: last_index = {} but receive a log entry at {}",
-                                last_index, message.command_index
+                            // this command has been handled.
+                            continue;
+                        }
+                        fsm.handle_message(&message);
+                        // don't worry commit_index changes during handle,
+                        let commit_idx = fsm.raft.commit_index();
+                        if commit_idx > message.command_index {
+                            // use try_get_log_between because the operation during this function isn't atomic.
+                            let msgs = fsm.raft.try_get_log_between(
+                                (message.command_index + 1) as usize,
+                                commit_idx as usize,
                             );
+                            for msg in msgs {
+                                fsm.handle_message(&msg);
+                            }
                         }
 
-                        let diff_idx = fsm.raft.commit_index() - message.command_index;
-                        fsm.last_index
-                            .store(message.command_index as usize, Ordering::SeqCst);
                         if let Some(max) = fsm.max_size {
-                            // if the log lost behind too much, don't snapshot it, just hurry up to reach the log.
-                            if fsm.raft.log_size() > (max as f64 * 0.9) as usize
-                                && diff_idx < Ord::max(1, (max / 50) as u64)
-                            {
+                            if fsm.raft.log_size() > (max as f64 * 0.9) as usize {
                                 let last_index = fsm.last_index.load(Ordering::SeqCst);
                                 fsm.raft.take_snapshot(fsm.make_snapshot(), last_index);
                             }
@@ -394,6 +384,37 @@ impl KvStateMachine {
             }
         });
         fsm
+    }
+
+    /// handle one message.
+    ///
+    /// # panics
+    /// if the message index not greater than last_index.
+    fn handle_message(&self, message: &ApplyMsg) {
+        let last_index = self.last_index.load(Ordering::SeqCst);
+        let command = KvCommand::from_bytes(message.command.as_slice());
+        assert!(
+            last_index < message.command_index as usize,
+            "handle_message won't handle message that has been handled."
+        );
+        if command.is_none() {
+            panic!("Invalid message received.")
+        }
+        let cmd = command.unwrap();
+        if self.should_log {
+            info!(
+                "{} {} => idx {} (Committed)",
+                self.name,
+                cmd.get_id(),
+                message.command_index
+            );
+        }
+        self.notify_at(message.command_index, &cmd);
+        if !cmd.is_readonly() {
+            self.handle_command(cmd);
+        }
+        self.last_index
+            .store(message.command_index as usize, Ordering::SeqCst);
     }
 
     fn start(&self, cmd: &(impl Message + Command)) -> FutureRef<Result<CommandResponse>, ()> {
@@ -523,8 +544,8 @@ impl Node {
     pub fn kill(&self) {
         // Your code here, if desired.
         let server = self.server.lock().unwrap();
-        server.fsm.shutdown();
         server.rf.kill();
+        server.fsm.shutdown();
     }
 
     /// The current term of this peer.

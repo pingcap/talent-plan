@@ -32,27 +32,27 @@
 //!
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::{Index, RangeFrom};
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::ops::{Index, RangeFrom};
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use futures::Future;
 use futures::sync::mpsc::UnboundedSender;
+use futures::Future;
 use rand::Rng;
 use rayon::ThreadPoolBuilder;
 
 use labcodec::{decode, encode};
 use labrpc::RpcFuture;
 
+use crate::proto::raftpb::raft::Client;
+use crate::proto::raftpb::*;
+use crate::raft::RaftRole::{Candidate, Follower, Leader};
 use crate::{
     select, ThreadPoolWithDrop, Timer,
     TimerMsg::{self, *},
 };
-use crate::proto::raftpb::*;
-use crate::proto::raftpb::raft::Client;
-use crate::raft::RaftRole::{Candidate, Follower, Leader};
 
 use super::async_rpc;
 
@@ -177,7 +177,7 @@ impl RaftLogWithSnapShot {
 
     /// Return the iter of current log vector.
     /// [Excludes the snapshot!]
-    fn iter(&self) -> impl Iterator<Item=&LogEntry> {
+    fn iter(&self) -> impl Iterator<Item = &LogEntry> {
         self.commands.iter()
     }
 }
@@ -317,7 +317,7 @@ pub struct Raft {
 
 /// A raft log entry.
 #[derive(Clone, Debug)]
-struct LogEntry {
+pub struct LogEntry {
     pub data: Vec<u8>,
     pub term: u64,
 }
@@ -580,8 +580,8 @@ impl Raft {
     ///  before committed, this command can be lost.)
     /// if this raft isn't leader, return `NotLeader`.
     fn start<M>(&mut self, command: &M) -> Result<(u64, u64)>
-        where
-            M: labcodec::Message,
+    where
+        M: labcodec::Message,
     {
         let is_leader = self.current_role == Leader;
         if !is_leader {
@@ -719,7 +719,7 @@ impl Raft {
         for i in (self.last_applied + 1)..=(self.commit_index) {
             self.apply_ch
                 .unbounded_send(self.make_apply_message(i))
-                .unwrap_or_else(|e| error!("fetal: failed to send to apply ch. because: {}. the client of raft may shutdown.", e));
+                .unwrap_or_else(|e| error!("{} failed to send to apply ch. because: {}. the client of raft may shutdown.", self.self_info(), e));
         }
         self.last_applied = self.commit_index;
         info!(
@@ -1061,7 +1061,7 @@ impl Raft {
     /// timeout, error-handling, thread spawning.
     fn spawn_handler<Req: Debug + Send + 'static, Res: Send + 'static>(
         raft_lock: Arc<Mutex<Self>>,
-        requests: impl Iterator<Item=SentRequest<Req, Res>>,
+        requests: impl Iterator<Item = SentRequest<Req, Res>>,
         handler: impl Fn(Arc<Mutex<Raft>>, &Req, &Res, usize) + Send + Sync + 'static,
     ) {
         let raft = raft_lock.lock().unwrap();
@@ -1189,7 +1189,7 @@ impl Raft {
             self.voted_for.is_none() || self.voted_for == Some(args.candidate_id as usize);
         let self_should_vote = (args.last_log_term > self.last_log_term())
             || (args.last_log_term == self.last_log_term()
-            && args.last_log_index >= self.last_log_index());
+                && args.last_log_index >= self.last_log_index());
         self_can_vote && self_should_vote
     }
 
@@ -1273,6 +1273,34 @@ enum FailedAppendEntries {
 }
 
 impl Node {
+    /// Get raft log entries between `start` and `end` (inclusive).
+    ///
+    /// # returns
+    /// The cloned log range.
+    ///
+    /// # panics
+    /// If try to access log that is in snapshot or not committed.
+    pub fn log_between(&self, start: usize, end: usize) -> Vec<ApplyMsg> {
+        let rf = self.raft.lock().unwrap();
+        assert!(
+            end <= rf.commit_index as usize,
+            "Try to get log entry that not committed."
+        );
+        (start..=end)
+            .map(|i| rf.make_apply_message(i as u64))
+            .collect()
+    }
+
+    /// Like `log_between`, but returns empty vector when illegal access.
+    pub fn try_get_log_between(&self, start: usize, end: usize) -> Vec<ApplyMsg> {
+        let rf = self.raft.lock().unwrap();
+        if rf.log.is_in_snapshot(start) || end > rf.commit_index as usize {
+            return vec![];
+        }
+        drop(rf);
+        self.log_between(start, end)
+    }
+
     /// take the snapshot of `state`, with `last_included_index = last_index`.
     pub fn take_snapshot(&self, state: SnapshotFile, last_index: usize) {
         let mut raft = self.raft.lock().unwrap();

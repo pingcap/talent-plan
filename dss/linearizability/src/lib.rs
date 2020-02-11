@@ -2,9 +2,9 @@ use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
