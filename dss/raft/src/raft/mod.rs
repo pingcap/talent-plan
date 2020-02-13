@@ -32,27 +32,27 @@
 //!
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::Deref;
 use std::ops::{Index, RangeFrom};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::ops::Deref;
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Duration;
 
-use futures::sync::mpsc::UnboundedSender;
 use futures::Future;
+use futures::sync::mpsc::UnboundedSender;
 use rand::Rng;
 use rayon::ThreadPoolBuilder;
 
 use labcodec::{decode, encode};
 use labrpc::RpcFuture;
 
-use crate::proto::raftpb::raft::Client;
-use crate::proto::raftpb::*;
-use crate::raft::RaftRole::{Candidate, Follower, Leader};
 use crate::{
     select, ThreadPoolWithDrop, Timer,
     TimerMsg::{self, *},
 };
+use crate::proto::raftpb::*;
+use crate::proto::raftpb::raft::Client;
+use crate::raft::RaftRole::{Candidate, Follower, Leader};
 
 use super::async_rpc;
 
@@ -1476,7 +1476,9 @@ impl Node {
             if raft.log.is_in_snapshot(prev_log_index) {
                 return Err(FailedAppendEntries::ConflictedEntry {
                     conflicted_term: 0,
-                    conflicted_term_starts_at: raft.last_log_index() + 1,
+                    // just let leader reset our index, and send a snapshot.
+                    // set to 2 because log[2].term shall never be 0, so leader will set next = 1.
+                    conflicted_term_starts_at: 2,
                 });
             }
 
@@ -1484,6 +1486,7 @@ impl Node {
             if entry.is_none() {
                 return Err(FailedAppendEntries::ConflictedEntry {
                     conflicted_term: 0,
+                    // roll back to last index.
                     conflicted_term_starts_at: raft.last_log_index() + 1,
                 });
             }

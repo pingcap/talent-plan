@@ -112,7 +112,7 @@ enum KvError {
     #[fail(display = "The command failed to commit.")]
     FailToCommit,
     #[fail(
-    display = "The command spend too mach time for commit, maybe leader is died or network partition occurs."
+        display = "The command spend too mach time for commit, maybe leader is died or network partition occurs."
     )]
     Timeout,
 }
@@ -682,7 +682,7 @@ impl Node {
                 },
                 Err(e) => PutAppendReply {
                     wrong_leader: false,
-                    err: format!("{}", e),
+                    err: format!("ERROR: {}", e),
                     err_code: e.get_code(),
                 },
             })

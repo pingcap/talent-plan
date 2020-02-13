@@ -84,11 +84,11 @@ impl Clerk {
     /// Run a future at the thread pool.
     fn run_async<I, E>(
         &self,
-        f: impl Future<Item=I, Error=E> + Send + 'static,
+        f: impl Future<Item = I, Error = E> + Send + 'static,
     ) -> Receiver<Result<I, E>>
-        where
-            I: Send + 'static,
-            E: Send + 'static,
+    where
+        I: Send + 'static,
+        E: Send + 'static,
     {
         let (sx, rx) = channel();
         self.rpc_execution_pool.spawn(move || {
