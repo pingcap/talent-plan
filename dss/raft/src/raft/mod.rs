@@ -32,27 +32,27 @@
 //!
 use std::cmp::Ordering;
 use std::fmt::Debug;
-use std::ops::{Index, RangeFrom};
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::ops::{Index, RangeFrom};
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use futures::Future;
 use futures::sync::mpsc::UnboundedSender;
+use futures::Future;
 use rand::Rng;
 use rayon::ThreadPoolBuilder;
 
 use labcodec::{decode, encode};
 use labrpc::RpcFuture;
 
+use crate::proto::raftpb::raft::Client;
+use crate::proto::raftpb::*;
+use crate::raft::RaftRole::{Candidate, Follower, Leader};
 use crate::{
     select, ThreadPoolWithDrop, Timer,
     TimerMsg::{self, *},
 };
-use crate::proto::raftpb::*;
-use crate::proto::raftpb::raft::Client;
-use crate::raft::RaftRole::{Candidate, Follower, Leader};
 
 use super::async_rpc;
 

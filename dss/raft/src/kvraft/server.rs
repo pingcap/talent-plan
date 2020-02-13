@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, Mutex, MutexGuard};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use failure::Fail;
-use futures::{Future, Sink, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::sync::oneshot::Sender;
+use futures::{Future, Sink, Stream};
 use futures_timer::Delay;
 use uuid::Uuid;
 
