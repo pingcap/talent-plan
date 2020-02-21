@@ -4,6 +4,9 @@ use std::net::SocketAddr;
 use std::process::exit;
 use structopt::StructOpt;
 
+const DEFAULT_LISTENING_ADDRESS: &str = "127.0.0.1:4000";
+const ADDRESS_VALUE_NAME: &str = "IP:PORT";
+
 #[derive(StructOpt, Debug)]
 #[structopt(
     name = "kvs-client",
@@ -25,8 +28,8 @@ enum Command {
         #[structopt(
             long,
             help = "Sets the server address",
-            value_name = "IP:PORT",
-            default_value = "127.0.0.1:4000",
+            raw(value_name = "ADDRESS_VALUE_NAME"),
+            raw(default_value = "DEFAULT_LISTENING_ADDRESS"),
             parse(try_from_str)
         )]
         addr: SocketAddr,
@@ -40,8 +43,8 @@ enum Command {
         #[structopt(
             long,
             help = "Sets the server address",
-            value_name = "IP:PORT",
-            default_value = "127.0.0.1:4000",
+            raw(value_name = "ADDRESS_VALUE_NAME"),
+            raw(default_value = "DEFAULT_LISTENING_ADDRESS"),
             parse(try_from_str)
         )]
         addr: SocketAddr,
@@ -53,8 +56,8 @@ enum Command {
         #[structopt(
             long,
             help = "Sets the server address",
-            value_name = "IP:PORT",
-            default_value = "127.0.0.1:4000",
+            raw(value_name = "ADDRESS_VALUE_NAME"),
+            raw(default_value = "DEFAULT_LISTENING_ADDRESS"),
             parse(try_from_str)
         )]
         addr: SocketAddr,
