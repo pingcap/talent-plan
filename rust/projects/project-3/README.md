@@ -452,7 +452,9 @@ results are very sensitive to the environment they are run in, and while the
 criterion library does its best to compensate for "noise", benchmarks are best
 done on a clean machine without other active processes. If you have a spare
 machine just for development, use that. If not, an AWS or other cloud instance
-may produce more consistent results than your local desktop._
+may produce more consistent results than your local desktop. In addition, you
+can also use [github actions](https://github.com/features/actions). [Here is a
+simple example](https://github.com/Rustin-Liu/TiKV-Class/blob/master/.github/workflows/bench.yml)._
 
 <!-- TODO: criterion output example -->
 
