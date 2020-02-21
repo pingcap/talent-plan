@@ -5,7 +5,7 @@ use std::process::exit;
 use structopt::StructOpt;
 
 const DEFAULT_LISTENING_ADDRESS: &str = "127.0.0.1:4000";
-const ADDRESS_VALUE_NAME: &str = "IP:PORT";
+const ADDRESS_FORMAT: &str = "IP:PORT";
 
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -28,7 +28,7 @@ enum Command {
         #[structopt(
             long,
             help = "Sets the server address",
-            raw(value_name = "ADDRESS_VALUE_NAME"),
+            raw(value_name = "ADDRESS_FORMAT"),
             raw(default_value = "DEFAULT_LISTENING_ADDRESS"),
             parse(try_from_str)
         )]
@@ -43,7 +43,7 @@ enum Command {
         #[structopt(
             long,
             help = "Sets the server address",
-            raw(value_name = "ADDRESS_VALUE_NAME"),
+            raw(value_name = "ADDRESS_FORMAT"),
             raw(default_value = "DEFAULT_LISTENING_ADDRESS"),
             parse(try_from_str)
         )]
@@ -56,7 +56,7 @@ enum Command {
         #[structopt(
             long,
             help = "Sets the server address",
-            raw(value_name = "ADDRESS_VALUE_NAME"),
+            raw(value_name = "ADDRESS_FORMAT"),
             raw(default_value = "DEFAULT_LISTENING_ADDRESS"),
             parse(try_from_str)
         )]
