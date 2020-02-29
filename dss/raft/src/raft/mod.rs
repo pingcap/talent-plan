@@ -1,21 +1,19 @@
+use std::sync::mpsc::{sync_channel, Receiver};
 use std::sync::Arc;
 
 use futures::sync::mpsc::UnboundedSender;
-use futures::Future;
-use labcodec;
 use labrpc::RpcFuture;
 
 #[cfg(test)]
 pub mod config;
 pub mod errors;
 pub mod persister;
-pub mod service;
 #[cfg(test)]
 mod tests;
 
 use self::errors::*;
 use self::persister::*;
-use self::service::*;
+use crate::proto::raftpb::*;
 
 pub struct ApplyMsg {
     pub command_valid: bool,
@@ -83,7 +81,7 @@ impl Raft {
         // initialize from state persisted before a crash
         rf.restore(&raft_state);
 
-        rf
+        crate::your_code_here((rf, apply_ch))
     }
 
     /// save Raft's persistent state to stable storage,
@@ -132,12 +130,16 @@ impl Raft {
     /// the handler function on the server side does not return.  Thus there
     /// is no need to implement your own timeouts around this method.
     ///
-    /// look at the comments in ../labrpc/src/mod.rs for more details.
-    fn send_request_vote(&self, server: usize, args: &RequestVoteArgs) -> Result<RequestVoteReply> {
-        let peer = &self.peers[server];
+    /// look at the comments in ../labrpc/src/lib.rs for more details.
+    fn send_request_vote(
+        &self,
+        server: usize,
+        args: &RequestVoteArgs,
+    ) -> Receiver<Result<RequestVoteReply>> {
         // Your code here if you want the rpc becomes async.
         // Example:
         // ```
+        // let peer = &self.peers[server];
         // let (tx, rx) = channel();
         // peer.spawn(
         //     peer.request_vote(&args)
@@ -147,9 +149,10 @@ impl Raft {
         //             Ok(())
         //         }),
         // );
-        // rx.wait() ...
+        // rx
         // ```
-        peer.request_vote(&args).map_err(Error::Rpc).wait()
+        let (tx, rx) = sync_channel::<Result<RequestVoteReply>>(1);
+        crate::your_code_here((server, args, tx, rx))
     }
 
     fn start<M>(&self, command: &M) -> Result<(u64, u64)>
@@ -168,6 +171,20 @@ impl Raft {
         } else {
             Err(Error::NotLeader)
         }
+    }
+}
+
+impl Raft {
+    /// Only for suppressing deadcode warnings.
+    #[doc(hidden)]
+    pub fn __suppress_deadcode(&mut self) {
+        let _ = self.start(&0);
+        let _ = self.send_request_vote(0, &Default::default());
+        self.persist();
+        let _ = &self.state;
+        let _ = &self.me;
+        let _ = &self.persister;
+        let _ = &self.peers;
     }
 }
 
@@ -194,7 +211,7 @@ impl Node {
     /// Create a new raft service.
     pub fn new(raft: Raft) -> Node {
         // Your code here.
-        Node {}
+        crate::your_code_here(raft)
     }
 
     /// the service using Raft (e.g. a k/v server) wants to start
@@ -216,7 +233,7 @@ impl Node {
         // Your code here.
         // Example:
         // self.raft.start(command)
-        unimplemented!()
+        crate::your_code_here(command)
     }
 
     /// The current term of this peer.
@@ -224,7 +241,7 @@ impl Node {
         // Your code here.
         // Example:
         // self.raft.term
-        unimplemented!()
+        crate::your_code_here(())
     }
 
     /// Whether this peer believes it is the leader.
@@ -232,7 +249,7 @@ impl Node {
         // Your code here.
         // Example:
         // self.raft.leader_id == self.id
-        unimplemented!()
+        crate::your_code_here(())
     }
 
     /// The current state of this peer.
@@ -258,8 +275,10 @@ impl Node {
 
 impl RaftService for Node {
     // example RequestVote RPC handler.
+    //
+    // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
     fn request_vote(&self, args: RequestVoteArgs) -> RpcFuture<RequestVoteReply> {
         // Your code here (2A, 2B).
-        unimplemented!()
+        crate::your_code_here(args)
     }
 }

@@ -5,7 +5,7 @@ export RUST_BACKTRACE=1
 LOG_LEVEL ?= raft=info,percolator=info
 
 check:
-	cargo fmt --all
+	cargo fmt --all -- --check
 	cargo clippy --all --tests -- -D clippy::all
 
 test: test_others test_2 test_3
@@ -24,11 +24,11 @@ test_3a: cargo_test_3a
 
 test_3b: cargo_test_3b
 
-cargo_test_%:
+cargo_test_%: check
 	RUST_LOG=${LOG_LEVEL} cargo test -p raft -- --nocapture --test $*
 
-test_others:
+test_others: check
 	RUST_LOG=${LOG_LEVEL} cargo test -p labrpc -p labcodec -- --nocapture
 
-test_percolator:
+test_percolator: check
 	RUST_LOG=${LOG_LEVEL} cargo test -p percolator -- --nocapture

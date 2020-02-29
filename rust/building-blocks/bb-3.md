@@ -34,7 +34,7 @@ Read all the readings and perform all the exercises.
 
 - **Exercise: Write a Redis ping-pong client and server with serialized
   messages**. Same as above, but this time define the protocol with types and
-  use [`serde` custom serialization][cs] to indirectly read and write messages
+  write a [`serde` data format][df] to indirectly read and write messages
   through serialization.
 
 - **[Reading: Statistically Rigorous Java Performance Evaluation][pe]**.
@@ -46,7 +46,7 @@ Read all the readings and perform all the exercises.
 <!-- TODO: something about traits? -->
 
 [pe]: https://dri.es/files/oopsla07-georges.pdf
-[cs]: https://serde.rs/custom-serialization.html
+[df]: https://serde.rs/data-format.html
 [`std::io`]: https://doc.rust-lang.org/std/io/
 [PING]: https://redis.io/commands/ping
 [commands]: https://redis.io/commands

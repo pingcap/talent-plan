@@ -5,11 +5,10 @@ use std::time::{Duration, Instant};
 
 use labrpc;
 
-use crate::kvraft::{
-    client,
-    errors::{Error, Result},
-    server, service,
-};
+use crate::kvraft::errors::{Error, Result};
+use crate::kvraft::{client, server};
+use crate::proto::kvraftpb::*;
+use crate::proto::raftpb::*;
 use crate::raft;
 use crate::raft::persister::*;
 use rand::Rng;
@@ -200,7 +199,7 @@ impl Config {
             let name = uniqstring();
             endnames.push(name.clone());
             let cli = self.net.create_client(name.clone());
-            ends.push(service::KvClient::new(cli));
+            ends.push(KvClient::new(cli));
             self.net.connect(&name, &format!("{}", j));
         }
 
@@ -228,16 +227,6 @@ impl Config {
         for j in to {
             let s = &endnames[*j];
             self.net.enable(s, true);
-        }
-    }
-
-    pub fn disconnect_client(&self, ck: &client::Clerk, from: &[usize]) {
-        debug!("DisconnectClient {:?} from {:?}", ck, from);
-        let clerks = self.clerks.lock().unwrap();
-        let endnames = &clerks[&ck.name];
-        for j in from {
-            let s = &endnames[*j];
-            self.net.enable(s, false);
         }
     }
 
@@ -278,7 +267,7 @@ impl Config {
         let mut ends = Vec::with_capacity(self.n);
         for (j, name) in servers.endnames[i].iter().enumerate() {
             let cli = self.net.create_client(name.clone());
-            ends.push(raft::service::RaftClient::new(cli));
+            ends.push(RaftClient::new(cli));
             self.net.connect(name, &format!("{}", j));
         }
 
@@ -298,8 +287,8 @@ impl Config {
         servers.kvservers[i] = Some(kv_node.clone());
 
         let mut builder = labrpc::ServerBuilder::new(format!("{}", i));
-        raft::service::add_raft_service(rf_node, &mut builder).unwrap();
-        service::add_kv_service(kv_node, &mut builder).unwrap();
+        add_raft_service(rf_node, &mut builder).unwrap();
+        add_kv_service(kv_node, &mut builder).unwrap();
         let srv = builder.build();
         self.net.add_server(srv);
     }

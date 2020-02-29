@@ -37,9 +37,8 @@ We provide a sample as `join_example.go: JoinExample` which performs a simple ha
 
 - (30%) Pass all test cases.
 - (20%) Perform better than `join_example.go:JoinExample`.
-- (20%) Profile your program with `pprof`, analyze the performance bottleneck.
+- (35%) Have a document to describe your idea and record the process of performance optimization with `pprof`.
 - (15%) Keep a good code style.
-- (15%) Document your idea and code.
 
 Note:
 1. For your check sums, you do not have to worry about numeric overflows as long as you are using 64 bit unsigned integers.

@@ -1,4 +1,4 @@
-use super::service::*;
+use crate::proto::kvraftpb::*;
 use crate::raft;
 
 use futures::sync::mpsc::unbounded;
@@ -14,7 +14,7 @@ pub struct KvServer {
 
 impl KvServer {
     pub fn new(
-        servers: Vec<raft::service::RaftClient>,
+        servers: Vec<crate::proto::raftpb::RaftClient>,
         me: usize,
         persister: Box<dyn raft::persister::Persister>,
         maxraftstate: Option<usize>,
@@ -24,11 +24,16 @@ impl KvServer {
         let (tx, apply_ch) = unbounded();
         let rf = raft::Raft::new(servers, me, persister, tx);
 
-        KvServer {
-            me,
-            maxraftstate,
-            rf: raft::Node::new(rf),
-        }
+        crate::your_code_here((rf, maxraftstate, apply_ch))
+    }
+}
+
+impl KvServer {
+    /// Only for suppressing deadcode warnings.
+    #[doc(hidden)]
+    pub fn __suppress_deadcode(&mut self) {
+        let _ = &self.me;
+        let _ = &self.maxraftstate;
     }
 }
 
@@ -54,7 +59,7 @@ pub struct Node {
 impl Node {
     pub fn new(kv: KvServer) -> Node {
         // Your code here.
-        Node {}
+        crate::your_code_here(kv);
     }
 
     /// the tester calls Kill() when a KVServer instance won't
@@ -84,13 +89,15 @@ impl Node {
 }
 
 impl KvService for Node {
+    // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
     fn get(&self, arg: GetRequest) -> RpcFuture<GetReply> {
         // Your code here.
-        unimplemented!()
+        crate::your_code_here(arg)
     }
 
+    // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
     fn put_append(&self, arg: PutAppendRequest) -> RpcFuture<PutAppendReply> {
         // Your code here.
-        unimplemented!()
+        crate::your_code_here(arg)
     }
 }
