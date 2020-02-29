@@ -76,7 +76,7 @@ impl KvStore {
         let reader = KvStoreReader {
             path: Arc::clone(&path),
             safe_point,
-            readers: RefCell::new(BTreeMap::new()),
+            readers: RefCell::new(readers),
         };
 
         let writer = KvStoreWriter {
