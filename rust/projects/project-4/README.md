@@ -1099,9 +1099,13 @@ physical resource on disk, and it's fine to have multiple handles to the same
 file open at once. Note the API for `File` though &mdash; it doesn't implement
 `Clone`, and while it does have this enticing [`try_clone`] method, its
 semantics have some complex implications for multi-threaded applications.
+Does seeking a `File` affect another `File` that created by `try_clone` ?
+Please consider the differences between `File`s from `File::open` and `try_clone`.
+Using `try_clone` or `File::open`, it's your choice. [`pread`] may help.
 
 [`File`]: https://doc.rust-lang.org/std/fs/struct.File.html
 [`try_clone`]: https://doc.rust-lang.org/std/fs/struct.File.html#method.try_clone
+[`pread`]: https://stackoverflow.com/questions/1687275/what-is-the-difference-between-read-and-pread-in-unix
 
 
 #### Break up data structures by role
