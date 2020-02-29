@@ -122,7 +122,7 @@ impl<P: ThreadPool> KvsEngine for KvStore<P> {
     /// # Errors
     ///
     /// It propagates I/O or serialization errors during writing the log.
-    fn set(&self, key: String, value: String) -> Box<Future<Item = (), Error = KvsError> + Send> {
+    fn set(&self, key: String, value: String) -> Box<dyn Future<Item = (), Error = KvsError> + Send> {
         let writer = self.writer.clone();
         let (tx, rx) = oneshot::channel();
         self.thread_pool.spawn(move || {
@@ -140,7 +140,7 @@ impl<P: ThreadPool> KvsEngine for KvStore<P> {
     /// Gets the string value of a given string key.
     ///
     /// Returns `None` if the given key does not exist.
-    fn get(&self, key: String) -> Box<Future<Item = Option<String>, Error = KvsError> + Send> {
+    fn get(&self, key: String) -> Box<dyn Future<Item = Option<String>, Error = KvsError> + Send> {
         let reader_pool = self.reader_pool.clone();
         let index = self.index.clone();
         let (tx, rx) = oneshot::channel();
@@ -178,7 +178,7 @@ impl<P: ThreadPool> KvsEngine for KvStore<P> {
     /// It returns `KvsError::KeyNotFound` if the given key is not found.
     ///
     /// It propagates I/O or serialization errors during writing the log.
-    fn remove(&self, key: String) -> Box<Future<Item = (), Error = KvsError> + Send> {
+    fn remove(&self, key: String) -> Box<dyn Future<Item = (), Error = KvsError> + Send> {
         let writer = self.writer.clone();
         let (tx, rx) = oneshot::channel();
         self.thread_pool.spawn(move || {
@@ -490,7 +490,9 @@ impl<R: Read + Seek> BufReaderWithPos<R> {
 
 impl<R: Read + Seek> Read for BufReaderWithPos<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.reader.read(buf)
+        let len = self.reader.read(buf)?;
+        self.pos += len as u64;
+        Ok(len)
     }
 }
 

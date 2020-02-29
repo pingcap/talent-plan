@@ -76,7 +76,7 @@ impl KvStore {
         let reader = KvStoreReader {
             path: Arc::clone(&path),
             safe_point,
-            readers: RefCell::new(BTreeMap::new()),
+            readers: RefCell::new(readers),
         };
 
         let writer = KvStoreWriter {
@@ -432,7 +432,9 @@ impl<R: Read + Seek> BufReaderWithPos<R> {
 
 impl<R: Read + Seek> Read for BufReaderWithPos<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.reader.read(buf)
+        let len = self.reader.read(buf)?;
+        self.pos += len as u64;
+        Ok(len)
     }
 }
 

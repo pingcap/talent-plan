@@ -61,9 +61,9 @@ a custom protocol.
 
 The interface to the CLI is the same as in the [previous project]. The
 difference this time is in the concurrent implementation, which will be
-described as we work through it..
+described as we work through it.
 
-[previous project]: ../project-3/project.md
+[previous project]: ../project-3/README.md
 
 The library interface is nearly the same except for two things. First this time
 all the `KvsEngine`, `KvStore`, etc. methods take `&self` instead of `&mut
@@ -100,7 +100,7 @@ This project should not require any changes at all to the client code.
 
 ## Project setup
 
-Continuing from your previous project, delete your privous `tests` directory and
+Continuing from your previous project, delete your previous `tests` directory and
 copy this project's `tests` directory into its place. This project should
 contain a library named `kvs`, and two executables, `kvs-server` and
 `kvs-client`.
@@ -382,10 +382,10 @@ any type that implements `Send` + `'static`).
 Messages in Rust are typically represented as enums, with variants for each
 possible message that can be sent, like:
 
-```
+```rust
 enum ThreadPoolMessage {
-    RunJob(Box<FnOnce + Send + 'static>),
-	Shutdown,
+    RunJob(Box<dyn FnOnce() + Send + 'static>),
+    Shutdown,
 }
 ```
 
@@ -1099,9 +1099,13 @@ physical resource on disk, and it's fine to have multiple handles to the same
 file open at once. Note the API for `File` though &mdash; it doesn't implement
 `Clone`, and while it does have this enticing [`try_clone`] method, its
 semantics have some complex implications for multi-threaded applications.
+Does seeking a `File` affect another `File` that created by `try_clone` ?
+Please consider the differences between `File`s from `File::open` and `try_clone`.
+Using `try_clone` or `File::open`, it's your choice. [`pread`] may help.
 
 [`File`]: https://doc.rust-lang.org/std/fs/struct.File.html
 [`try_clone`]: https://doc.rust-lang.org/std/fs/struct.File.html#method.try_clone
+[`pread`]: https://stackoverflow.com/questions/1687275/what-is-the-difference-between-read-and-pread-in-unix
 
 
 #### Break up data structures by role
@@ -1156,7 +1160,7 @@ Like cloning, garbage collection is often frowned upon in Rust &mdash; avoiding
 GC is almost the entire reason Rust exists. But it's no secret that, actually,
 garbage collection can't be avoided, "garbage collection" and "memory
 reclaimation" are practically synonymous, and every language uses a mixture of
-garbage collection strategies. One one end of the GC spectrum, in languages with
+garbage collection strategies. On one end of the GC spectrum, in languages with
 no automatic memory management, like C, the garbage collection is left entirely
 up to the programmer, e.g. via `malloc` and `free`. On the other end are garbage
 collected languages, like Java, where all memory is collected by a single

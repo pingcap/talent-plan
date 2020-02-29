@@ -76,7 +76,7 @@ matter. As such, it is ok to begin each project by copying your source code from
 the last.
 
 The projects live in the [`projects` subdirectory][psd], each in their own
-directories, and consist of a project description in `project.md`, and a Cargo
+directories, and consist of a project description in `README.md`, and a Cargo
 project containing a complete example solution, and the project test suite. Each
 project comes with a test suite, and the project should not be considered
 finished until it passes with `cargo test`.
@@ -307,11 +307,11 @@ to know where to go next on that path? We've got [some ideas][n].
 
 <!-- project links -->
 
-[p1]: ../projects/project-1/project.md
-[p2]: ../projects/project-2/project.md
-[p3]: ../projects/project-3/project.md
-[p4]: ../projects/project-4/project.md
-[p5]: ../projects/project-5/project.md
+[p1]: ../projects/project-1/README.md
+[p2]: ../projects/project-2/README.md
+[p3]: ../projects/project-3/README.md
+[p4]: ../projects/project-4/README.md
+[p5]: ../projects/project-5/README.md
 
 
 <!-- other links -->
@@ -321,7 +321,7 @@ to know where to go next on that path? We've got [some ideas][n].
 [Rust Discord]: https://discord.gg/rust-lang
 [Rust meetup]: https://www.meetup.com/topics/rust
 [StackOverflow]: https://stackoverflow.com/questions/tagged/rust
-[TiKV Slack]: https://join.slack.com/t/tikv-wg/shared_invite/enQtNTUyODE4ODU2MzI0LTgzZDQ3NzZlNDkzMGIyYjU1MTA0NzIwMjFjODFiZjA0YjFmYmQyOTZiNzNkNzg1N2U1MDdlZTIxNTU5NWNhNjk
+[TiKV Slack]: https://join.slack.com/t/tikv-wg/shared_invite/enQtNTUyODE4ODU2MzI0LWVlMWMzMDkyNWE5ZjY1ODAzMWUwZGVhNGNhYTc3MzJhYWE0Y2FjYjliYzY1OWJlYTc4OWVjZWM1NDkwN2QxNDE
 [author]: https://github.com/brson/
 [brson]: https://github.com/brson/
 [kv]: https://en.wikipedia.org/wiki/Key-value_database

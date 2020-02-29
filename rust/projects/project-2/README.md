@@ -130,6 +130,11 @@ methods:
   Remove a given key.
   Return an error if the key does not exist or is not removed successfully.
 
+- `KvStore::open(path: impl Into<PathBuf>) -> Result<KvStore>`
+
+  Open the KvStore at a given path.
+  Return the KvStore.
+
 When setting a key to a value, `kvs` writes the `set` command to disk in a
 sequential log, then stores the log pointer (file offset) of that command in the
 in-memory index from key to pointer. When removing a key, similarly, `kvs`
@@ -223,7 +228,7 @@ suite to compile (`cargo test --no-run`).
 
 _Note: Error-handling practices in Rust are still evolving. This course
 currently uses the [`failure`] crate to make defining error types easier. While
-`failure` has a good design, it's use is [arguably not a best practice][nbp]. It
+`failure` has a good design, its use is [arguably not a best practice][nbp]. It
 may not continue to be viewed favorably by Rust experts. Future iterations
 of the course will likely not use `failure`. In the meantime, it is fine, and
 presents an opportunity to learn more of the history and nuance of Rust error
@@ -314,7 +319,7 @@ Some of the APIs you will call may fail, and return a `Result` of some error typ
 Make sure that your calling functions return a `Result` of _your own_ error type,
 and that you convert between the two with `?`.
 
-It is similar to implement the "rm" command, but you should additionally
+It is similar to implementing the "rm" command, but you should additionally
 check if the key exists before writing the command to the log. As we have two
 different commands that must be distinguished, you may use variants of a single
 enum type to represent each command. `serde` just works perfectly with enums.
