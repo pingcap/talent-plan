@@ -6,7 +6,7 @@ labels: type/enhancement
 
 ## Feature Request
 
-please make a clear and concise describtion for the following questions.
+please make a clear and concise description for the following questions.
 
 ### Is your feature request related to a problem?
 <!-- what the problem is -->
