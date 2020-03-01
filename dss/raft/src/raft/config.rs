@@ -5,7 +5,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use futures::{sync::mpsc::unbounded, Future, Stream};
-use labrpc;
 
 use crate::proto::raftpb::*;
 use crate::raft;
