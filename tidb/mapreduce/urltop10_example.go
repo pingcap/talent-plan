@@ -31,7 +31,7 @@ func ExampleURLTop10(nWorkers int) RoundsArgs {
 
 // ExampleURLCountMap is the map function in the first round
 func ExampleURLCountMap(filename string, contents string) []KeyValue {
-	lines := strings.Split(string(contents), "\n")
+	lines := strings.Split(contents, "\n")
 	kvs := make([]KeyValue, 0, len(lines))
 	for _, l := range lines {
 		l = strings.TrimSpace(l)
