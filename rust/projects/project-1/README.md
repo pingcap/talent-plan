@@ -71,7 +71,7 @@ methods:
 
   Set the value of a string key to a string
 
-- `KvStore::get(&mut self, key: String) -> Option<String>`
+- `KvStore::get(&self, key: String) -> Option<String>`
 
   Get the string value of the a string key. If the key does not exist,
   return `None`.
