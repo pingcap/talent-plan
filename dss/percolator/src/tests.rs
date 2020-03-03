@@ -58,8 +58,8 @@ fn init(num_clinet: usize) -> (Network, Vec<Client>, Arc<CommitHooks>) {
     add_transaction_service(store, &mut server_builder).unwrap();
     let tso_server = tso_server_builder.build();
     let server = server_builder.build();
-    rn.add_server(tso_server.clone());
-    rn.add_server(server.clone());
+    rn.add_server(tso_server);
+    rn.add_server(server);
     let hook = Arc::new(CommitHooks {
         drop_req: AtomicBool::new(false),
         drop_resp: AtomicBool::new(false),

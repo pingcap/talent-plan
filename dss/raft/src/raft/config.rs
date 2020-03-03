@@ -5,7 +5,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use futures::{sync::mpsc::unbounded, Future, Stream};
-use labrpc;
 
 use crate::proto::raftpb::*;
 use crate::raft;
@@ -422,7 +421,7 @@ impl Config {
         let mut builder = labrpc::ServerBuilder::new(format!("{}", i));
         raft::add_raft_service(node, &mut builder).unwrap();
         let srv = builder.build();
-        self.net.add_server(srv.clone());
+        self.net.add_server(srv);
     }
 
     /// shut down a Raft server but save its persistent state.
