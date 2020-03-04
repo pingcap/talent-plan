@@ -1000,7 +1000,7 @@ mod tests {
     fn junk_suit() -> (Network, Server, JunkService) {
         let net = Network::new();
         let server_name = "test_server".to_owned();
-        let mut builder = ServerBuilder::new(server_name.clone());
+        let mut builder = ServerBuilder::new(server_name);
         let junk_server = JunkService::new();
         add_service(junk_server.clone(), &mut builder).unwrap();
         let server = builder.build();
