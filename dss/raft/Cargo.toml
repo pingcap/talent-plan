@@ -20,8 +20,8 @@ prost-derive = "0.5"
 bytes = "0.4.7"
 rand = "0.4"
 log = "0.4"
-futures = "0.1"
-futures-timer = "0.1"
+futures = "0.3"
+futures-timer = "3.0"
 
 [dev-dependencies]
 env_logger = "0.6"

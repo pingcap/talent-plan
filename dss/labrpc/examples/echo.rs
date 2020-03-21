@@ -1,7 +1,8 @@
 #[macro_use]
 extern crate prost_derive;
 
-use futures::Future;
+use async_trait::async_trait;
+use futures::executor::block_on;
 use labrpc::*;
 
 /// A Hand-written protobuf messages
@@ -21,9 +22,10 @@ use echo::{add_service, Client, Service};
 #[derive(Clone)]
 struct EchoService;
 
+#[async_trait]
 impl Service for EchoService {
-    fn ping(&self, input: Echo) -> RpcFuture<Echo> {
-        Box::new(futures::future::result(Ok(input.clone())))
+    async fn ping(&self, input: Echo) -> Result<Echo> {
+        Ok(input.clone())
     }
 }
 
@@ -40,7 +42,7 @@ fn main() {
     rn.enable(client_name, true);
     rn.connect(client_name, server_name);
 
-    let reply = client.ping(&Echo { x: 777 }).wait().unwrap();
+    let reply = block_on(client.ping(&Echo { x: 777 })).unwrap();
     assert_eq!(reply, Echo { x: 777 });
     println!("{:?}", reply);
 }

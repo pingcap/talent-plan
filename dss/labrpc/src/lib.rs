@@ -10,8 +10,6 @@ extern crate bytes;
 extern crate log;
 #[macro_use]
 extern crate futures;
-extern crate futures_cpupool;
-extern crate futures_timer;
 extern crate hashbrown;
 extern crate labcodec;
 extern crate prost;
@@ -27,12 +25,13 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::{fmt, time};
 
+use futures::channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
+use futures::channel::oneshot;
+use futures::executor::ThreadPool;
 use futures::future;
-use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
-use futures::sync::oneshot;
-use futures::{Async, Future, Poll, Stream};
-use futures_cpupool::CpuPool;
-use futures_timer::{Delay, Interval};
+use futures::future::{BoxFuture, FutureExt};
+use futures::prelude::*;
+use futures_timer::Delay;
 use hashbrown::HashMap;
 use rand::Rng;
 
@@ -41,15 +40,12 @@ mod error;
 mod macros;
 
 pub use crate::error::{Error, Result};
+use time::Duration;
 
 static ID_ALLOC: AtomicUsize = AtomicUsize::new(0);
 
-pub type RpcFuture<T> = Box<dyn Future<Item = T, Error = Error> + Send + 'static>;
-
-pub type Handler = dyn Fn(&[u8]) -> RpcFuture<Vec<u8>>;
-
 pub trait HandlerFactory: Sync + Send + 'static {
-    fn handler(&self, name: &'static str) -> Box<Handler>;
+    fn handler(&self, name: &'static str) -> Box<dyn FnOnce(&[u8]) -> BoxFuture<Result<Vec<u8>>>>;
 }
 
 pub struct ServerBuilder {
@@ -117,35 +113,35 @@ impl Server {
         &self.core.name
     }
 
-    fn dispatch(&self, fq_name: &'static str, req: &[u8]) -> RpcFuture<Vec<u8>> {
+    fn dispatch<'a>(&self, fq_name: &'static str, req: &'a [u8]) -> BoxFuture<'a, Result<Vec<u8>>> {
         self.core.count.fetch_add(1, Ordering::Relaxed);
         let mut names = fq_name.split('.');
         let service_name = match names.next() {
             Some(n) => n,
             None => {
-                return Box::new(future::result(Err(Error::Unimplemented(format!(
+                return Box::pin(future::err(Error::Unimplemented(format!(
                     "unknown {}",
                     fq_name
-                )))));
+                ))));
             }
         };
         let method_name = match names.next() {
             Some(n) => n,
             None => {
-                return Box::new(future::result(Err(Error::Unimplemented(format!(
+                return Box::pin(future::err(Error::Unimplemented(format!(
                     "unknown {}",
                     fq_name
-                )))));
+                ))));
             }
         };
         if let Some(fact) = self.core.services.get(service_name) {
             let handle = fact.handler(method_name);
             handle(req)
         } else {
-            Box::new(future::result(Err(Error::Unimplemented(format!(
+            Box::pin(future::err(Error::Unimplemented(format!(
                 "unknown {}",
                 fq_name
-            )))))
+            ))))
         }
     }
 }
@@ -195,18 +191,18 @@ pub struct Client {
     sender: UnboundedSender<Rpc>,
     hooks: Arc<Mutex<Option<Arc<dyn RpcHooks>>>>,
 
-    pub worker: CpuPool,
+    pub worker: ThreadPool,
 }
 
 impl Client {
-    pub fn call<Req, Rsp>(&self, fq_name: &'static str, req: &Req) -> RpcFuture<Rsp>
+    pub fn call<Req, Rsp>(&self, fq_name: &'static str, req: &Req) -> BoxFuture<Result<Rsp>>
     where
         Req: labcodec::Message,
         Rsp: labcodec::Message + 'static,
     {
         let mut buf = vec![];
         if let Err(e) = labcodec::encode(req, &mut buf) {
-            return Box::new(future::result(Err(Error::Encode(e))));
+            return Box::pin(future::err(Error::Encode(e)));
         }
 
         let (tx, rx) = oneshot::channel();
@@ -217,15 +213,16 @@ impl Client {
             resp: Some(tx),
             hooks: self.hooks.clone(),
         };
-
         // Sends requests and waits responses.
         if self.sender.unbounded_send(rpc).is_err() {
-            return Box::new(future::result(Err(Error::Stopped)));
+            return Box::pin(future::err(Error::Stopped));
         }
-        Box::new(rx.then(|res| match res {
-            Ok(Ok(resp)) => labcodec::decode(&resp).map_err(Error::Decode),
-            Ok(Err(e)) => Err(e),
-            Err(e) => Err(Error::Recv(e)),
+        Box::pin(rx.then(|res| async {
+            match res {
+                Ok(Ok(resp)) => labcodec::decode(&resp).map_err(Error::Decode),
+                Ok(Err(e)) => Err(e),
+                Err(e) => Err(Error::Recv(e)),
+            }
         }))
     }
 
@@ -264,8 +261,8 @@ struct Core {
     endpoints: Mutex<Endpoints>,
     count: AtomicUsize,
     sender: UnboundedSender<Rpc>,
-    poller: CpuPool,
-    worker: CpuPool,
+    poller: ThreadPool,
+    worker: ThreadPool,
 }
 
 #[derive(Clone)]
@@ -293,8 +290,8 @@ impl Network {
                     connections: HashMap::new(),
                 }),
                 count: AtomicUsize::new(0),
-                poller: CpuPool::new(2),
-                worker: CpuPool::new_num_cpus(),
+                poller: ThreadPool::builder().pool_size(2).create().unwrap(),
+                worker: ThreadPool::new().unwrap(),
                 sender,
             }),
         };
@@ -302,24 +299,20 @@ impl Network {
         (net, incoming)
     }
 
-    fn start(&self, incoming: UnboundedReceiver<Rpc>) {
+    fn start(&self, mut incoming: UnboundedReceiver<Rpc>) {
         let net = self.clone();
-        self.core
-            .poller
-            .spawn(incoming.for_each(move |mut rpc| {
+        self.core.poller.spawn_ok(async move {
+            while let Some(mut rpc) = incoming.next().await {
                 let resp = rpc.take_resp_sender().unwrap();
-                net.core
-                    .poller
-                    .spawn(net.process_rpc(rpc).then(move |res| {
-                        if let Err(e) = resp.send(res) {
-                            error!("fail to send resp: {:?}", e);
-                        }
-                        Ok::<_, ()>(())
-                    }))
-                    .forget();
-                Ok(())
-            }))
-            .forget();
+                let n = net.clone();
+                net.core.poller.spawn_ok(async move {
+                    let res = n.process_rpc(rpc).await;
+                    if let Err(e) = resp.send(res) {
+                        error!("fail to send resp: {:?}", e);
+                    }
+                });
+            }
+        });
     }
 
     pub fn add_server(&self, server: Server) {
@@ -409,9 +402,8 @@ impl Network {
             })
     }
 
-    fn process_rpc(&self, rpc: Rpc) -> ProcessRpc {
+    async fn process_rpc(&self, rpc: Rpc) -> Result<Vec<u8>> {
         self.core.count.fetch_add(1, Ordering::Relaxed);
-        let mut random = rand::thread_rng();
         let network = self.clone();
         let end_info = self.end_info(&rpc.client_name);
         debug!("{:?} process with {:?}", rpc, end_info);
@@ -426,63 +418,51 @@ impl Network {
             (true, Some(server)) => {
                 let short_delay = if !reliable {
                     // short delay
-                    let ms = random.gen::<u64>() % 27;
-                    Some(Delay::new(time::Duration::from_millis(ms)))
+                    Some(rand::thread_rng().gen::<u64>() % 27)
                 } else {
                     None
                 };
 
-                if !reliable && (random.gen::<u64>() % 1000) < 100 {
+                if !reliable && (rand::thread_rng().gen::<u64>() % 1000) < 100 {
                     // drop the request, return as if timeout
-                    return ProcessRpc {
-                        state: Some(ProcessState::Timeout {
-                            delay: short_delay.unwrap(),
-                        }),
-                        rpc,
-                        network,
-                        server: None,
-                    };
+                    Delay::new(Duration::from_millis(short_delay.unwrap())).await;
+                    return Err(Error::Timeout);
                 }
 
-                let drop_reply = !reliable && random.gen::<u64>() % 1000 < 100;
-                let long_reordering = if long_reordering && random.gen_range(0, 900) < 600i32 {
-                    // delay the response for a while
-                    let upper_bound: u64 = 1 + random.gen_range(0, 2000);
-                    Some(200 + random.gen_range(0, upper_bound))
-                } else {
-                    None
-                };
-                ProcessRpc {
-                    state: Some(ProcessState::Dispatch {
-                        delay: short_delay,
-                        drop_reply,
-                        long_reordering,
-                    }),
+                let drop_reply = !reliable && rand::thread_rng().gen::<u64>() % 1000 < 100;
+                let long_reordering =
+                    if long_reordering && rand::thread_rng().gen_range(0, 900) < 600i32 {
+                        // delay the response for a while
+                        let upper_bound: u64 = 1 + rand::thread_rng().gen_range(0, 2000);
+                        Some(200 + rand::thread_rng().gen_range(0, upper_bound))
+                    } else {
+                        None
+                    };
+
+                process_rpc(
+                    short_delay,
+                    drop_reply,
+                    long_reordering,
                     rpc,
                     network,
-                    server: Some(server),
-                }
+                    Some(server),
+                )
+                .await
             }
             _ => {
                 // simulate no reply and eventual timeout.
                 let ms = if self.core.long_delays.load(Ordering::Acquire) {
                     // let Raft tests check that leader doesn't send
                     // RPCs synchronously.
-                    random.gen::<u64>() % 7000
+                    rand::thread_rng().gen::<u64>() % 7000
                 } else {
                     // many kv tests require the client to try each
                     // server in fairly rapid succession.
-                    random.gen::<u64>() % 100
+                    rand::thread_rng().gen::<u64>() % 100
                 };
-
                 debug!("{:?} delay {}ms then timeout", rpc, ms);
-                let delay = Delay::new(time::Duration::from_millis(ms));
-                ProcessRpc {
-                    state: Some(ProcessState::Timeout { delay }),
-                    rpc,
-                    network,
-                    server: None,
-                }
+                Delay::new(time::Duration::from_millis(ms)).await;
+                return Err(Error::Timeout);
             }
         }
     }
@@ -490,242 +470,83 @@ impl Network {
     /// Spawns a future to run on this net framework.
     pub fn spawn<F>(&self, f: F)
     where
-        F: Future<Item = (), Error = ()> + Send + 'static,
+        F: Future<Output = ()> + Send + 'static,
     {
-        self.core.worker.spawn(f).forget();
+        self.core.worker.spawn_ok(f);
     }
 
     /// Spawns a future to run on this net framework.
     pub fn spawn_poller<F>(&self, f: F)
     where
-        F: Future<Item = (), Error = ()> + Send + 'static,
+        F: Future<Output = ()> + Send + 'static,
     {
-        self.core.poller.spawn(f).forget();
+        self.core.poller.spawn_ok(f);
     }
 }
 
-struct ProcessRpc {
-    state: Option<ProcessState>,
-
-    rpc: Rpc,
-    network: Network,
-    server: Option<Server>,
-}
-
-impl fmt::Debug for ProcessRpc {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("ProcessRpc")
-            .field("rpc", &self.rpc)
-            .field("state", &self.state)
-            .finish()
-    }
-}
-
-enum ProcessState {
-    Timeout {
-        delay: Delay,
-    },
-    Dispatch {
-        delay: Option<Delay>,
-        drop_reply: bool,
-        long_reordering: Option<u64>,
-    },
-    Ongoing {
-        // I have to say it's ugly. :(
-        res: Box<dyn Future<Item = Vec<u8>, Error = Error> + Send + 'static>,
-        drop_reply: bool,
-        long_reordering: Option<u64>,
-    },
-    Reordering {
-        delay: Delay,
-        resp: Option<Vec<u8>>,
-    },
-}
-
-impl fmt::Debug for ProcessState {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ProcessState::Timeout { .. } => write!(f, "ProcessState::Timeout"),
-            ProcessState::Dispatch {
-                ref delay,
-                drop_reply,
-                long_reordering,
-            } => f
-                .debug_struct("ProcessState::Dispatch")
-                .field("delay", &delay.is_some())
-                .field("drop_reply", &drop_reply)
-                .field("long_reordering", &long_reordering)
-                .finish(),
-            ProcessState::Ongoing {
-                drop_reply,
-                long_reordering,
-                ..
-            } => f
-                .debug_struct("ProcessState::Ongoing")
-                .field("drop_reply", &drop_reply)
-                .field("long_reordering", &long_reordering)
-                .finish(),
-            ProcessState::Reordering { .. } => write!(f, "ProcessState::Reordering"),
-        }
-    }
-}
-
-impl Future for ProcessRpc {
-    type Item = Vec<u8>;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Vec<u8>, Error> {
-        let res = loop {
-            let next;
-            debug!("polling {:?}", self);
-            match self
-                .state
-                .as_mut()
-                .expect("cannot poll ProcessRpc after finish")
-            {
-                ProcessState::Timeout { ref mut delay } => {
-                    try_ready!(delay.poll().map_err(|e| panic!("{:?}", e)));
-                    break Err(Error::Timeout);
-                }
-                ProcessState::Dispatch {
-                    ref mut delay,
-                    drop_reply,
-                    long_reordering,
-                } => {
-                    if let Some(ref mut delay) = *delay {
-                        try_ready!(delay.poll().map_err(|e| panic!("{:?}", e)));
-                    }
-                    // We has finished the delay, take it out to prevent polling
-                    // twice.
-                    delay.take();
-
-                    let fq_name = self.rpc.fq_name;
-                    let req = self.rpc.req.take().unwrap();
-                    let before_dispatch =
-                        if let Some(hooks) = self.rpc.hooks.lock().unwrap().as_ref() {
-                            hooks.before_dispatch(fq_name, &req)
-                        } else {
-                            Ok(())
-                        };
-                    let fut: Box<dyn Future<Item = Vec<u8>, Error = Error> + Send + 'static> =
-                        if let Err(e) = before_dispatch {
-                            Box::new(future::result(Err(e)))
-                        } else {
-                            // Execute the request (call the RPC handler)
-                            // in a separate thread so that we can periodically check
-                            // if the server has been killed and the RPC should get a
-                            // failure reply.
-                            //
-                            // do not reply if DeleteServer() has been called, i.e.
-                            // the server has been killed. this is needed to avoid
-                            // situation in which a client gets a positive reply
-                            // to an Append, but the server persisted the update
-                            // into the old Persister. config.go is careful to call
-                            // DeleteServer() before superseding the Persister.
-                            let server = self.server.as_ref().unwrap();
-                            let res = server.dispatch(fq_name, &req).select(ServerDead {
-                                interval: Interval::new_at(
-                                    time::Instant::now(),
-                                    time::Duration::from_millis(100),
-                                ),
-                                net: self.network.clone(),
-                                client_name: self.rpc.client_name.clone(),
-                                server_name: server.core.name.clone(),
-                                server_id: server.core.id,
-                            });
-                            let hooks: Arc<_> = self.rpc.hooks.clone();
-                            let fut = res.then(move |res| {
-                                let res = match res {
-                                    // ServerDead never return Ok(_).
-                                    Ok((resp, _)) => Ok(resp),
-                                    // Server may be killed while we were waiting response.
-                                    Err((e, _)) => Err(e),
-                                };
-                                let hooks = hooks.lock().unwrap();
-                                if let Some(hooks) = hooks.as_ref() {
-                                    hooks.after_dispatch(fq_name, res)
-                                } else {
-                                    res
-                                }
-                            });
-                            Box::new(fut)
-                        };
-                    next = Some(ProcessState::Ongoing {
-                        res: Box::new(fut),
-                        drop_reply: *drop_reply,
-                        long_reordering: *long_reordering,
-                    });
-                }
-                ProcessState::Ongoing {
-                    ref mut res,
-                    drop_reply,
-                    long_reordering,
-                } => {
-                    let resp = try_ready!(res.poll());
-                    let server = self.server.as_ref().unwrap();
-                    let is_server_dead = self.network.is_server_dead(
-                        &self.rpc.client_name,
-                        &server.core.name,
-                        server.core.id,
-                    );
-                    if is_server_dead {
-                        break Err(Error::Stopped);
-                    } else if *drop_reply {
-                        //  drop the reply, return as if timeout.
-                        break Err(Error::Timeout);
-                    } else if let Some(reordering) = long_reordering {
-                        debug!("{:?} next long reordering {}ms", self.rpc, reordering);
-                        next = Some(ProcessState::Reordering {
-                            delay: Delay::new(time::Duration::from_millis(*reordering)),
-                            resp: Some(resp),
-                        });
-                    } else {
-                        break Ok(Async::Ready(resp));
-                    }
-                }
-                ProcessState::Reordering {
-                    ref mut delay,
-                    ref mut resp,
-                } => {
-                    try_ready!(delay.poll().map_err(|e| panic!("{:?}", e)));
-                    break Ok(Async::Ready(resp.take().unwrap()));
-                }
-            }
-            if let Some(next) = next {
-                self.state = Some(next);
-            }
-        };
-        self.state.take();
-        res
-    }
-}
-
-/// A future checks if the specified server killed.
+/// Checks if the specified server killed.
 ///
-/// It will never return Ok but Err when the server is killed.
-struct ServerDead {
-    interval: Interval,
+/// It will return when the server is killed.
+async fn server_dead(
+    interval: Duration,
     net: Network,
     client_name: String,
     server_name: String,
     server_id: usize,
+) {
+    loop {
+        Delay::new(interval).await;
+        if net.is_server_dead(&client_name, &server_name, server_id) {
+            debug!("{:?} is dead", server_name);
+            return;
+        }
+    }
 }
 
-impl Future for ServerDead {
-    type Item = Vec<u8>;
-    type Error = Error;
+async fn process_rpc(
+    delay: Option<u64>,
+    drop_reply: bool,
+    long_reordering: Option<u64>,
 
-    fn poll(&mut self) -> Poll<Vec<u8>, Error> {
-        loop {
-            try_ready!(self.interval.poll().map_err(|e| panic!("{:?}", e)));
-            if self
-                .net
-                .is_server_dead(&self.client_name, &self.server_name, self.server_id)
-            {
-                debug!("{:?} is dead", self.server_name);
-                return Err(Error::Stopped);
-            }
-        }
+    mut rpc: Rpc,
+    network: Network,
+    server: Option<Server>,
+) -> Result<Vec<u8>> {
+    if let Some(delay) = delay {
+        Delay::new(Duration::from_millis(delay)).await;
+    }
+    let fq_name = rpc.fq_name;
+    let req = rpc.req.take().unwrap();
+    if let Some(hooks) = rpc.hooks.lock().unwrap().as_ref() {
+        hooks.before_dispatch(fq_name, &req)?;
+    };
+    let server = server.unwrap();
+    let res = select! {
+        res = server.dispatch(fq_name, &req).fuse() => res,
+        _ = server_dead(
+            Duration::from_millis(100),
+            network.clone(),
+            rpc.client_name.clone(),
+            server.core.name.clone(),
+            server.core.id
+        ).fuse() => Err(Error::Stopped),
+    };
+    let resp = if let Some(hooks) = rpc.hooks.lock().unwrap().as_ref() {
+        hooks.after_dispatch(fq_name, res)?
+    } else {
+        res?
+    };
+    if network.is_server_dead(&rpc.client_name, &server.core.name, server.core.id) {
+        Err(Error::Stopped)
+    } else if drop_reply {
+        //  drop the reply, return as if timeout.
+        Err(Error::Timeout)
+    } else if let Some(reordering) = long_reordering {
+        debug!("{:?} next long reordering {}ms", rpc, reordering);
+        Delay::new(time::Duration::from_millis(reordering)).await;
+        Ok(resp)
+    } else {
+        Ok(resp)
     }
 }
 
@@ -734,7 +555,9 @@ mod tests {
     use std::sync::{mpsc, Mutex, Once};
     use std::thread;
 
-    use futures::sync::oneshot::Canceled;
+    use futures::channel::oneshot::Canceled;
+    use futures::executor::block_on;
+    use async_trait::async_trait;
 
     use super::*;
 
@@ -776,28 +599,24 @@ mod tests {
             }
         }
     }
+    #[async_trait]
     impl Junk for JunkService {
-        fn handler2(&self, args: JunkArgs) -> RpcFuture<JunkReply> {
+        async fn handler2(&self, args: JunkArgs) -> Result<JunkReply> {
             self.inner.lock().unwrap().log2.push(args.x);
-            Box::new(future::result(Ok(JunkReply {
+            Ok(JunkReply {
                 x: format!("handler2-{}", args.x),
-            })))
+            })
         }
-        fn handler3(&self, args: JunkArgs) -> RpcFuture<JunkReply> {
-            Box::new(
-                Delay::new(time::Duration::from_secs(20))
-                    .and_then(move |_| {
-                        future::result(Ok(JunkReply {
-                            x: format!("handler3-{}", -args.x),
-                        }))
-                    })
-                    .map_err(|e| panic!("{:?}", e)),
-            )
+        async fn handler3(&self, args: JunkArgs) -> Result<JunkReply> {
+            Delay::new(time::Duration::from_secs(20)).await;
+            Ok(JunkReply {
+                x: format!("handler3-{}", -args.x),
+            })
         }
-        fn handler4(&self, _: JunkArgs) -> RpcFuture<JunkReply> {
-            Box::new(future::result(Ok(JunkReply {
+        async fn handler4(&self, _: JunkArgs) -> Result<JunkReply> {
+            Ok(JunkReply {
                 x: "pointer".to_owned(),
-            })))
+            })
         }
     }
 
@@ -808,193 +627,206 @@ mod tests {
 
     #[test]
     fn test_service_dispatch() {
-        init_logger();
+        block_on(async {
+            init_logger();
 
-        let mut builder = ServerBuilder::new("test".to_owned());
-        let junk = JunkService::new();
-        add_service(junk.clone(), &mut builder).unwrap();
-        let prev_len = builder.services.len();
-        add_service(junk, &mut builder).unwrap_err();
-        assert_eq!(builder.services.len(), prev_len);
-        let server = builder.build();
+            let mut builder = ServerBuilder::new("test".to_owned());
+            let junk = JunkService::new();
+            add_service(junk.clone(), &mut builder).unwrap();
+            let prev_len = builder.services.len();
+            add_service(junk, &mut builder).unwrap_err();
+            assert_eq!(builder.services.len(), prev_len);
+            let server = builder.build();
 
-        let buf = server.dispatch("junk.handler4", &[]).wait().unwrap();
-        let rsp = labcodec::decode(&buf).unwrap();
-        assert_eq!(
-            JunkReply {
-                x: "pointer".to_owned(),
-            },
-            rsp,
-        );
+            let buf = server.dispatch("junk.handler4", &[]).await.unwrap();
+            let rsp = labcodec::decode(&buf).unwrap();
+            assert_eq!(
+                JunkReply {
+                    x: "pointer".to_owned(),
+                },
+                rsp,
+            );
 
-        server
-            .dispatch("junk.handler4", b"bad message")
-            .wait()
-            .unwrap_err();
+            server
+                .dispatch("junk.handler4", b"bad message")
+                .await
+                .unwrap_err();
 
-        server.dispatch("badjunk.handler4", &[]).wait().unwrap_err();
+            server.dispatch("badjunk.handler4", &[]).await.unwrap_err();
 
-        server.dispatch("junk.badhandler", &[]).wait().unwrap_err();
+            server.dispatch("junk.badhandler", &[]).await.unwrap_err();
+        });
     }
 
     #[test]
     fn test_network_client_rpc() {
-        init_logger();
+        block_on(async {
+            init_logger();
 
-        let mut builder = ServerBuilder::new("test".to_owned());
-        let junk = JunkService::new();
-        add_service(junk, &mut builder).unwrap();
-        let server = builder.build();
+            let mut builder = ServerBuilder::new("test".to_owned());
+            let junk = JunkService::new();
+            add_service(junk, &mut builder).unwrap();
+            let server = builder.build();
 
-        let (net, incoming) = Network::create();
-        net.add_server(server);
+            let (net, incoming) = Network::create();
+            net.add_server(server);
 
-        let client = JunkClient::new(net.create_client("test_client".to_owned()));
-        let (tx, rx) = mpsc::channel();
-        client.spawn(client.handler4(&JunkArgs { x: 777 }).then(move |reply| {
-            tx.send(reply).unwrap();
-            Ok(())
-        }));
-        let (mut rpc, incoming) = match incoming.into_future().wait() {
-            Ok((Some(rpc), s)) => (rpc, s),
-            _ => panic!("unexpected error"),
-        };
-        let reply = JunkReply {
-            x: "boom!!!".to_owned(),
-        };
-        let mut buf = vec![];
-        labcodec::encode(&reply, &mut buf).unwrap();
-        let resp = rpc.take_resp_sender().unwrap();
-        resp.send(Ok(buf)).unwrap();
-        assert_eq!(rpc.client_name, "test_client");
-        assert_eq!(rpc.fq_name, "junk.handler4");
-        assert!(!rpc.req.as_ref().unwrap().is_empty());
-        assert_eq!(rx.recv().unwrap(), Ok(reply));
+            let client = JunkClient::new(net.create_client("test_client".to_owned()));
+            let (tx, rx) = mpsc::channel();
+            let cli = client.clone();
+            client.spawn(async move {
+                let reply = cli.handler4(&JunkArgs { x: 777 }).await;
+                tx.send(reply).unwrap();
+            });
+            let (mut rpc, incoming) = match incoming.into_future().await {
+                (Some(rpc), s) => (rpc, s),
+                _ => panic!("unexpected error"),
+            };
+            let reply = JunkReply {
+                x: "boom!!!".to_owned(),
+            };
+            let mut buf = vec![];
+            labcodec::encode(&reply, &mut buf).unwrap();
+            let resp = rpc.take_resp_sender().unwrap();
+            resp.send(Ok(buf)).unwrap();
+            assert_eq!(rpc.client_name, "test_client");
+            assert_eq!(rpc.fq_name, "junk.handler4");
+            assert!(!rpc.req.as_ref().unwrap().is_empty());
+            assert_eq!(rx.recv().unwrap(), Ok(reply));
 
-        let (tx, rx) = mpsc::channel();
-        client.spawn(client.handler4(&JunkArgs { x: 777 }).then(move |reply| {
-            tx.send(reply).unwrap();
-            Ok(())
-        }));
-        let (rpc, incoming) = match incoming.into_future().wait() {
-            Ok((Some(rpc), s)) => (rpc, s),
-            _ => panic!("unexpected error"),
-        };
-        drop(rpc.resp);
-        assert_eq!(rx.recv().unwrap(), Err(Error::Recv(Canceled)));
+            let (tx, rx) = mpsc::channel();
+            let cli = client.clone();
+            client.spawn(async move {
+                let reply = cli.handler4(&JunkArgs { x: 777 }).await;
+                tx.send(reply).unwrap();
+            });
+            let (rpc, incoming) = match incoming.into_future().await {
+                (Some(rpc), s) => (rpc, s),
+                _ => panic!("unexpected error"),
+            };
+            drop(rpc.resp);
+            assert_eq!(rx.recv().unwrap(), Err(Error::Recv(Canceled)));
 
-        drop(incoming);
-        assert_eq!(
-            client.handler4(&JunkArgs::default()).wait(),
-            Err(Error::Stopped)
-        );
+            drop(incoming);
+            assert_eq!(
+                client.handler4(&JunkArgs::default()).await,
+                Err(Error::Stopped)
+            );
+        });
     }
 
     #[test]
     fn test_basic() {
-        init_logger();
+        block_on(async {
+            init_logger();
 
-        let (net, _, _) = junk_suit();
+            let (net, _, _) = junk_suit();
 
-        let client = JunkClient::new(net.create_client("test_client".to_owned()));
-        net.connect("test_client", "test_server");
-        net.enable("test_client", true);
+            let client = JunkClient::new(net.create_client("test_client".to_owned()));
+            net.connect("test_client", "test_server");
+            net.enable("test_client", true);
 
-        let rsp = client.handler4(&JunkArgs::default()).wait().unwrap();
-        assert_eq!(
-            JunkReply {
-                x: "pointer".to_owned(),
-            },
-            rsp,
-        );
+            let rsp = client.handler4(&JunkArgs::default()).await.unwrap();
+            assert_eq!(
+                JunkReply {
+                    x: "pointer".to_owned(),
+                },
+                rsp,
+            );
+        });
     }
 
     // does net.Enable(endname, false) really disconnect a client?
     #[test]
     fn test_disconnect() {
-        init_logger();
+        block_on(async {
+            init_logger();
 
-        let (net, _, _) = junk_suit();
+            let (net, _, _) = junk_suit();
 
-        let client = JunkClient::new(net.create_client("test_client".to_owned()));
-        net.connect("test_client", "test_server");
+            let client = JunkClient::new(net.create_client("test_client".to_owned()));
+            net.connect("test_client", "test_server");
 
-        client.handler4(&JunkArgs::default()).wait().unwrap_err();
+            client.handler4(&JunkArgs::default()).await.unwrap_err();
 
-        net.enable("test_client", true);
-        let rsp = client.handler4(&JunkArgs::default()).wait().unwrap();
+            net.enable("test_client", true);
+            let rsp = client.handler4(&JunkArgs::default()).await.unwrap();
 
-        assert_eq!(
-            JunkReply {
-                x: "pointer".to_owned(),
-            },
-            rsp,
-        );
+            assert_eq!(
+                JunkReply {
+                    x: "pointer".to_owned(),
+                },
+                rsp,
+            );
+        });
     }
 
     // test net.GetCount()
     #[test]
     fn test_count() {
-        init_logger();
+        block_on(async {
+            init_logger();
 
-        let (net, _, _) = junk_suit();
+            let (net, _, _) = junk_suit();
 
-        let client = JunkClient::new(net.create_client("test_client".to_owned()));
-        net.connect("test_client", "test_server");
-        net.enable("test_client", true);
+            let client = JunkClient::new(net.create_client("test_client".to_owned()));
+            net.connect("test_client", "test_server");
+            net.enable("test_client", true);
 
-        for i in 0..=16 {
-            let reply = client.handler2(&JunkArgs { x: i }).wait().unwrap();
-            assert_eq!(reply.x, format!("handler2-{}", i));
-        }
+            for i in 0..=16 {
+                let reply = client.handler2(&JunkArgs { x: i }).await.unwrap();
+                assert_eq!(reply.x, format!("handler2-{}", i));
+            }
 
-        assert_eq!(net.count("test_server"), 17,);
+            assert_eq!(net.count("test_server"), 17,);
+        });
     }
 
     // test RPCs from concurrent Clients
     #[test]
     fn test_concurrent_many() {
-        init_logger();
+        block_on(async {
+            init_logger();
 
-        let (net, server, _) = junk_suit();
-        let server_name = server.name();
+            let (net, server, _) = junk_suit();
+            let server_name = server.name();
 
-        let pool = futures_cpupool::CpuPool::new_num_cpus();
-        let (tx, rx) = mpsc::channel::<usize>();
+            let pool = ThreadPool::new().unwrap();
+            let (tx, rx) = mpsc::channel::<usize>();
 
-        let nclients = 20usize;
-        let nrpcs = 10usize;
-        for i in 0..nclients {
-            let net = net.clone();
-            let sender = tx.clone();
-            let server_name_ = server_name.to_string();
+            let nclients = 20usize;
+            let nrpcs = 10usize;
+            for i in 0..nclients {
+                let net = net.clone();
+                let sender = tx.clone();
+                let server_name_ = server_name.to_string();
 
-            pool.spawn_fn(move || {
-                let mut n = 0;
-                let client_name = format!("client-{}", i);
-                let client = JunkClient::new(net.create_client(client_name.clone()));
-                net.enable(&client_name, true);
-                net.connect(&client_name, &server_name_);
+                pool.spawn_ok(async move {
+                    let mut n = 0;
+                    let client_name = format!("client-{}", i);
+                    let client = JunkClient::new(net.create_client(client_name.clone()));
+                    net.enable(&client_name, true);
+                    net.connect(&client_name, &server_name_);
 
-                for j in 0..nrpcs {
-                    let x = (i * 100 + j) as i64;
-                    let reply = client.handler2(&JunkArgs { x }).wait().unwrap();
-                    assert_eq!(reply.x, format!("handler2-{}", x));
-                    n += 1;
-                }
+                    for j in 0..nrpcs {
+                        let x = (i * 100 + j) as i64;
+                        let reply = client.handler2(&JunkArgs { x }).await.unwrap();
+                        assert_eq!(reply.x, format!("handler2-{}", x));
+                        n += 1;
+                    }
 
-                sender.send(n)
-            })
-            .forget();
-        }
+                    sender.send(n).unwrap();
+                });
+            }
 
-        let mut total = 0;
-        for _ in 0..nclients {
-            total += rx.recv().unwrap();
-        }
-        assert_eq!(total, nrpcs * nclients);
-        let n = net.count(&server_name);
-        assert_eq!(n, total);
+            let mut total = 0;
+            for _ in 0..nclients {
+                total += rx.recv().unwrap();
+            }
+            assert_eq!(total, nrpcs * nclients);
+            let n = net.count(&server_name);
+            assert_eq!(n, total);
+        });
     }
 
     fn junk_suit() -> (Network, Server, JunkService) {
@@ -1010,159 +842,162 @@ mod tests {
 
     #[test]
     fn test_unreliable() {
-        init_logger();
+        block_on(async {
+            init_logger();
 
-        let (net, server, _) = junk_suit();
-        let server_name = server.name();
-        net.set_reliable(false);
+            let (net, server, _) = junk_suit();
+            let server_name = server.name();
+            net.set_reliable(false);
 
-        let pool = futures_cpupool::CpuPool::new_num_cpus();
-        let (tx, rx) = mpsc::channel::<usize>();
-        let nclients = 300;
-        for i in 0..nclients {
-            let sender = tx.clone();
-            let mut n = 0;
-            let server_name_ = server_name.to_owned();
-            let net = net.clone();
+            let pool = ThreadPool::new().unwrap();
+            let (tx, rx) = mpsc::channel::<usize>();
+            let nclients = 300;
+            for i in 0..nclients {
+                let sender = tx.clone();
+                let mut n = 0;
+                let server_name_ = server_name.to_owned();
+                let net = net.clone();
 
-            pool.spawn_fn(move || {
-                let client_name = format!("client-{}", i);
-                let client = JunkClient::new(net.create_client(client_name.clone()));
-                net.enable(&client_name, true);
-                net.connect(&client_name, &server_name_);
+                pool.spawn_ok(async move {
+                    let client_name = format!("client-{}", i);
+                    let client = JunkClient::new(net.create_client(client_name.clone()));
+                    net.enable(&client_name, true);
+                    net.connect(&client_name, &server_name_);
 
-                let x = i * 100;
-                if let Ok(reply) = client.handler2(&JunkArgs { x }).wait() {
-                    assert_eq!(reply.x, format!("handler2-{}", x));
-                    n += 1;
-                }
-                sender.send(n)
-            })
-            .forget();
-        }
-        let mut total = 0;
-        for _ in 0..nclients {
-            total += rx.recv().unwrap();
-        }
-        assert!(
-            !(total == nclients as _ || total == 0),
-            "all RPCs succeeded despite unreliable total {}, nclients {}",
-            total,
-            nclients
-        );
+                    let x = i * 100;
+                    if let Ok(reply) = client.handler2(&JunkArgs { x }).await {
+                        assert_eq!(reply.x, format!("handler2-{}", x));
+                        n += 1;
+                    }
+                    sender.send(n).unwrap();
+                });
+            }
+            let mut total = 0;
+            for _ in 0..nclients {
+                total += rx.recv().unwrap();
+            }
+            assert!(
+                !(total == nclients as _ || total == 0),
+                "all RPCs succeeded despite unreliable total {}, nclients {}",
+                total,
+                nclients
+            );
+        });
     }
 
     // test concurrent RPCs from a single Client
     #[test]
     fn test_concurrent_one() {
-        init_logger();
+        block_on(async {
+            init_logger();
 
-        let (net, server, junk_server) = junk_suit();
-        let server_name = server.name();
+            let (net, server, junk_server) = junk_suit();
+            let server_name = server.name();
 
-        let pool = futures_cpupool::CpuPool::new_num_cpus();
-        let (tx, rx) = mpsc::channel::<usize>();
-        let nrpcs = 20;
-        for i in 0..20 {
-            let sender = tx.clone();
-            let client_name = format!("client-{}", i);
-            let client = JunkClient::new(net.create_client(client_name.clone()));
-            net.enable(&client_name, true);
-            net.connect(&client_name, server_name);
+            let pool = ThreadPool::new().unwrap();
+            let (tx, rx) = mpsc::channel::<usize>();
+            let nrpcs = 20;
+            for i in 0..20 {
+                let sender = tx.clone();
+                let client_name = format!("client-{}", i);
+                let client = JunkClient::new(net.create_client(client_name.clone()));
+                net.enable(&client_name, true);
+                net.connect(&client_name, server_name);
 
-            pool.spawn_fn(move || {
-                let mut n = 0;
-                let x = i + 100;
-                let reply = client.handler2(&JunkArgs { x }).wait().unwrap();
-                assert_eq!(reply.x, format!("handler2-{}", x));
-                n += 1;
-                sender.send(n)
-            })
-            .forget();
-        }
+                pool.spawn_ok(async move {
+                    let mut n = 0;
+                    let x = i + 100;
+                    let reply = client.handler2(&JunkArgs { x }).await.unwrap();
+                    assert_eq!(reply.x, format!("handler2-{}", x));
+                    n += 1;
+                    sender.send(n).unwrap();
+                });
+            }
 
-        let mut total = 0;
-        for _ in 0..nrpcs {
-            total += rx.recv().unwrap();
-        }
-        assert!(
-            total == nrpcs,
-            "wrong number of RPCs completed, got {}, expected {}",
-            total,
-            nrpcs
-        );
+            let mut total = 0;
+            for _ in 0..nrpcs {
+                total += rx.recv().unwrap();
+            }
+            assert!(
+                total == nrpcs,
+                "wrong number of RPCs completed, got {}, expected {}",
+                total,
+                nrpcs
+            );
 
-        assert_eq!(
-            junk_server.inner.lock().unwrap().log2.len(),
-            nrpcs,
-            "wrong number of RPCs delivered"
-        );
+            assert_eq!(
+                junk_server.inner.lock().unwrap().log2.len(),
+                nrpcs,
+                "wrong number of RPCs delivered"
+            );
 
-        let n = net.count(server.name());
-        assert_eq!(n, total, "wrong count() {}, expected {}", n, total);
+            let n = net.count(server.name());
+            assert_eq!(n, total, "wrong count() {}, expected {}", n, total);
+        });
     }
 
     // regression: an RPC that's delayed during Enabled=false
     // should not delay subsequent RPCs (e.g. after Enabled=true).
     #[test]
     fn test_regression1() {
-        init_logger();
+        block_on(async {
+            init_logger();
 
-        let (net, server, junk_server) = junk_suit();
-        let server_name = server.name();
+            let (net, server, junk_server) = junk_suit();
+            let server_name = server.name();
 
-        let client_name = "client";
-        let client = JunkClient::new(net.create_client(client_name.to_owned()));
-        net.connect(client_name, server_name);
+            let client_name = "client";
+            let client = JunkClient::new(net.create_client(client_name.to_owned()));
+            net.connect(client_name, server_name);
 
-        // start some RPCs while the Client is disabled.
-        // they'll be delayed.
-        net.enable(client_name, false);
+            // start some RPCs while the Client is disabled.
+            // they'll be delayed.
+            net.enable(client_name, false);
 
-        let pool = futures_cpupool::CpuPool::new_num_cpus();
-        let (tx, rx) = mpsc::channel::<bool>();
-        let nrpcs = 20;
-        for i in 0..20 {
-            let sender = tx.clone();
-            let client_ = client.clone();
-            pool.spawn_fn(move || {
-                let x = i + 100;
-                // this call ought to return false.
-                let _ = client_.handler2(&JunkArgs { x });
-                sender.send(true)
-            })
-            .forget();
-        }
+            let pool = ThreadPool::new().unwrap();
+            let (tx, rx) = mpsc::channel::<bool>();
+            let nrpcs = 20;
+            for i in 0..20 {
+                let sender = tx.clone();
+                let client_ = client.clone();
+                pool.spawn_ok(async move {
+                    let x = i + 100;
+                    // this call ought to return false.
+                    let _ = client_.handler2(&JunkArgs { x });
+                    sender.send(true).unwrap();
+                });
+            }
 
-        // FIXME: have to sleep 300ms to pass the test
-        //        in my computer (i5-4200U, 4 threads).
-        thread::sleep(time::Duration::from_millis(100 * 3));
+            // FIXME: have to sleep 300ms to pass the test
+            //        in my computer (i5-4200U, 4 threads).
+            thread::sleep(time::Duration::from_millis(100 * 3));
 
-        let t0 = time::Instant::now();
-        net.enable(client_name, true);
-        let x = 99;
-        let reply = client.handler2(&JunkArgs { x }).wait().unwrap();
-        assert_eq!(reply.x, format!("handler2-{}", x));
-        let dur = t0.elapsed();
-        assert!(
-            dur < time::Duration::from_millis(30),
-            "RPC took too long ({:?}) after Enable",
-            dur
-        );
+            let t0 = time::Instant::now();
+            net.enable(client_name, true);
+            let x = 99;
+            let reply = client.handler2(&JunkArgs { x }).await.unwrap();
+            assert_eq!(reply.x, format!("handler2-{}", x));
+            let dur = t0.elapsed();
+            assert!(
+                dur < time::Duration::from_millis(30),
+                "RPC took too long ({:?}) after Enable",
+                dur
+            );
 
-        for _ in 0..nrpcs {
-            rx.recv().unwrap();
-        }
+            for _ in 0..nrpcs {
+                rx.recv().unwrap();
+            }
 
-        let len = junk_server.inner.lock().unwrap().log2.len();
-        assert!(
-            len == 1,
-            "wrong number ({}) of RPCs delivered, expected 1",
-            len
-        );
+            let len = junk_server.inner.lock().unwrap().log2.len();
+            assert!(
+                len == 1,
+                "wrong number ({}) of RPCs delivered, expected 1",
+                len
+            );
 
-        let n = net.count(server.name());
-        assert!(n == 1, "wrong count() {}, expected 1", n);
+            let n = net.count(server.name());
+            assert!(n == 1, "wrong count() {}, expected 1", n);
+        });
     }
 
     // if an RPC is stuck in a server, and the server
@@ -1180,10 +1015,11 @@ mod tests {
         net.connect(client_name, &server_name);
         net.enable(client_name, true);
         let (tx, rx) = mpsc::channel();
-        client.spawn(client.handler3(&JunkArgs { x: 99 }).then(move |reply| {
+        let cli = client.clone();
+        client.spawn(async move {
+            let reply = cli.handler3(&JunkArgs { x: 99 }).await;
             tx.send(reply).unwrap();
-            Ok(())
-        }));
+        });
         thread::sleep(time::Duration::from_secs(1));
         rx.recv_timeout(time::Duration::from_millis(100))
             .unwrap_err();
@@ -1216,37 +1052,39 @@ mod tests {
 
     #[test]
     fn test_rpc_hooks() {
-        init_logger();
-        let (net, _, _) = junk_suit();
+        block_on(async {
+            init_logger();
+            let (net, _, _) = junk_suit();
 
-        let raw_cli = net.create_client("test_client".to_owned());
-        let hook = Arc::new(Hooks {
-            drop_req: AtomicBool::new(false),
-            drop_resp: AtomicBool::new(false),
+            let raw_cli = net.create_client("test_client".to_owned());
+            let hook = Arc::new(Hooks {
+                drop_req: AtomicBool::new(false),
+                drop_resp: AtomicBool::new(false),
+            });
+            raw_cli.set_hooks(hook.clone());
+
+            let client = JunkClient::new(raw_cli);
+            net.connect("test_client", "test_server");
+            net.enable("test_client", true);
+
+            let i = 100;
+            let reply = client.handler2(&JunkArgs { x: i }).await.unwrap();
+            assert_eq!(reply.x, format!("handler2-{}", i));
+            hook.drop_req.store(true, Ordering::Relaxed);
+            assert_eq!(
+                client.handler2(&JunkArgs { x: i }).await.unwrap_err(),
+                Error::Other("reqhook".to_owned())
+            );
+            hook.drop_req.store(false, Ordering::Relaxed);
+            hook.drop_resp.store(true, Ordering::Relaxed);
+            assert_eq!(
+                client.handler2(&JunkArgs { x: i }).await.unwrap_err(),
+                Error::Other("resphook".to_owned())
+            );
+            hook.drop_resp.store(false, Ordering::Relaxed);
+            client.handler2(&JunkArgs { x: i }).await.unwrap();
+            assert_eq!(reply.x, format!("handler2-{}", i));
         });
-        raw_cli.set_hooks(hook.clone());
-
-        let client = JunkClient::new(raw_cli);
-        net.connect("test_client", "test_server");
-        net.enable("test_client", true);
-
-        let i = 100;
-        let reply = client.handler2(&JunkArgs { x: i }).wait().unwrap();
-        assert_eq!(reply.x, format!("handler2-{}", i));
-        hook.drop_req.store(true, Ordering::Relaxed);
-        assert_eq!(
-            client.handler2(&JunkArgs { x: i }).wait().unwrap_err(),
-            Error::Other("reqhook".to_owned())
-        );
-        hook.drop_req.store(false, Ordering::Relaxed);
-        hook.drop_resp.store(true, Ordering::Relaxed);
-        assert_eq!(
-            client.handler2(&JunkArgs { x: i }).wait().unwrap_err(),
-            Error::Other("resphook".to_owned())
-        );
-        hook.drop_resp.store(false, Ordering::Relaxed);
-        client.handler2(&JunkArgs { x: i }).wait().unwrap();
-        assert_eq!(reply.x, format!("handler2-{}", i));
     }
 
     #[bench]
@@ -1258,9 +1096,7 @@ mod tests {
         net.connect(client_name, server_name);
         net.enable(client_name, true);
 
-        b.iter(|| {
-            client.handler2(&JunkArgs { x: 111 }).wait().unwrap();
-        });
+        b.iter(|| block_on(client.handler2(&JunkArgs { x: 111 })));
         // i5-4200U, 21 microseconds per RPC
     }
 }

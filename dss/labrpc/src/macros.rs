@@ -18,13 +18,16 @@ macro_rules! service {
             use super::*;
             // $( use super::$input; )*
             // $( use super::$output;)*
+            use async_trait::async_trait;
+            use futures::future::BoxFuture;
 
             extern crate futures as __futures;
 
-            pub trait Service: Clone + Send + 'static {
+            #[async_trait]
+            pub trait Service: Clone + Send + Sync + 'static {
                 $(
                     $(#[$method_attr])*
-                    fn $method_name(&self, req: $input) -> $crate::RpcFuture<$output>;
+                    async fn $method_name(&self, req: $input) -> Result<$output>;
                 )*
             }
 
@@ -38,12 +41,12 @@ macro_rules! service {
                 }
 
                 pub fn spawn<F>(&self, f: F)
-                where F: __futures::Future<Item=(), Error=()> + Send + 'static
+                where F: __futures::Future<Output = ()> + Send + 'static
                 {
-                    self.client.worker.spawn(f).forget()
+                    self.client.worker.spawn_ok(f);
                 }
 
-                $(pub fn $method_name(&self, args: &$input) -> $crate::RpcFuture<$output> {
+                $(pub fn $method_name(&self, args: &$input) -> BoxFuture<Result<$output>> {
                     let fq_name = concat!(stringify!($svc_name), ".", stringify!($method_name));
                     self.client.call(fq_name, args)
                 })*
@@ -55,21 +58,23 @@ macro_rules! service {
                     svc: Mutex<S>,
                 }
                 impl<S: Service> $crate::HandlerFactory for Factory<S> {
-                    fn handler(&self, name: &'static str) -> Box<$crate::Handler> {
-                        use self::__futures::Future;
+                    fn handler(&self, name: &'static str) -> Box<dyn FnOnce(&[u8]) -> BoxFuture<Result<Vec<u8>>>> {
                         let s = self.svc.lock().unwrap().clone();
                         Box::new(move |req| {
                             match name {
                                 $(stringify!($method_name) => {
                                     let request = match labcodec::decode(req) {
                                         Ok(req) => req,
-                                        Err(e) => return Box::new (
-                                            __futures::future::result(
-                                                Err($crate::Error::Decode(e))
+                                        Err(e) => return Box::pin (
+                                            __futures::future::err(
+                                                $crate::Error::Decode(e)
                                             )
                                         ),
                                     };
-                                    Box::new(s.$method_name(request).then(|resp| {
+
+                                    Box::pin(async move {
+                                        let f = s.$method_name(request);
+                                        let resp = f.await;
                                         match resp {
                                             Ok(resp) => {
                                                 let mut rsp = vec![];
@@ -78,13 +83,13 @@ macro_rules! service {
                                             }
                                             Err(e) => Err(e),
                                         }
-                                    }))
+                                    })
                                 })*
                                 other => {
-                                    Box::new(__futures::future::result(
-                                        Err($crate::Error::Unimplemented(
+                                    Box::pin(__futures::future::err(
+                                        $crate::Error::Unimplemented(
                                             format!("unknown {} in {}", other, stringify!($svc_name))
-                                        ))
+                                        )
                                     ))
                                 }
                             }

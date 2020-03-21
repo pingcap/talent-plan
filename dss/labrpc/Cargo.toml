@@ -9,9 +9,9 @@ labcodec = { path = "../labcodec" }
 prost = "0.5"
 bytes = "0.4.7"
 rand = "0.4"
-futures = "0.1"
-futures-timer = "0.1"
-futures-cpupool = "0.1"
+futures = { version = "0.3", features = ["thread-pool"] }
+async-trait = "0.1"
+futures-timer = "3.0"
 log = "0.4"
 hashbrown = "0.1"
 
