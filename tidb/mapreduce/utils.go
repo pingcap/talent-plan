@@ -61,12 +61,46 @@ func CheckFile(expected, got string) (string, bool) {
 	}
 	s1 := strings.TrimSpace(string(c1))
 	s2 := strings.TrimSpace(string(c2))
-	if s1 == s2 {
-		return "", true
+
+	s1Urls := strings.Split(s1, "\n")
+	s2Urls := strings.Split(s2, "\n")
+	for i := 0; i < len(s1Urls); i++ {
+		if s1Urls[i] == s2Urls[i] {
+			continue
+		}
+
+		// group all urls that have same frequency together
+		expectUrls := make([]string, 0)
+		gotUrls := make([]string, 0)
+		tmp := strings.Split(s1Urls[i], " ")
+		frequency := tmp[0]
+		// look ahead `j` row, until frequency doesn't match
+		var j int
+		for j = 0; i+j < len(s1Urls); j++ {
+			tmp := strings.Split(s1Urls[i+j], " ")
+			frequency_, expectUrl := tmp[0], tmp[1]
+			tmp = strings.Split(s2Urls[i+j], " ")
+			_, gotUrl := tmp[0], tmp[1]
+			if frequency_ != frequency {
+				break
+			} else {
+				expectUrls = append(expectUrls, expectUrl)
+				gotUrls = append(gotUrls, gotUrl)
+			}
+		}
+		i = i + j
+		// check if these urls are equal after sorted
+		sort.Strings(expectUrls)
+		sort.Strings(gotUrls)
+		expect := strings.Join(expectUrls, ",")
+		got := strings.Join(gotUrls, ",")
+		if expect != got {
+			errMsg := fmt.Sprintf("expected:\n%s\n, but got:\n%s\n", expect, got)
+			return errMsg, false
+		}
 	}
 
-	errMsg := fmt.Sprintf("expected:\n%s\n, but got:\n%s\n", c1, c2)
-	return errMsg, false
+	return "", true
 }
 
 // CreateFileAndBuf opens or creates a specific file for writing.
