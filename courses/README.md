@@ -11,4 +11,3 @@ Here we list all public courses of Talent Plan, including:
 - TP 302: TinySQL, a distributed relational database in Go(WIP)
 - TP 401: Deep Dive into TiDB(WIP)
 - TP 402: Deep Dive into TiKV(WIP)
-
