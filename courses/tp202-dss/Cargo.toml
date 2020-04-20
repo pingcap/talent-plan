@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "labcodec",
+    "labrpc",
+    "linearizability",
+    "raft",
+    "percolator"
+]

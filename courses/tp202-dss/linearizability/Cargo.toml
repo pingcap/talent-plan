@@ -1,0 +1,9 @@
+[package]
+name = "linearizability"
+version = "0.1.0"
+edition = "2018"
+publish = false
+
+[dev-dependencies]
+regex = "1"
+lazy_static = "1.2.0"

@@ -1,0 +1,23 @@
+[package]
+name = "percolator"
+version = "0.1.0"
+authors = ["Ryan Leung <rleungx@gmail.com>"]
+edition = "2018"
+build = "build.rs"
+publish = false
+
+[dependencies]
+futures = "0.1"
+futures-timer = "0.1"
+prost-derive = "0.5.0"
+prost = "0.5"
+bytes = "0.4.7"
+log = "0.4"
+labrpc = { path = "../labrpc" }
+labcodec = { path = "../labcodec" }
+
+[build-dependencies]
+prost-build = "0.5.0"
+
+[dev-dependencies]
+env_logger = "0.6"

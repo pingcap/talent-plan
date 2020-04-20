@@ -1,0 +1,16 @@
+[package]
+name = "labcodec"
+version = "0.1.0"
+build = "build.rs"
+edition = "2018"
+publish = false
+
+[dependencies]
+prost = "0.5"
+bytes = "0.4.7"
+
+[dev-dependencies]
+prost-derive = "0.5"
+
+[build-dependencies]
+prost-build = "0.5"
