@@ -5,7 +5,7 @@ Git and GitHub are commonly used tools in open source practice. Whether you are 
 ***Important note:*** ***How to Use Git and GitHub is in an alpha
 state.*** Its scope is limited. If you are taking it now you
 are brave, but you are also an early tester and your feedback is greatly
-appreciated. You are encouraged to reporting bugs, suggest changes, update the contents, etc. **See [Contributing Guide](CONTRIBUTING.md) for more details.** 
+appreciated. You are encouraged to reporting bugs, suggest changes, update the contents, etc. **See [Contributing Guide](../CONTRIBUTING.md) for more details.** 
 
 
 ## Who this is for
@@ -77,8 +77,8 @@ No assignments, the git skill will be tested all the time you participate in an 
 
 ## Users who took this course also took
 
-* TP 101: Introduction to Open Source Software
-* TP 103: Build A Welcoming Open Source Community
+* [TP 101: Introduction to Open Source Software](tp101-intro-to-oss.md)
+* [TP 103: Build A Welcoming Open Source Community](tp103-open-source-community.md)
 
 
 ## Acknowledgement

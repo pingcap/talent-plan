@@ -5,7 +5,7 @@ This course includes a collection of some open source software related learning 
 ***Important note:*** ***Introduction to Open Source Software is in an alpha
 state.*** Its scope is limited. If you are taking it now you
 are brave, but you are also an early tester and your feedback is greatly
-appreciated. You are encouraged to reporting bugs, suggest changes, update the contents, etc. **See [Contributing Guide](CONTRIBUTING.md) for more details.** 
+appreciated. You are encouraged to reporting bugs, suggest changes, update the contents, etc. **See [Contributing Guide](../CONTRIBUTING.md) for more details.** 
 
 ## Who this is for
 
@@ -61,8 +61,8 @@ The mindmap is encourged to be submitted by creating a pull request to the this 
 
 ## Users who took this course also took
 
-* TP 102: How to Use Git and GitHub
-* TP 103: Build A Welcoming Open Source Community
+* [TP 102: How to Use Git and GitHub](tp102-how-to-use-git-github.md)
+* [TP 103: Build A Welcoming Open Source Community](tp103-open-source-community.md)
 
 ## Acknowledgement
 

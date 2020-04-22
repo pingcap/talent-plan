@@ -5,7 +5,8 @@ A welcoming community is an investment into your project’s future and reputati
 ***Important note:*** ***Build A Welcoming Community is in an alpha
 state.*** Its scope is limited. If you are taking it now you
 are brave, but you are also an early tester and your feedback is greatly
-appreciated. You are encouraged to reporting bugs, suggest changes, update the contents, etc. **See [Contributing Guide](CONTRIBUTING.md) for more details.** 
+appreciated. You are encouraged to reporting bugs, suggest changes, update the contents, etc. **See [Contributing Guide](../CONTRIBUTING.md) for more details.** 
+
 ## Who this is for
 
 Owners of open source projects, open source enthusiasts
@@ -81,8 +82,8 @@ The outcome is encouraged to be supplemented into [Case Study](#case-study) by c
 
 ## Users who took this course also took
 
-* TP 101: Introduction to Open Source Software
-* TP 102: How to Use Git and GitHub
+* [TP 101: Introduction to Open Source Software](tp101-intro-to-oss.md)
+* [TP 102: How to Use Git and GitHub](tp102-how-to-use-git-github.md)
 
 ## Acknowledgement
 
