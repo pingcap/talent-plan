@@ -536,21 +536,4 @@ pub mod tests {
         block_on(async { client.handler2(&JunkArgs { x: i }).await.unwrap() });
         assert_eq!(reply.x, format!("handler2-{}", i));
     }
-
-    /*
-    #[bench]
-    fn bench_rpc(b: &mut test::Bencher) {
-        let (net, server, _junk_server) = junk_suit();
-        let server_name = server.name();
-        let client_name = "client";
-        let client = JunkClient::new(net.create_client(client_name.to_owned()));
-        net.connect(client_name, server_name);
-        net.enable(client_name, true);
-
-        b.iter(|| {
-            block_on(async { client.handler2(&JunkArgs { x: 111 }).await.unwrap() });
-        });
-        // i5-4200U, 21 microseconds per RPC
-    }
-    */
 }
