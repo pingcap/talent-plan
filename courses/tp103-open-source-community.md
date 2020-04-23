@@ -6,7 +6,6 @@ A welcoming community is an investment into your project’s future and reputati
 state.*** Its scope is limited. If you are taking it now you
 are brave, but you are also an early tester and your feedback is greatly
 appreciated. You are encouraged to reporting bugs, suggest changes, update the contents, etc. **See [Contributing Guide](../CONTRIBUTING.md) for more details.** 
-
 ## Who this is for
 
 Owners of open source projects, open source enthusiasts
@@ -78,7 +77,7 @@ We recommend you first complete [TP 101: Introduction to Open Source Software](.
 
 * Taking an open source project as an example, try to figure out the pros and cons of its community.
 
-The outcome is encouraged to be supplemented into [Case Study](#case-study) by creating a pull request. Learn how to create a pull request in TP 102: How to Use Git and GitHub.
+The outcome is encouraged to be supplemented into [Case Study](#case-study) by creating a pull request. Learn how to create a pull request in [TP 102: How to Use Git and GitHub](tp102-how-to-use-git-github.md).
 
 ## Users who took this course also took
 
@@ -88,3 +87,17 @@ The outcome is encouraged to be supplemented into [Case Study](#case-study) by c
 ## Acknowledgement
 
 Special Thanks to `Calvin Weng`, `Coco Yi`, `Shen Lin`, `Linda Wang`, `Wenting Liu`, `Yajing Wang`for testing this course and updating the materials.
+
+
+
+
+
+
+
+
+
+
+
+
+
+

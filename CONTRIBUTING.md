@@ -21,4 +21,4 @@ We love contributions from the community. Here are just a few of the ways you ca
 3. Open a pull request to upstream
 4. Request a review from the reviewers
 
-Want to konw more about how to use Git & GitHub to make contributions? Click [how to use Git & GitHub]() courses for more help
+Want to konw more about how to use Git & GitHub to make contributions? Click [how to use Git & GitHub](courses/tp102-how-to-use-git-github.md) courses for more help

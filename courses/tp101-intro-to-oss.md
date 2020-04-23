@@ -5,7 +5,7 @@ This course includes a collection of some open source software related learning 
 ***Important note:*** ***Introduction to Open Source Software is in an alpha
 state.*** Its scope is limited. If you are taking it now you
 are brave, but you are also an early tester and your feedback is greatly
-appreciated. You are encouraged to reporting bugs, suggest changes, update the contents, etc. **See [Contributing Guide](../CONTRIBUTING.md) for more details.** 
+appreciated. You are encouraged to reporting bugs, suggest changes, update the contents, etc. **See [Contributing Guide](../CONTRIBUTING.md)for more details.** 
 
 ## Who this is for
 
@@ -57,7 +57,7 @@ You can self-test your learning outcomes by drawing a mindmap of (either of them
 * pros and cons of open source
 * how to choose an open source license
 
-The mindmap is encourged to be submitted by creating a pull request to the this course. Learn how to create a pull request in TP 102: How to Use Git and GitHub 
+The mindmap is encourged to be submitted by creating a pull request to the this course. Learn how to create a pull request in [TP 102: How to Use Git and GitHub](tp102-how-to-use-git-github.md)
 
 ## Users who took this course also took
 
@@ -66,4 +66,20 @@ The mindmap is encourged to be submitted by creating a pull request to the this 
 
 ## Acknowledgement
 
-Special Thanks to `Jamie Xu`, `Lillian Li`, `Ran Huang`, and `Weiwei Wang` for testing this course and updating the materials.
+Special Thanks to `Jamie Xu`, `Lillian Li`, `Ran Huang`, and `Weiwei Wang` for testing this course and updating the materials
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

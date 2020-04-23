@@ -22,9 +22,9 @@ Open source collaboration includes a series of open source related learning mate
 
 Two courses are included in this series, which are:
 
-- **[TP 201: Practical Networked Applications in Rust](courses/tp201-rust/README.md)**. A series of projects that incrementally develop a single Rust project from the ground up into a high-performance, networked, parallel and asynchronous key/value store. Along the way various real-world and practical Rust development subject matter are explored and discussed.
+- [TP 201: Practical Networked Applications in Rust](rust/README.md). A series of projects that incrementally develop a single Rust project from the ground up into a high-performance, networked, parallel and asynchronous key/value store. Along the way various real-world and practical Rust development subject matter are explored and discussed.
 
-- **[TP 202: Distributed Systems in Rust](courses/tp202-dss/README.md)**. Adapted from the [MIT 6.824](http://nil.csail.mit.edu/6.824/2017/index.html) distributed systems coursework, this course focuses on implementing important distributed algorithms, including the [Raft](https://raft.github.io/) consensus algorithm, and the [Percolator](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36726.pdf) distributed transaction protocol.
+- [TP 202: Distributed Systems in Rust](dss/README.md). Adapted from the [MIT 6.824](http://nil.csail.mit.edu/6.824/2017/index.html) distributed systems coursework, this course focuses on implementing important distributed algorithms, including the [Raft](https://raft.github.io/) consensus algorithm, and the [Percolator](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36726.pdf) distributed transaction protocol.
 
 ### Series 3: Distributed Database 
 
@@ -35,8 +35,9 @@ Two courses are included in this series, which are:
 
 ### Series 4: Deep Dive into TiDB Ecosystems 
 
-- TP 401: Deep Dive into TiDB(WIP)
-- TP 402: Deep Dive into TiKV(WIP)
+- Deep Dive into TiDB(WIP)
+- Deep Dive into TiKV(WIP)
+
 
 See [Courses](courses/README.md) for more details
 
