@@ -3,13 +3,14 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use rand::seq::SliceRandom;
+
 use crate::kvraft::errors::{Error, Result};
 use crate::kvraft::{client, server};
 use crate::proto::kvraftpb::*;
 use crate::proto::raftpb::*;
 use crate::raft;
 use crate::raft::persister::*;
-use rand::Rng;
 
 static ID: AtomicUsize = AtomicUsize::new(300_000);
 
@@ -201,7 +202,7 @@ impl Config {
             self.net.connect(&name, &format!("{}", j));
         }
 
-        rand::thread_rng().shuffle(&mut ends);
+        ends.shuffle(&mut rand::thread_rng());
         let ck_name = uniqstring();
         let ck = client::Clerk::new(ck_name.clone(), ends);
         self.clerks.lock().unwrap().insert(ck_name, endnames);

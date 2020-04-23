@@ -1,8 +1,7 @@
 use std::sync::mpsc::{sync_channel, Receiver};
 use std::sync::Arc;
 
-use futures::sync::mpsc::UnboundedSender;
-use labrpc::RpcFuture;
+use futures::channel::mpsc::UnboundedSender;
 
 #[cfg(test)]
 pub mod config;
@@ -273,11 +272,12 @@ impl Node {
     }
 }
 
+#[async_trait::async_trait]
 impl RaftService for Node {
     // example RequestVote RPC handler.
     //
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
-    fn request_vote(&self, args: RequestVoteArgs) -> RpcFuture<RequestVoteReply> {
+    async fn request_vote(&self, args: RequestVoteArgs) -> labrpc::Result<RequestVoteReply> {
         // Your code here (2A, 2B).
         crate::your_code_here(args)
     }

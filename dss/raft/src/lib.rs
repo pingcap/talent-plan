@@ -1,6 +1,3 @@
-#![feature(integer_atomics)]
-#![deny(clippy::all)]
-
 #[allow(unused_imports)]
 #[macro_use]
 extern crate log;

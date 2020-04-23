@@ -4,12 +4,14 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use futures::{sync::mpsc::unbounded, Future, Stream};
+use futures::channel::mpsc::unbounded;
+use futures::future;
+use futures::stream::StreamExt;
+use rand::Rng;
 
 use crate::proto::raftpb::*;
 use crate::raft;
 use crate::raft::persister::*;
-use rand::Rng;
 
 static ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -376,42 +378,40 @@ impl Config {
         // listen to messages from Raft indicating newly committed messages.
         let (tx, apply_ch) = unbounded();
         let storage = self.storage.clone();
-        let apply = apply_ch
-            .for_each(move |cmd: raft::ApplyMsg| {
-                if !cmd.command_valid {
-                    // ignore other types of ApplyMsg
-                    return Ok(());
-                }
-                match labcodec::decode(&cmd.command) {
-                    Ok(entry) => {
-                        let mut s = storage.lock().unwrap();
-                        for (j, log) in s.logs.iter().enumerate() {
-                            if let Some(old) = log.get(&cmd.command_index) {
-                                if *old != entry {
-                                    // some server has already committed a different value for this entry!
-                                    panic!(
-                                        "commit index={:?} server={:?} {:?} != server={:?} {:?}",
-                                        cmd.command_index, i, entry, j, old
-                                    );
-                                }
+        let apply = apply_ch.for_each(move |cmd: raft::ApplyMsg| {
+            if !cmd.command_valid {
+                // ignore other types of ApplyMsg
+                return future::ready(());
+            }
+            match labcodec::decode(&cmd.command) {
+                Ok(entry) => {
+                    let mut s = storage.lock().unwrap();
+                    for (j, log) in s.logs.iter().enumerate() {
+                        if let Some(old) = log.get(&cmd.command_index) {
+                            if *old != entry {
+                                // some server has already committed a different value for this entry!
+                                panic!(
+                                    "commit index={:?} server={:?} {:?} != server={:?} {:?}",
+                                    cmd.command_index, i, entry, j, old
+                                );
                             }
                         }
-                        let log = &mut s.logs[i];
-                        if cmd.command_index > 1 && log.get(&(cmd.command_index - 1)).is_none() {
-                            panic!("server {} apply out of order {}", i, cmd.command_index);
-                        }
-                        log.insert(cmd.command_index, entry);
-                        if cmd.command_index > s.max_index {
-                            s.max_index = cmd.command_index;
-                        }
                     }
-                    Err(e) => {
-                        panic!("committed command is not an entry {:?}", e);
+                    let log = &mut s.logs[i];
+                    if cmd.command_index > 1 && log.get(&(cmd.command_index - 1)).is_none() {
+                        panic!("server {} apply out of order {}", i, cmd.command_index);
+                    }
+                    log.insert(cmd.command_index, entry);
+                    if cmd.command_index > s.max_index {
+                        s.max_index = cmd.command_index;
                     }
                 }
-                Ok(())
-            })
-            .map_err(move |e| debug!("raft {} apply stopped: {:?}", i, e));
+                Err(e) => {
+                    panic!("committed command is not an entry {:?}", e);
+                }
+            }
+            future::ready(())
+        });
         self.net.spawn_poller(apply);
 
         let rf = raft::Raft::new(clients, i, Box::new(self.saved[i].clone()), tx);
