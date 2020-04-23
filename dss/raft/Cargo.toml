@@ -14,6 +14,7 @@ publish = false
 [dependencies]
 async-trait = "0.1"
 futures = "0.3"
+futures-timer = "3.0"
 log = "0.4"
 prost = "0.6"
 prost-derive = "0.6"
@@ -25,7 +26,6 @@ linearizability = { path = "../linearizability"}
 
 [dev-dependencies]
 env_logger = "0.7"
-futures-timer = "3.0"
 
 [build-dependencies]
 prost-build = "0.6"

@@ -92,11 +92,11 @@ macro_rules! service {
                     }
                 }
 
-                let factory = Factory {
+                let fact = Factory {
                     svc: Mutex::new(svc),
                 };
 
-                builder.add_service(stringify!($svc_name), Box::new(factory))
+                builder.add_service(stringify!($svc_name), Box::new(fact))
             }
         }
     };

@@ -15,7 +15,7 @@ service! {
         rpc ping(Echo) returns (Echo);
     }
 }
-use self::echo::{add_service, Client, Service};
+use echo::{add_service, Client, Service};
 
 #[derive(Clone)]
 struct EchoService;
@@ -33,7 +33,7 @@ fn main() {
     let mut builder = ServerBuilder::new(server_name.to_owned());
     add_service(EchoService, &mut builder).unwrap();
     let server = builder.build();
-    rn.add_server(server.clone());
+    rn.add_server(server);
 
     let client_name = "client";
     let client = Client::new(rn.create_client(client_name.to_owned()));

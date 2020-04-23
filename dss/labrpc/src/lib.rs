@@ -36,7 +36,7 @@ pub mod tests {
             rpc handler4(JunkArgs) returns (JunkReply);
         }
     }
-    use self::junk::{add_service, Client as JunkClient, Service as Junk};
+    use junk::{add_service, Client as JunkClient, Service as Junk};
 
     // Hand-written protobuf messages.
     #[derive(Clone, PartialEq, Message)]
