@@ -1,6 +1,7 @@
 use std::{error, fmt, result};
 
-use futures::sync::oneshot::Canceled;
+use futures::channel::oneshot::Canceled;
+
 use labcodec::{DecodeError, EncodeError};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
