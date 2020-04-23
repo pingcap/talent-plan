@@ -67,19 +67,3 @@ The mindmap is encourged to be submitted by creating a pull request to the this 
 ## Acknowledgement
 
 Special Thanks to `Jamie Xu`, `Lillian Li`, `Ran Huang`, and `Weiwei Wang` for testing this course and updating the materials
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

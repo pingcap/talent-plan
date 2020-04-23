@@ -87,17 +87,3 @@ The outcome is encouraged to be supplemented into [Case Study](#case-study) by c
 ## Acknowledgement
 
 Special Thanks to `Calvin Weng`, `Coco Yi`, `Shen Lin`, `Linda Wang`, `Wenting Liu`, `Yajing Wang`for testing this course and updating the materials.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
