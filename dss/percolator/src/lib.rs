@@ -1,7 +1,3 @@
-extern crate labcodec;
-extern crate prost_derive;
-#[macro_use]
-extern crate labrpc;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate log;
