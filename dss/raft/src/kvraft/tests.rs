@@ -79,9 +79,6 @@ where
     }
     debug!("spawn_clients_and_wait: waiting for clients");
     future::join_all(cas).map(|_| ())
-    /*.map_err(|e| {
-        panic!("spawn_clients_and_wait failed: {:?}", e);
-    })*/
 }
 
 // predict effect of append(k, val) if old value is prev.
