@@ -4,7 +4,7 @@
 
 Talent Plan is an open source training program initiated by PingCAP. It aims to create or combine some open source learning materials for people interested in open source, distributed systems, Rust, Golang, and other infrastructure knowledges. As such, a series of courses focused on open source collaboration, rust programming, distributed database and systems are provided.
 
-Note:
+> Note:
 
 > Each course is developed independently, so they vary in their presentation and their expectations from course-takers. Please see the individual course documentation for details.
 
@@ -35,8 +35,8 @@ Two courses are included in this series, which are:
 
 ### Series 4: Deep Dive into TiDB Ecosystems 
 
-- Deep Dive into TiDB(WIP)
-- Deep Dive into TiKV(WIP)
+- TP 401: Deep Dive into TiDB(WIP)
+- TP 402: Deep Dive into TiKV(WIP)
 
 
 See [Courses](courses/README.md) for more details
