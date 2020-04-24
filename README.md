@@ -30,8 +30,8 @@ Two courses are included in this series, which are:
 
 Two courses are included in this series, which are:
 
-- TP 301: TinyKV, a distributed key value database in Go(WIP) 
-- TP 302: TinySQL, a distributed relational database in Go(WIP)
+- [TP 301: TinyKV, a distributed key value database in Go](https://github.com/pingcap-incubator/tinykv) 
+- [TP 302: TinySQL, a distributed relational database in Go](https://github.com/pingcap-incubator/tinysql)
 
 ### Series 4: Deep Dive into TiDB Ecosystems 
 
