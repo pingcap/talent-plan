@@ -76,7 +76,7 @@ fn bench_rpc(c: &mut Criterion) {
     c.bench_function("rpc", |b| {
         b.iter(|| {
             black_box(block_on(async {
-                let _ = client.handler(&BenchArgs { x: 111 }).await.unwrap();
+                client.handler(&BenchArgs { x: 111 }).await.unwrap()
             }));
         })
     });
