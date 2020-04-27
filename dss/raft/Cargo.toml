@@ -15,8 +15,8 @@ publish = false
 labrpc = { path = "../labrpc" }
 labcodec = { path = "../labcodec" }
 linearizability = { path = "../linearizability"}
-prost = "0.5"
-prost-derive = "0.5"
+prost = "0.6"
+prost-derive = "0.6"
 bytes = "0.4.7"
 rand = "0.4"
 log = "0.4"
@@ -27,4 +27,4 @@ futures-timer = "0.1"
 env_logger = "0.6"
 
 [build-dependencies]
-prost-build = "0.5"
+prost-build = "0.6"
