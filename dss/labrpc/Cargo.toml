@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 labcodec = { path = "../labcodec" }
-prost = "0.5"
+prost = "0.6"
 bytes = "0.4.7"
 rand = "0.4"
 futures = "0.1"
@@ -16,5 +16,5 @@ log = "0.4"
 hashbrown = "0.1"
 
 [dev-dependencies]
-prost-derive = "0.5"
+prost-derive = "0.6"
 env_logger = "0.6"
