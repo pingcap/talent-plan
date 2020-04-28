@@ -22,9 +22,9 @@ Open source collaboration includes a series of open source related learning mate
 
 Two courses are included in this series, which are:
 
-- [TP 201: Practical Networked Applications in Rust](rust/README.md). A series of projects that incrementally develop a single Rust project from the ground up into a high-performance, networked, parallel and asynchronous key/value store. Along the way various real-world and practical Rust development subject matter are explored and discussed.
+- [TP 201: Practical Networked Applications in Rust](courses/rust/README.md). A series of projects that incrementally develop a single Rust project from the ground up into a high-performance, networked, parallel and asynchronous key/value store. Along the way various real-world and practical Rust development subject matter are explored and discussed.
 
-- [TP 202: Distributed Systems in Rust](dss/README.md). Adapted from the [MIT 6.824](http://nil.csail.mit.edu/6.824/2017/index.html) distributed systems coursework, this course focuses on implementing important distributed algorithms, including the [Raft](https://raft.github.io/) consensus algorithm, and the [Percolator](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36726.pdf) distributed transaction protocol.
+- [TP 202: Distributed Systems in Rust](courses/dss/README.md). Adapted from the [MIT 6.824](http://nil.csail.mit.edu/6.824/2017/index.html) distributed systems coursework, this course focuses on implementing important distributed algorithms, including the [Raft](https://raft.github.io/) consensus algorithm, and the [Percolator](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36726.pdf) distributed transaction protocol.
 
 ### Series 3: Distributed Database 
 
