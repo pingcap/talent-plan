@@ -6,7 +6,7 @@ jobs:
     environment:
       RUST_BACKTRACE: "1"
       RUSTFLAGS: "-Dwarnings"
-    working_directory: ~/talent-plan/dss
+    working_directory: ~/talent-plan/courses/dss
     steps:
       - checkout:
           path: ~/talent-plan
