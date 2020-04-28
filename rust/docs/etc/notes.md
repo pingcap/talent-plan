@@ -78,7 +78,7 @@ in the README.
 - https://pdos.csail.mit.edu/6.824/schedule.html
   - The MIT distributed systems course this course
     is inspired by and intended to precede
-- https://github.com/ferrous-sytems/rust-three-days-course
+- https://github.com/ferrous-systems/rust-three-days-course
 - https://github.com/nrc/talks
 - RustBridge
 
