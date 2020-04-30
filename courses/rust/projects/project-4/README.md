@@ -1057,7 +1057,7 @@ same assumptions as single-threaded code, and your code will break entirely
 unless you tell the compiler via synchronized types and operations that it must
 not allow reordering.
 
-Any operation that must occur before or after another must be exlicitly arranged
+Any operation that must occur before or after another must be exlicitly
 arranged to do so with synchronized types or operations, whether they be locks,
 atomics or otherwise.
 
