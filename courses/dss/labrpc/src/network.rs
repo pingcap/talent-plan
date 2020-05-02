@@ -270,7 +270,7 @@ impl Network {
 }
 
 async fn process_rpc(
-    delay: Option<u64>,
+    mut delay: Option<u64>,
     drop_reply: bool,
     long_reordering: Option<u64>,
     mut rpc: Rpc,
@@ -281,6 +281,9 @@ async fn process_rpc(
     if let Some(delay) = delay {
         Delay::new(Duration::from_secs(delay)).await;
     }
+    // We has finished the delay, take it out to prevent polling
+    // twice.
+    delay.take();
 
     let fq_name = rpc.fq_name;
     let req = rpc.req.take().unwrap();

@@ -79,6 +79,7 @@ fn bench_rpc(c: &mut Criterion) {
                 client.handler(&BenchArgs { x: 111 }).await.unwrap()
             }));
         })
+        // i7-8650U, 13 microseconds per RPC
     });
 }
 
