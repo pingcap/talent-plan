@@ -1,7 +1,3 @@
-use crate::client::Client;
-use crate::server::{MemoryStorage, TimestampOracle};
-use crate::service::{add_transaction_service, add_tso_service, TSOClient, TransactionClient};
-
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -11,6 +7,10 @@ use std::time::Duration;
 
 use labrpc::*;
 use prost::Message;
+
+use crate::client::Client;
+use crate::server::{MemoryStorage, TimestampOracle};
+use crate::service::{add_transaction_service, add_tso_service, TSOClient, TransactionClient};
 
 struct CommitHooks {
     drop_req: AtomicBool,

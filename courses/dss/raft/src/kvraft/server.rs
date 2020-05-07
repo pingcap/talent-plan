@@ -1,6 +1,4 @@
-use futures::sync::mpsc::unbounded;
-
-use labrpc::RpcFuture;
+use futures::channel::mpsc::unbounded;
 
 use crate::proto::kvraftpb::*;
 use crate::raft;
@@ -94,15 +92,16 @@ impl Node {
     }
 }
 
+#[async_trait::async_trait]
 impl KvService for Node {
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
-    fn get(&self, arg: GetRequest) -> RpcFuture<GetReply> {
+    async fn get(&self, arg: GetRequest) -> labrpc::Result<GetReply> {
         // Your code here.
         crate::your_code_here(arg)
     }
 
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
-    fn put_append(&self, arg: PutAppendRequest) -> RpcFuture<PutAppendReply> {
+    async fn put_append(&self, arg: PutAppendRequest) -> labrpc::Result<PutAppendReply> {
         // Your code here.
         crate::your_code_here(arg)
     }

@@ -61,12 +61,12 @@ impl SimplePersister {
 }
 
 impl Persister for SimplePersister {
-    fn save_raft_state(&self, state: Vec<u8>) {
-        self.states.lock().unwrap().0 = state;
-    }
-
     fn raft_state(&self) -> Vec<u8> {
         self.states.lock().unwrap().0.clone()
+    }
+
+    fn save_raft_state(&self, state: Vec<u8>) {
+        self.states.lock().unwrap().0 = state;
     }
 
     fn save_state_and_snapshot(&self, state: Vec<u8>, snapshot: Vec<u8>) {

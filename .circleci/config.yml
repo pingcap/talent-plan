@@ -10,7 +10,6 @@ jobs:
     steps:
       - checkout:
           path: ~/talent-plan
-      - run: rustup override set nightly-2020-03-01
       - run: rustup component add clippy-preview rustfmt-preview
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all --tests -- -D clippy::all
