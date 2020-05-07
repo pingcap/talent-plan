@@ -133,7 +133,7 @@ discretion.
 [CC-BY 4.0]: https://opendefinition.org/licenses/cc-by/
 [MIT]: https://opensource.org/licenses/MIT
 [Deep Dive TiKV]: https://tikv.org/deep-dive/introduction/
-[Distributed Systems in Rust]: https://github.com/pingcap/talent-plan/tree/master/dss
+[Distributed Systems in Rust]: https://github.com/pingcap/talent-plan/tree/master/courses/dss
 [NewSQL]: https://en.wikipedia.org/wiki/NewSQL
 [NoSQL]: https://www.thoughtworks.com/insights/blog/nosql-databases-overview
 [PingCAP]: https://pingcap.com/
