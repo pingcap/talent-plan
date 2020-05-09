@@ -29,7 +29,7 @@ None. This course is a great introduction for your first day on GitHub.
 
 ### Chapter 1: Introduction to GitHub
 
-**Learing Material(s):**
+**Learning Material(s):**
 
 * [Introduction to GitHub](https://lab.github.com/githubtraining/introduction-to-github), an open source course created by [The GitHub Training Team](https://lab.github.com/githubtraining)
  
@@ -39,7 +39,7 @@ None. This course is a great introduction for your first day on GitHub.
 
 ### Chapter 2: Reviewing pull requests
 
-**Learing Material(s):**
+**Learning Material(s):**
 
 * [Reviewing pull requests](https://lab.github.com/githubtraining/reviewing-pull-requests), an open source course created by [The GitHub Training Team](https://lab.github.com/githubtraining)
  
@@ -49,7 +49,7 @@ None. This course is a great introduction for your first day on GitHub.
 
 ### Chapter 3: Managing merge conflicts
 
-**Learing Material(s):**
+**Learning Material(s):**
 
 * [Managing merge conflicts](https://lab.github.com/githubtraining/managing-merge-conflicts), an open source course created by [The GitHub Training Team](https://lab.github.com/githubtraining)
  
@@ -59,7 +59,7 @@ None. This course is a great introduction for your first day on GitHub.
 
 ### Chapter 4: Communicating using Markdown
 
-**Learing Material(s):**
+**Learning Material(s):**
 
 * [Communicating using Markdown](https://lab.github.com/githubtraining/communicating-using-markdown), an open source course created by [The GitHub Training Team](https://lab.github.com/githubtraining)
  
