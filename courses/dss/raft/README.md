@@ -127,12 +127,12 @@ syntax of the log level. Also, you can collect the output in a file by redirecti
 the output to a file like `make test_2a 2>test.log`
 
 [prost]:https://github.com/danburkert/prost
-[futures]:https://docs.rs/futures/0.1/futures/
+[futures]:https://docs.rs/futures/0.3/futures/index.html
 [sleep]:https://doc.rust-lang.org/std/thread/fn.sleep.html
-[futures-timer]:https://docs.rs/futures-timer/0.1/futures_timer/index.html
-[rand]:https://docs.rs/rand/0.4/rand/
+[futures-timer]:https://docs.rs/futures-timer/3.0/futures_timer/index.html
+[rand]:https://docs.rs/rand/0.7/rand/index.html
 [log]:https://docs.rs/log/0.4/log/
-[env_logger]:https://docs.rs/env_logger/0.6/env_logger/
+[env_logger]:https://docs.rs/env_logger/0.7/env_logger/
 
 ### Part 2B
 
