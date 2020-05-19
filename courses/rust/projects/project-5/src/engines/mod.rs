@@ -12,7 +12,11 @@ pub trait KvsEngine: Clone + Send + 'static {
     /// Sets the value of a string key to a string.
     ///
     /// If the key already exists, the previous value will be overwritten.
-    fn set(&self, key: String, value: String) -> Box<dyn Future<Item = (), Error = KvsError> + Send>;
+    fn set(
+        &self,
+        key: String,
+        value: String,
+    ) -> Box<dyn Future<Item = (), Error = KvsError> + Send>;
 
     /// Gets the string value of a given string key.
     ///
