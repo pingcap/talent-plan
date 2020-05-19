@@ -133,21 +133,18 @@ impl Raft {
     fn send_request_vote(
         &self,
         server: usize,
-        args: &RequestVoteArgs,
+        args: RequestVoteArgs,
     ) -> Receiver<Result<RequestVoteReply>> {
         // Your code here if you want the rpc becomes async.
         // Example:
         // ```
         // let peer = &self.peers[server];
+        // let peer_clone = peer.clone();
         // let (tx, rx) = channel();
-        // peer.spawn(
-        //     peer.request_vote(&args)
-        //         .map_err(Error::Rpc)
-        //         .then(move |res| {
-        //             tx.send(res);
-        //             Ok(())
-        //         }),
-        // );
+        // peer.spawn(async move {
+        //     let res = peer_clone.request_vote(&args).await.map_err(Error::Rpc);
+        //     tx.send(res);
+        // });
         // rx
         // ```
         let (tx, rx) = sync_channel::<Result<RequestVoteReply>>(1);
@@ -178,7 +175,7 @@ impl Raft {
     #[doc(hidden)]
     pub fn __suppress_deadcode(&mut self) {
         let _ = self.start(&0);
-        let _ = self.send_request_vote(0, &Default::default());
+        let _ = self.send_request_vote(0, Default::default());
         self.persist();
         let _ = &self.state;
         let _ = &self.me;
