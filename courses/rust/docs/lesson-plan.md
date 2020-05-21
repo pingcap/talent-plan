@@ -326,10 +326,10 @@ to know where to go next on that path? We've got [some ideas][n].
 [brson]: https://github.com/brson/
 [kv]: https://en.wikipedia.org/wiki/Key-value_database
 [pre]: ../README.md#user-content-prerequisites
-[psd]: https://github.com/pingcap/talent-plan/tree/master/rust/projects
+[psd]: https://github.com/pingcap/talent-plan/tree/master/courses/rust/projects
 [qq]: ./qq-qr.jpg
 [qq2]: ./qq2-qr.jpg
-[rs]: https://github.com/pingcap/talent-plan/tree/master/rust
+[rs]: https://github.com/pingcap/talent-plan/tree/master/courses/rust
 [si]: https://github.com/pingcap/talent-plan/issues
 [spr]: https://github.com/pingcap/talent-plan/pulls
 [users forum]: https://users.rust-lang.org/
