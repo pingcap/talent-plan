@@ -1,6 +1,6 @@
-## Selected Projects in Season 1
+## Project ideas
 
-Selected Projects in Season 1 are listed below. Mentee candidates who want to participate in a certain project please refer to [Mentee Selection Process](README.md#mentees)
+Project maintainers and mentors, please submit the ideas below section using the template. Project ideas selected in season 1 will be listed in [Selected Projects](selected-projects.md) page
 
 ### Template
 
@@ -13,9 +13,18 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 - Upstream Issue or RFC (URL):
 ```
 
-## List of Selected Projects
+### Proposed Project ideas
 
 #### BR
+
+##### BR HTTP Storage
+- Description: Support HTTP(S) server as source and destination for BR, and allow BR itself act as an authenticated HTTP(S) server to simplify deployment.
+- Recommended Skills: Go, Rust, HTTP communication, TLS handling.
+- Mentor(s): @kennytm
+- Upstream Issue or RFC (URL): 
+   - https://github.com/pingcap/br/issues/308
+   - https://github.com/pingcap/br/issues/212 
+
 
 ##### BR Export
 
@@ -23,6 +32,14 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 - Recommended Skills: Rust, Go, Row encoding (MVCC and TiDB), gRPC.
 - Mentor(s): @kennytm
 - Upstream Issue or RFC (URL): https://github.com/pingcap/br/issues/351
+
+#### TiUP Bench
+
+##### Generate BR Backup Archive
+- Description: Currently TPC-C/TPC-H data prepared by tiup bench can either be inserted via SQL or dumped into CSV files for bulk ingestion. Both methods are slow compared with BR restore. In this project, we want to directly generate a BR backup archive, so benchmarks not caring about the prepare step could be ramped up quickly.
+- Recommended Skills: Go, Row encoding (TiDB), TiKV/RocksDB SST format
+- Mentor(s): @kennytm
+- Upstream Issue or RFC (URL): https://github.com/pingcap/go-tpc/issues/46 
 
 #### TiCDC
 
@@ -48,7 +65,19 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Mentor(s): @amyangfei, @liuzx
 * Upstream Issue or RFC (URL): https://github.com/pingcap/ticdc/issues/660
 
-#### TiDB
+##### TiCDC New Mechanism for ResolvedTS
+
+* Description: TiCDC needs a timestamp (called ResolvedTS) in which we can ensure all transactions which start before this timestamp have completed and been sent from TiKV to TiCDC. For now, TiKV must advance the ResolvedTS in the leader of the Raft group. We require a new mechanism to eliminate this restriction.
+* Recommended Skills: Go, Rust, Raft
+* Mentor(s): tangminghua
+* Upstream Issue or RFC (URL): https://github.com/pingcap/ticdc/issues/657
+
+##### TiCDC Support a status mechanism for changefeed
+
+* Description: Various errors may be encountered during the execution of replication tasks (e.g. downstream link failure, incompatible DDLs, etc.). we hope to provide a mechanism so that users can quickly understand the status of the current replication task (normal or abnormal), and the reason for the error.
+* Recommended Skills: Go, SQL.
+* Mentor(s): zhaoyilin
+* Upstream Issue or RFC (URL): https://github.com/pingcap/ticdc/issues/664
 
 ##### Live Execution Plan
 
@@ -94,6 +123,60 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Mentor(s): @wjhuang2016
 * Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/17596
 
+##### PD Store & Region UI
+
+* Description: Add display and operation UI for PD stores and regions, in order to reduce the necessity of using pd-ctl and enhance user experience.
+* Recommended Skills: Go, Web Frontend.
+* Mentor(s): @HundunDM @breeswish
+* Upstream Issue or RFC (URL): https://docs.google.com/document/d/1moQVhvIgqu_FWuv_UMB76AM5tETJkyeWnzI04wyevhk/edit
+
+##### Print Txn ID and Query ID in log to trace the whole lifetime of a Txn / SQL
+
+* Description: TiDB now outputs TxnStartTs or ConnId in logs, which is not sufficient. This task is to allocate and print a unique TxnId for each transaction, as well as a unique QueryId for each query, for both TiDB and TiKV.
+* Recommended Skills: Go, Rust
+* Mentor(s): @crazycs520 @breeswish @SunRunAway
+* Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/17845
+
+##### Support Multiple Tables Rename in A Statement
+
+* Description: TiDB supports renaming one table but doesn’t support renaming multiple tables. This task wants to support renaming multiple tables in a statement.
+* Recommended Skills: Go, DDL
+* Mentor(s): @zimulala
+* Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/14766
+
+##### Support the operation of dropping multi-indexes in a statement
+
+* Description: This task wants to support the operation of dropping multi-indexes in a statement.
+* Recommended Skills: Go, DDL
+* Mentor(s): @zimulala
+* Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/14765
+
+##### Dropping column with index covered
+
+* Description: Support the operation of deleting columns containing indexes.
+* Recommended Skills: Go, DDL
+* Mentor(s): @zimulala
+* Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/3364
+
+##### Support LIST COLUMNS partitioning
+
+* Description: LIST COLUMNS partitioning is a feature basically supported by MySQL 8.0, and its role is to define table partition with list columns. TiDB does not currently support this feature.
+* Recommended Skills: Go, DDL, SQL
+* Mentor(s): @imtbkcat
+* Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/18052
+
+##### Reduce memory consumption of table meta
+* Description: TiDB always loads all tables in all schema at once in bootstrap, which can consume very much memory. It increases the OOM risk of the TiDB server.
+* Recommended Skills: Go
+* Mentor(s): @bb7133, @SunRunAway
+* Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/16572
+
+##### Implement More Diagnostics Rules 
+* Description: Add more diagnose rule in TiDB SQL diagnose. 
+* Recommended Skills: Go, SQL
+* Mentor(s): @crazycs520
+* Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/17927
+
 #### TiKV
 
 ##### SQL Statement Level Statistics
@@ -113,3 +196,9 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Mentor(s): pseudocodes, baiyuqing
 * Upstream Issue or RFC (URL): WIP
 
+##### Write flow control
+
+* Description: Control the writing flow by requests' latency, and make the writing smoothly
+* Recommended Skills: Rust
+* Mentor(s): @Conner1996
+* Upstream Issue or RFC (URL): https://docs.google.com/document/d/1rgm4rS2youwJpy_zpC39BJgxPpnwk7DeuF5LjvWrBZ8/edit#
