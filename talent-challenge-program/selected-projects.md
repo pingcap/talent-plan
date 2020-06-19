@@ -23,6 +23,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 - Recommended Skills: Rust, Go, Row encoding (MVCC and TiDB), gRPC.
 - Mentor(s): @kennytm
 - Upstream Issue or RFC (URL): https://github.com/pingcap/br/issues/351
+- Difficulty: Hard
 
 #### TiCDC
 
@@ -32,6 +33,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Recommended Skills: Go, Cloud storage service.
 * Mentor(s): @amyangfei
 * Upstream Issue or RFC (URL): https://github.com/pingcap/ticdc/issues/655
+* Difficulty: Medium
 
 ##### TiCDC Snapshot Level Consistency Replication
 
@@ -39,6 +41,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Recommended Skills: Go, Transaction.
 * Mentor(s): @amyangfei
 * Upstream Issue or RFC (URL): https://github.com/pingcap/ticdc/issues/658
+* Difficulty: Medium
 
 
 ##### TiCDC Supports Avro Sink and Kafka Connector
@@ -47,6 +50,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Recommended Skills: Go, Kafka.
 * Mentor(s): @amyangfei, @liuzx
 * Upstream Issue or RFC (URL): https://github.com/pingcap/ticdc/issues/660
+* Difficulty: Medium
 
 #### TiDB
 
@@ -55,7 +59,8 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Description: Provide a way to query current execution details for running SQLs. This feature is similar to the Live Query Statistics in the SQL server. SQL server allows viewing the live execution plan for any queries.
 * Recommended Skills: Go, SQL
 * Mentor(s): @crazycs520 @breeswish @qw4990
-* Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/17692 
+* Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/17692
+* Difficulty: Medium
 
 ##### Defining Placement Rules in SQL
 
@@ -63,6 +68,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Recommended Skills: Go, Data Definition Language
 * Mentor(s): @djshow832
 * Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/18030
+* Difficulty: Hard
 
 ##### Support SAVEPOINT in TiDB
 
@@ -70,6 +76,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Recommended Skills: Go
 * Mentor(s): @bobotu
 * Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/6840
+* Difficulty: Very Hard
 
 ##### Support Global Index for Partition Table
 
@@ -77,8 +84,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Recommended Skills: Go, DDL, SQL
 * Mentor(s): @tiancaiamao
 * Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/18032
-
-#### PD
+* Difficulty: Hard
 
 ##### Reduce memory consumption of stats data
 
@@ -86,6 +92,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Recommended Skills: Go
 * Mentor(s): @SunRunAway
 * Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/16572
+* Difficulty: Medium
  
 ##### Support utf8_unicode_ci/utf8mb4_unicode_ci collation
 
@@ -93,6 +100,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Recommended Skills: Go
 * Mentor(s): @wjhuang2016
 * Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/17596
+* Difficulty: Medium
 
 #### TiKV
 
@@ -102,6 +110,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Recommended Skills: Rust, Go
 * Mentor(s): @breeswish @HundunDM
 * Upstream Issue or RFC (URL): https://github.com/pingcap-incubator/tidb-dashboard/issues/574
+* Difficulty: Medium
 
 ##### HBase protocol support on Zetta
 
@@ -112,4 +121,5 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 * Recommended Skills: Go, Java, HBase RPC
 * Mentor(s): pseudocodes, baiyuqing
 * Upstream Issue or RFC (URL): WIP
+* Difficulty: Hard
 
