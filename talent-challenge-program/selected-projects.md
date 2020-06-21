@@ -107,7 +107,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 ##### SQL Statement Level Statistics
 
 * Description: To make it possible to know what statement is the root cause of hot regions, we need to add local statistics to TiKV that counts top K hot statements and then reports them to PD.
-* Recommended Skills: Rust, Go
+* Recommended Skills: Rust, Go,  Algorithm / Data Structure
 * Mentor(s): @breeswish @HundunDM
 * Upstream Issue or RFC (URL): https://github.com/pingcap-incubator/tidb-dashboard/issues/574
 * Difficulty: Medium
@@ -120,6 +120,5 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 	3. Implement HBase functionality on top of Zetta
 * Recommended Skills: Go, Java, HBase RPC
 * Mentor(s): pseudocodes, baiyuqing
-* Upstream Issue or RFC (URL): WIP
+* Upstream Issue or RFC (URL): https://github.com/zhihu/zetta/issues/2（in Chinese）
 * Difficulty: Hard
-

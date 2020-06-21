@@ -29,7 +29,7 @@ PMC(Project Management Committee) of TiDB community will select the projects tha
 
 *Note:*
 
-- Only **students who have completed talent plan courses and having contributed to TiDB projects** can apply for Talent Challenge program. 
+- Only **students who have completed talent plan courses or having contributed to TiDB projects** can apply for Talent Challenge program. 
 - You are eligible to participate as a mentee in a single project per-cycle.
 
 **Prior to the opening of applications, mentee candidates are encouraged to talk to mentors about the project.** This helps them refine their ideas and deepen their understanding of the project.

@@ -1,6 +1,6 @@
 # Mentee Apply Template
 
-Mail to: talent-plan@tidb.com
+Mail to: talent-plan@tidb.io
 
 ## Mail Subject: 
 
