@@ -1,6 +1,6 @@
 # Talent Challenge Program
 
-Talent Challenge program is a platform that offers a structured remote mentoring program for **college students** successfully completing talent plan courses or having contributed to TiDB projects. Open source projects related to TiDB ecosystems will be selected together with professional mentors. Students **successfully completing talent plan courses or having contributed to TiDB projects** can apply for the projects, one at a time, and finish the projects with the help of the mentors in a given time. Mentees gain real-world experience by working closely with mentors. Students who successfully complete the projects will receive **stipends and better job opportunities**.
+Talent Challenge program is a platform that offers a structured remote mentoring program for **college students** successfully completing talent plan courses or having contributed to TiDB projects. Open source projects related to TiDB ecosystems will be selected together with professional mentors. Students **successfully completing talent plan courses or having contributed to TiDB projects** can apply for the projects, one at a time, and finish the projects with the help of the mentors in a given time. Mentees gain real-world experience by working closely with mentors. Students who successfully complete the projects will receive **bonus and better job opportunities**.
 
 ### Current cycle
 
