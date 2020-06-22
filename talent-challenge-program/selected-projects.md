@@ -2,6 +2,8 @@
 
 Selected Projects in Season 1 are listed below. Mentee candidates who want to participate in a certain project please refer to [Mentee Selection Process](README.md#mentees)
 
+The difficulty of the project is divided into three levels: Very hard, Hard, and Medium, the corresponding pre-tax bonus is RMB 10000 to a very hard project, RMB 8000 to a hard project and RMB 5000 to a medium project respectively. 
+
 ### Template
 
 ```
@@ -11,6 +13,7 @@ Selected Projects in Season 1 are listed below. Mentee candidates who want to pa
 - Recommended Skills:
 - Mentor(s):
 - Upstream Issue or RFC (URL):
+- Difficulty:
 ```
 
 ## List of Selected Projects
