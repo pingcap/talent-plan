@@ -145,12 +145,3 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 * Mentor(s): @Yisaer
 * Upstream Issue or RFC (URL): https://github.com/pingcap/chaos-mesh/issues/651
 * Difficulty: Hard  
-
-
-##### Support injecting fault into Java appliations and JVM 
-
-* Description: In many scenarios, users need to inject some faults into the Java applications or the JVM itself. However, Chaos Mesh currently does not support injection for specific Java applications or JVM granularity.
-* Recommended Skills: Go, Java, Kuberenetes 
-* Mentor(s): @cwen0
-* Upstream Issue or RFC (URL): https://github.com/pingcap/chaos-mesh/issues/650
-* Difficulty: Hard  
