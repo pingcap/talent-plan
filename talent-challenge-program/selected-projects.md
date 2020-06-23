@@ -124,4 +124,33 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 * Recommended Skills: Go, Java, HBase RPC
 * Mentor(s): pseudocodes, baiyuqing
 * Upstream Issue or RFC (URL): https://github.com/zhihu/zetta/issues/2（in Chinese）
-* Difficulty: Hard
+* Difficulty: Hard 
+
+#### Chaos Mesh 
+
+##### Support using plugins to extend scheduler  
+
+* Description: In many scenarios users need to customize selector. For example, when our tidb cluster has multiple pds, we just want to inject the failure to the leader. So we need to provide a plugin to let the users to extend the selector, and users can implement their own selector through code. For example, we can create a file called `pd-selector.go` and set it in the selector field.  
+* Recommended Skills: Go, Kubernetes
+* Mentor(s): @cwen0
+* Upstream Issue or RFC (URL): https://github.com/pingcap/chaos-mesh/issues/193
+* Difficulty: Medium 
+
+
+
+##### Support injecting HTTP fault
+
+* Description: In many scenarios, users need to inject an HTTP delay fault or an HTTP abort fault on the special application. For example, we just want to inject a delay fault on getting `/api/xxx` router.
+* Recommended Skills: Go, Kuberenetes 
+* Mentor(s): @Yisaer
+* Upstream Issue or RFC (URL): https://github.com/pingcap/chaos-mesh/issues/651
+* Difficulty: Hard  
+
+
+##### Support injecting fault into Java appliations and JVM 
+
+* Description: In many scenarios, users need to inject some faults into the Java applications or the JVM itself. However, Chaos Mesh currently does not support injection for specific Java applications or JVM granularity.
+* Recommended Skills: Go, Java, Kuberenetes 
+* Mentor(s): @cwen0
+* Upstream Issue or RFC (URL): https://github.com/pingcap/chaos-mesh/issues/650
+* Difficulty: Hard  
