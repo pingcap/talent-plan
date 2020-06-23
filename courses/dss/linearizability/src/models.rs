@@ -35,7 +35,7 @@ impl Model for KvModel {
     ) -> Vec<Operations<Self::Input, Self::Output>> {
         let mut map = HashMap::new();
         for op in history {
-            let v = map.entry(op.input.key.clone()).or_insert_with(|| vec![]);
+            let v = map.entry(op.input.key.clone()).or_insert_with(Vec::new);
             (*v).push(op);
         }
         let mut ret = vec![];
@@ -56,11 +56,11 @@ impl Model for KvModel {
                 EventKind::CallEvent => {
                     let key = event.value.input().key.clone();
                     matched.insert(event.id, key.clone());
-                    m.entry(key).or_insert_with(|| vec![]).push(event);
+                    m.entry(key).or_insert_with(Vec::new).push(event);
                 }
                 EventKind::ReturnEvent => {
                     let key = matched[&event.id].clone();
-                    m.entry(key).or_insert_with(|| vec![]).push(event);
+                    m.entry(key).or_insert_with(Vec::new).push(event);
                 }
             }
         }
