@@ -136,8 +136,6 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 * Upstream Issue or RFC (URL): https://github.com/pingcap/chaos-mesh/issues/193
 * Difficulty: Medium 
 
-
-
 ##### Support injecting HTTP fault
 
 * Description: In many scenarios, users need to inject an HTTP delay fault or an HTTP abort fault on the special application. For example, we just want to inject a delay fault on getting `/api/xxx` router.
