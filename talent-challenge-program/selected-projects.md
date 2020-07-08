@@ -52,6 +52,7 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 * Description: Apache Kafka provides a flexible connectors mechanism, which is widely used in change data capture scenarios. We want to implement an Avro sink and make TiCDC compatible with the Kafka connector ecosystem.
 * Recommended Skills: Go, Kafka.
 * Mentor(s): @amyangfei, @liuzx
+* Mentee: [@qinggniq](https://github.com/qinggniq)
 * Upstream Issue or RFC (URL): https://github.com/pingcap/ticdc/issues/660
 * Difficulty: Medium
 
