@@ -2,19 +2,23 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::task::Poll;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use futures::sync::oneshot;
-use futures::{future, Future};
+use futures::channel::oneshot;
+use futures::executor::block_on;
+use futures::future;
+use futures::{Future, FutureExt};
 use futures_timer::Delay;
-use rand::Rng;
+use rand::{seq::SliceRandom, Rng};
 
-use crate::kvraft::client::Clerk;
-use crate::kvraft::config::Config;
 use linearizability::check_operations_timeout;
 use linearizability::model::Operation;
 use linearizability::models::{KvInput, KvModel, KvOutput, Op};
+
+use crate::kvraft::client::Clerk;
+use crate::kvraft::config::Config;
 
 /// The tester generously allows solutions to complete elections in one second
 /// (much more than the paper's range of timeouts).
@@ -51,7 +55,7 @@ fn spawn_clients_and_wait<Func, Fact>(
     cfg: Arc<Config>,
     ncli: usize,
     fact: Fact,
-) -> impl Future<Item = (), Error = ()> + Send + 'static
+) -> impl Future<Output = ()> + Send + 'static
 where
     Fact: Fn() -> Func + Send + 'static,
     Func: Fn(usize, &Clerk) + Send + 'static,
@@ -74,9 +78,7 @@ where
         });
     }
     debug!("spawn_clients_and_wait: waiting for clients");
-    future::join_all(cas).map(|_| ()).map_err(|e| {
-        panic!("spawn_clients_and_wait failed: {:?}", e);
-    })
+    future::join_all(cas).map(|_| ())
 }
 
 // predict effect of append(k, val) if old value is prev.
@@ -147,7 +149,7 @@ fn partitioner(
     cfg: Arc<Config>,
     ch: mpsc::Sender<bool>,
     done: Arc<AtomicUsize>,
-) -> impl Future<Item = (), Error = ()> + Send + 'static {
+) -> impl Future<Output = ()> + Send + 'static {
     fn delay(r: u64) -> Delay {
         Delay::new(RAFT_ELECTION_TIMEOUT + Duration::from_millis(r % 200))
     }
@@ -156,23 +158,23 @@ fn partitioner(
     let mut all = cfg.all();
     let mut sleep = None;
     let mut is_parked = false;
-    future::poll_fn(move || {
+    future::poll_fn(move |cx| {
         let mut rng = rand::thread_rng();
         while done.load(Ordering::Relaxed) == 0 {
             if !is_parked {
-                rng.shuffle(&mut all);
+                all.shuffle(&mut rng);
                 let offset = rng.gen_range(0, cfg.n);
                 cfg.partition(&all[..offset], &all[offset..]);
                 sleep = Some(delay(rng.gen::<u64>()));
             }
             is_parked = true;
-            futures::try_ready!(sleep.as_mut().unwrap().poll().map_err(|e| {
-                panic!("sleep failed: {:?}", e);
-            }));
+            let sleep = sleep.as_mut().unwrap();
+            futures::pin_mut!(sleep);
+            futures::ready!(sleep.poll(cx));
             is_parked = false;
         }
         ch.send(true).unwrap();
-        Ok(futures::Async::Ready(()))
+        Poll::Ready(())
     })
 }
 
@@ -240,40 +242,41 @@ fn generic_test(
         let cfg_ = cfg.clone();
         let done_clients_ = done_clients.clone();
         thread::spawn(move || {
-            spawn_clients_and_wait(cfg_.clone(), nclients, move || {
-                let cfg1 = cfg_.clone();
-                let clnt_txs1 = clnt_txs_.clone();
-                let done_clients1 = done_clients_.clone();
-                move |cli, myck| {
-                    // TODO: change the closure to a future.
-                    let mut j = 0;
-                    let mut rng = rand::thread_rng();
-                    let mut last = String::new();
-                    let key = format!("{}", cli);
-                    put(&cfg1, myck, &key, &last);
-                    while done_clients1.load(Ordering::Relaxed) == 0 {
-                        if (rng.gen::<u32>() % 1000) < 500 {
-                            let nv = format!("x {} {} y", cli, j);
-                            debug!("{}: client new append {}", cli, nv);
-                            last = next_value(last, &nv);
-                            append(&cfg1, myck, &key, &nv);
-                            j += 1;
-                        } else {
-                            debug!("{}: client new get {:?}", cli, key);
-                            let v = get(&cfg1, &myck, &key);
-                            if v != last {
-                                panic!(
-                                    "get wrong value, key {:?}, wanted:\n{:?}\n, got\n{:?}",
-                                    key, last, v
-                                );
+            block_on(async {
+                spawn_clients_and_wait(cfg_.clone(), nclients, move || {
+                    let cfg1 = cfg_.clone();
+                    let clnt_txs1 = clnt_txs_.clone();
+                    let done_clients1 = done_clients_.clone();
+                    move |cli, myck| {
+                        // TODO: change the closure to a future.
+                        let mut j = 0;
+                        let mut rng = rand::thread_rng();
+                        let mut last = String::new();
+                        let key = format!("{}", cli);
+                        put(&cfg1, myck, &key, &last);
+                        while done_clients1.load(Ordering::Relaxed) == 0 {
+                            if (rng.gen::<u32>() % 1000) < 500 {
+                                let nv = format!("x {} {} y", cli, j);
+                                debug!("{}: client new append {}", cli, nv);
+                                last = next_value(last, &nv);
+                                append(&cfg1, myck, &key, &nv);
+                                j += 1;
+                            } else {
+                                debug!("{}: client new get {:?}", cli, key);
+                                let v = get(&cfg1, &myck, &key);
+                                if v != last {
+                                    panic!(
+                                        "get wrong value, key {:?}, wanted:\n{:?}\n, got\n{:?}",
+                                        key, last, v
+                                    );
+                                }
                             }
                         }
+                        clnt_txs1[cli].send(j).unwrap();
                     }
-                    clnt_txs1[cli].send(j).unwrap();
-                }
+                })
+                .await
             })
-            .wait()
-            .unwrap()
         });
 
         if partitions {
@@ -586,16 +589,17 @@ fn test_unreliable_one_key_3a() {
     let cfg_ = cfg.clone();
     let nclient = 5;
     let upto = 10;
-    spawn_clients_and_wait(cfg.clone(), nclient, move || {
-        let cfg1 = cfg_.clone();
-        move |me, myck| {
-            for n in 0..upto {
-                append(&cfg1, myck, "k", &format!("x {} {} y", me, n));
+    block_on(async {
+        spawn_clients_and_wait(cfg.clone(), nclient, move || {
+            let cfg1 = cfg_.clone();
+            move |me, myck| {
+                for n in 0..upto {
+                    append(&cfg1, myck, "k", &format!("x {} {} y", me, n));
+                }
             }
-        }
-    })
-    .wait()
-    .unwrap();
+        })
+        .await
+    });
 
     let counts = vec![upto; nclient];
 
@@ -642,23 +646,29 @@ fn test_one_partition_3a() {
     let (done1_tx, done1_rx) = oneshot::channel::<&'static str>();
 
     cfg.begin("Test: no progress in minority (3A)");
-    cfg.net.spawn(future::lazy(move || {
+    cfg.net.spawn(future::lazy(move |_| {
         ckp2a.put("1".to_owned(), "15".to_owned());
-        done0_tx.send("put").map_err(|e| {
-            warn!("done0 send failed: {:?}", e);
-        })
+        done0_tx
+            .send("put")
+            .map_err(|e| {
+                warn!("done0 send failed: {:?}", e);
+            })
+            .unwrap();
     }));
     let done0_rx = done0_rx.map(|op| {
         cfg.op();
         op
     });
 
-    cfg.net.spawn(future::lazy(move || {
+    cfg.net.spawn(future::lazy(move |_| {
         // different clerk in p2
         ckp2b.get("1".to_owned());
-        done1_tx.send("get").map_err(|e| {
-            warn!("done0 send failed: {:?}", e);
-        })
+        done1_tx
+            .send("get")
+            .map_err(|e| {
+                warn!("done0 send failed: {:?}", e);
+            })
+            .unwrap();
     }));
     let done1_rx = done1_rx.map(|op| {
         cfg.op();
@@ -667,15 +677,19 @@ fn test_one_partition_3a() {
 
     let timeout = Delay::new(Duration::from_secs(1));
 
-    let dones = timeout
-        .select2(done0_rx.select(done1_rx))
-        .map(|res| match res {
-            future::Either::A((_, dones)) => dones,
-            future::Either::B(((op, _), _)) => panic!("{} in minority completed", op),
-        })
-        .map_err(|_| panic!("unexpect error"))
-        .wait()
-        .unwrap();
+    let dones = block_on(async {
+        future::select(timeout, future::select(done0_rx, done1_rx))
+            .map(|res| match res {
+                future::Either::Left((_, dones)) => dones,
+                future::Either::Right((future::Either::Left((op, _)), _)) => {
+                    panic!("{} in minority completed", op.unwrap())
+                }
+                future::Either::Right((future::Either::Right((op, _)), _)) => {
+                    panic!("{} in minority completed", op.unwrap())
+                }
+            })
+            .await
+    });
 
     check(&cfg, &ckp1, "1", "14");
     put(&cfg, &ckp1, "1", "16");
@@ -692,30 +706,30 @@ fn test_one_partition_3a() {
     thread::sleep(RAFT_ELECTION_TIMEOUT);
 
     let timeout = Delay::new(Duration::from_secs(3));
-    let (timeout, next) = timeout
-        .select2(dones)
-        .map(|res| match res {
-            future::Either::A(_) => panic!("put/get did not complete"),
-            future::Either::B(((op, next), timeout)) => {
-                info!("{} completes", op);
-                (timeout, next)
-            }
-        })
-        .map_err(|_| panic!("unexpect error"))
-        .wait()
-        .unwrap();
+    let (timeout, next) = block_on(async {
+        future::select(timeout, dones)
+            .map(|res| match res {
+                future::Either::Left(_) => panic!("put/get did not complete"),
+                future::Either::Right((future::Either::Left((op, next)), timeout)) => {
+                    info!("{} completes", op.unwrap());
+                    (timeout, future::Either::Left(next))
+                }
+                future::Either::Right((future::Either::Right((op, next)), timeout)) => {
+                    info!("{} completes", op.unwrap());
+                    (timeout, future::Either::Right(next))
+                }
+            })
+            .await
+    });
 
-    timeout
-        .select2(next)
-        .map(|res| match res {
-            future::Either::A(_) => panic!("put/get did not complete"),
-            future::Either::B((op, _)) => {
-                info!("{} completes", op);
-            }
-        })
-        .map_err(|_| panic!("unexpect error"))
-        .wait()
-        .unwrap();
+    block_on(async {
+        future::select(timeout, next)
+            .map(|res| match res {
+                future::Either::Left(_) => panic!("put/get did not complete"),
+                future::Either::Right((op, _)) => info!("{} completes", op.unwrap()),
+            })
+            .await
+    });
 
     check(&cfg, &ck, "1", "15");
 

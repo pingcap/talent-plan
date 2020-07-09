@@ -1,6 +1,6 @@
-use crate::service::{TSOClient, TransactionClient};
-
 use labrpc::*;
+
+use crate::service::{TSOClient, TransactionClient};
 
 // BACKOFF_TIME_MS is the wait time before retrying to send the request.
 // It should be exponential growth. e.g.

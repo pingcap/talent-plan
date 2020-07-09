@@ -12,19 +12,20 @@ edition = "2018"
 publish = false
 
 [dependencies]
-labrpc = { path = "../labrpc" }
-labcodec = { path = "../labcodec" }
-linearizability = { path = "../linearizability"}
+async-trait = "0.1"
+futures = "0.3"
+futures-timer = "3.0"
+log = "0.4"
 prost = "0.6"
 prost-derive = "0.6"
-bytes = "0.4.7"
-rand = "0.4"
-log = "0.4"
-futures = "0.1"
-futures-timer = "0.1"
+rand = "0.7"
+
+labcodec = { path = "../labcodec" }
+labrpc = { path = "../labrpc" }
+linearizability = { path = "../linearizability"}
 
 [dev-dependencies]
-env_logger = "0.6"
+env_logger = "0.7"
 
 [build-dependencies]
 prost-build = "0.6"

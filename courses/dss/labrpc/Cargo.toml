@@ -5,16 +5,21 @@ edition = "2018"
 publish = false
 
 [dependencies]
-labcodec = { path = "../labcodec" }
-prost = "0.6"
-bytes = "0.4.7"
-rand = "0.4"
-futures = "0.1"
-futures-timer = "0.1"
-futures-cpupool = "0.1"
+async-trait = "0.1"
+futures = { version = "0.3", features = ["thread-pool"] }
+futures-timer = "3.0"
 log = "0.4"
-hashbrown = "0.1"
+prost = "0.6"
+rand = "0.7"
+
+labcodec = { path = "../labcodec" }
 
 [dev-dependencies]
+criterion = "0.3"
+env_logger = "0.7"
 prost-derive = "0.6"
-env_logger = "0.6"
+
+[[bench]]
+name = "rpc"
+path = "benches/rpc.rs"
+harness = false

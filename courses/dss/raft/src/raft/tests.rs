@@ -6,9 +6,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use futures::sync::oneshot;
-use futures::{future, Future};
-use rand::{Rng, ThreadRng};
+use futures::channel::oneshot;
+use futures::executor::block_on;
+use futures::future;
+use rand::{rngs::ThreadRng, Rng};
 
 use crate::raft::config::{Config, Entry, Storage};
 use crate::raft::Node;
@@ -221,7 +222,7 @@ fn test_concurrent_starts_2b() {
             let (tx, rx) = oneshot::channel();
             idx_rxs.push(rx);
             let node = cfg.rafts.lock().unwrap()[leader].clone().unwrap();
-            cfg.net.spawn(future::lazy(move || {
+            cfg.net.spawn(future::lazy(move |_| {
                 let idx = match node.start(&Entry { x: 100 + ii }) {
                     Err(err) => {
                         warn!("start leader {} meet error {:?}", leader, err);
@@ -235,10 +236,18 @@ fn test_concurrent_starts_2b() {
                         }
                     }
                 };
-                tx.send(idx).map_err(|e| panic!("send failed: {:?}", e))
+                tx.send(idx)
+                    .map_err(|e| panic!("send failed: {:?}", e))
+                    .unwrap();
             }));
         }
-        let idxes = future::join_all(idx_rxs).wait().unwrap();
+        let idxes = block_on(async {
+            future::join_all(idx_rxs)
+                .await
+                .into_iter()
+                .map(|idx_rx| idx_rx.unwrap())
+                .collect::<Vec<_>>()
+        });
 
         for j in 0..servers {
             let t = cfg.rafts.lock().unwrap()[j].as_ref().unwrap().term();
@@ -756,7 +765,12 @@ fn test_unreliable_agree_2c() {
 
     cfg.net.set_reliable(true);
 
-    future::join_all(dones).wait().unwrap();
+    block_on(async {
+        future::join_all(dones)
+            .await
+            .into_iter()
+            .for_each(|done| done.unwrap());
+    });
 
     cfg.one(Entry { x: 100 }, servers, true);
 

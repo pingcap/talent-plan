@@ -3,7 +3,7 @@ use crate::msg::{
     TimestampRequest, TimestampResponse,
 };
 
-service! {
+labrpc::service! {
     service timestamp {
         rpc get_timestamp(TimestampRequest) returns (TimestampResponse);
     }
@@ -11,7 +11,7 @@ service! {
 
 pub use timestamp::{add_service as add_tso_service, Client as TSOClient, Service};
 
-service! {
+labrpc::service! {
     service transaction {
         rpc get(GetRequest) returns (GetResponse);
         rpc prewrite(PrewriteRequest) returns (PrewriteResponse);

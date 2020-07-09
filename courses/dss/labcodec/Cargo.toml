@@ -7,10 +7,6 @@ publish = false
 
 [dependencies]
 prost = "0.6"
-bytes = "0.4.7"
-
-[dev-dependencies]
-prost-derive = "0.6"
 
 [build-dependencies]
 prost-build = "0.6"

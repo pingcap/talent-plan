@@ -1,4 +1,3 @@
-#![feature(integer_atomics)]
 #![deny(clippy::all)]
 
 #[allow(unused_imports)]

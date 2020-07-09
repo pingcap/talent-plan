@@ -7,12 +7,13 @@ build = "build.rs"
 publish = false
 
 [dependencies]
-futures = "0.1"
-futures-timer = "0.1"
+async-trait = "0.1"
+futures = "0.3"
+futures-timer = "3.0"
+log = "0.4"
 prost = "0.6"
 prost-derive = "0.6"
-bytes = "0.4.7"
-log = "0.4"
+
 labrpc = { path = "../labrpc" }
 labcodec = { path = "../labcodec" }
 
@@ -20,4 +21,4 @@ labcodec = { path = "../labcodec" }
 prost-build = "0.6"
 
 [dev-dependencies]
-env_logger = "0.6"
+env_logger = "0.7"

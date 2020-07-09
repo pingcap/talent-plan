@@ -1,8 +1,7 @@
 use std::sync::mpsc::{sync_channel, Receiver};
 use std::sync::Arc;
 
-use futures::sync::mpsc::UnboundedSender;
-use labrpc::RpcFuture;
+use futures::channel::mpsc::UnboundedSender;
 
 #[cfg(test)]
 pub mod config;
@@ -134,21 +133,18 @@ impl Raft {
     fn send_request_vote(
         &self,
         server: usize,
-        args: &RequestVoteArgs,
+        args: RequestVoteArgs,
     ) -> Receiver<Result<RequestVoteReply>> {
         // Your code here if you want the rpc becomes async.
         // Example:
         // ```
         // let peer = &self.peers[server];
+        // let peer_clone = peer.clone();
         // let (tx, rx) = channel();
-        // peer.spawn(
-        //     peer.request_vote(&args)
-        //         .map_err(Error::Rpc)
-        //         .then(move |res| {
-        //             tx.send(res);
-        //             Ok(())
-        //         }),
-        // );
+        // peer.spawn(async move {
+        //     let res = peer_clone.request_vote(&args).await.map_err(Error::Rpc);
+        //     tx.send(res);
+        // });
         // rx
         // ```
         let (tx, rx) = sync_channel::<Result<RequestVoteReply>>(1);
@@ -179,7 +175,7 @@ impl Raft {
     #[doc(hidden)]
     pub fn __suppress_deadcode(&mut self) {
         let _ = self.start(&0);
-        let _ = self.send_request_vote(0, &Default::default());
+        let _ = self.send_request_vote(0, Default::default());
         self.persist();
         let _ = &self.state;
         let _ = &self.me;
@@ -273,11 +269,12 @@ impl Node {
     }
 }
 
+#[async_trait::async_trait]
 impl RaftService for Node {
     // example RequestVote RPC handler.
     //
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
-    fn request_vote(&self, args: RequestVoteArgs) -> RpcFuture<RequestVoteReply> {
+    async fn request_vote(&self, args: RequestVoteArgs) -> labrpc::Result<RequestVoteReply> {
         // Your code here (2A, 2B).
         crate::your_code_here(args)
     }

@@ -1,15 +1,13 @@
-//! A thin wrapper of [prost](https://docs.rs/prost/0.4.0/prost/)
-
-use bytes::IntoBuf;
+//! A thin wrapper of [prost](https://docs.rs/prost/0.6.1/prost/)
 
 /// A labcodec message.
 pub trait Message: prost::Message + Default {}
 impl<T: prost::Message + Default> Message for T {}
 
 /// A message encoding error.
-pub type EncodeError = ::prost::EncodeError;
+pub type EncodeError = prost::EncodeError;
 /// A message decoding error.
-pub type DecodeError = ::prost::DecodeError;
+pub type DecodeError = prost::DecodeError;
 
 /// Encodes the message to a `Vec<u8>`.
 pub fn encode<M: Message>(message: &M, buf: &mut Vec<u8>) -> Result<(), EncodeError> {
@@ -20,7 +18,7 @@ pub fn encode<M: Message>(message: &M, buf: &mut Vec<u8>) -> Result<(), EncodeEr
 
 /// Decodes an message from the buffer.
 pub fn decode<M: Message>(buf: &[u8]) -> Result<M, DecodeError> {
-    M::decode(buf.into_buf())
+    M::decode(buf)
 }
 
 #[cfg(test)]
