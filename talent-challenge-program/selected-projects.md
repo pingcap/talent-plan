@@ -43,6 +43,7 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 * Description: In many scenarios users want to ensure the downstream is replicated to a globally consistent state, as TiCDC supports eventual transaction consistency, and TiDB supports snapshot read, we could combine these two features and provide a snapshot level consistency replication strategy.
 * Recommended Skills: Go, Transaction.
 * Mentor(s): @amyangfei
+* Mentee: [@Colins110](https://github.com/Colins110)
 * Upstream Issue or RFC (URL): https://github.com/pingcap/ticdc/issues/658
 * Difficulty: Medium
 
