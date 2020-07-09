@@ -95,6 +95,7 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 * Description: When there're lots of tables in a TiDB cluster, caching all the stats data into a single TiDB server may cause a high memory consumption when the TiDB server bootstrapped. It increases the OOM risk of the TiDB server.
 * Recommended Skills: Go
 * Mentor(s): @SunRunAway
+* Mentee: @[miamiaoxyz](https://github.com/miamia0)
 * Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/16572
 * Difficulty: Medium
  
