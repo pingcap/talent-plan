@@ -102,6 +102,7 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 * Description: Implement the utf8_unicode_ci/utf8mb4_unicode_ci collation algorithm and optimize them.
 * Recommended Skills: Go, C++, Rust
 * Mentor(s): @wjhuang2016
+* Mentee: @[xiongjiwei](https://github.com/xiongjiwei)
 * Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/17596
 * Difficulty: Medium
 
