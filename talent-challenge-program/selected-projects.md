@@ -71,6 +71,7 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 * Description: TiDB supports placement rules, but it can only be defined in configuration files. If there is an approach to configure placement rules through statements, usability can be improved. 
 * Recommended Skills: Go, Data Definition Language
 * Mentor(s): @djshow832
+* Mentee: [@xhe](https://github.com/xhebox)
 * Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/18030
 * Difficulty: Hard
 
