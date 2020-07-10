@@ -100,7 +100,7 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 * Mentee: @[miamiaoxyz](https://github.com/miamia0)
 * Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/16572
 * Difficulty: Medium
- 
+
 ##### Support utf8_unicode_ci/utf8mb4_unicode_ci collation
 
 * Description: Implement the utf8_unicode_ci/utf8mb4_unicode_ci collation algorithm and optimize them.
@@ -128,6 +128,7 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 	3. Implement HBase functionality on top of Zetta
 * Recommended Skills: Go, Java, HBase RPC
 * Mentor(s): pseudocodes, baiyuqing
+* Mentee: [@BowenXiao1999](https://github.com/BowenXiao1999)
 * Upstream Issue or RFC (URL): https://github.com/zhihu/zetta/issues/2（in Chinese）
 * Difficulty: Hard 
 
