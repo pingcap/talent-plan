@@ -118,7 +118,7 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 * Recommended Skills: Rust, Go,  Algorithm / Data Structure
 * Mentor(s): @breeswish @HundunDM
 * Upstream Issue or RFC (URL): https://github.com/pingcap-incubator/tidb-dashboard/issues/574
-* Difficulty: Medium
+* Difficulty: Hard
 
 ##### HBase protocol support on Zetta
 
