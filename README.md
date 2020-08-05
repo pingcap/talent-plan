@@ -6,7 +6,7 @@ Talent Plan is an open source training program initiated by PingCAP. It aims to 
 
 > Note:
 
-> Each course is developed independently, so they vary in their delivery and learning outcomes of course-takers. Please see the individual course documentation for details.
+> Each course is developed by different teams, so they may vary in their organization and learning outcomes. Please see the individual course documentation for details.
 
 ## Our Courses
 
