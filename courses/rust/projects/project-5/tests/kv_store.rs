@@ -131,7 +131,7 @@ fn compaction() -> Result<()> {
         for key_id in 0..1000 {
             let key = format!("key{}", key_id);
             let value = format!("{}", iter);
-            store.set(key, value)?;
+            store.set(key, value).wait()?;
         }
 
         // drop store for being sure syncing the writer buffer data into disk
@@ -142,13 +142,13 @@ fn compaction() -> Result<()> {
             current_size = new_size;
             continue;
         }
-        // Compaction triggered.
+        // Compaction triggered
 
         // reopen and check content.
         let mut store = KvStore::open(temp_dir.path())?;
         for key_id in 0..1000 {
             let key = format!("key{}", key_id);
-            assert_eq!(store.get(key)?, Some(format!("{}", iter)));
+            assert_eq!(store.get(key).wait()?, Some(format!("{}", iter)));
         }
         return Ok(());
     }

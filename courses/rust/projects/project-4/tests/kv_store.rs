@@ -110,14 +110,14 @@ fn compaction() -> Result<()> {
         }
 
         // drop store for being sure syncing the writer buffer data into disk
-        // so that the dir_size() returns the correct size.
+        // so that the dir_size() returns the correct size
         drop(store);
         let new_size = dir_size();
         if new_size > current_size {
             current_size = new_size;
             continue;
         }
-        // Compaction triggered.
+        // Compaction triggered
 
         // reopen and check content.
         let mut store = KvStore::open(temp_dir.path())?;
