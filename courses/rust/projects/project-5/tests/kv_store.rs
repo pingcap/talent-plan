@@ -111,40 +111,44 @@ fn remove_key() -> Result<()> {
 #[test]
 fn compaction() -> Result<()> {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
-    let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 1)?;
 
     let dir_size = || {
         let entries = WalkDir::new(temp_dir.path()).into_iter();
         let len: walkdir::Result<u64> = entries
-            .map(|res| {
-                res.and_then(|entry| entry.metadata())
-                    .map(|metadata| metadata.len())
-            })
-            .sum();
+                .map(|res| {
+                    res.and_then(|entry| entry.metadata())
+                            .map(|metadata| metadata.len())
+                })
+                .sum();
         len.expect("fail to get directory size")
     };
 
     let mut current_size = dir_size();
     for iter in 0..1000 {
+        // reopen for testing whether the open method calculates the uncompacted data size correctly
+        let mut store = KvStore::open(temp_dir.path())?;
+
         for key_id in 0..1000 {
             let key = format!("key{}", key_id);
             let value = format!("{}", iter);
-            store.set(key, value).wait()?;
+            store.set(key, value)?;
         }
 
+        // drop store for being sure syncing the writer buffer data into disk
+        // so that the dir_size() returns the correct size.
+        drop(store);
         let new_size = dir_size();
         if new_size > current_size {
             current_size = new_size;
             continue;
         }
-        // Compaction triggered
+        // Compaction triggered.
 
-        drop(store);
-        // reopen and check content
-        let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 1)?;
+        // reopen and check content.
+        let mut store = KvStore::open(temp_dir.path())?;
         for key_id in 0..1000 {
             let key = format!("key{}", key_id);
-            assert_eq!(store.get(key).wait()?, Some(format!("{}", iter)));
+            assert_eq!(store.get(key)?, Some(format!("{}", iter)));
         }
         return Ok(());
     }
