@@ -111,6 +111,7 @@ fn remove_key() -> Result<()> {
 #[test]
 fn compaction() -> Result<()> {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
+    let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 1)?;
 
     let dir_size = || {
         let entries = WalkDir::new(temp_dir.path()).into_iter();
@@ -125,18 +126,12 @@ fn compaction() -> Result<()> {
 
     let mut current_size = dir_size();
     for iter in 0..1000 {
-        // reopen for testing whether the open method calculates the uncompacted data size correctly
-        let mut store = KvStore::open(temp_dir.path())?;
-
         for key_id in 0..1000 {
             let key = format!("key{}", key_id);
             let value = format!("{}", iter);
             store.set(key, value).wait()?;
         }
 
-        // drop store for being sure syncing the writer buffer data into disk
-        // so that the dir_size() returns the correct size.
-        drop(store);
         let new_size = dir_size();
         if new_size > current_size {
             current_size = new_size;
@@ -144,8 +139,9 @@ fn compaction() -> Result<()> {
         }
         // Compaction triggered
 
-        // reopen and check content.
-        let mut store = KvStore::open(temp_dir.path())?;
+        drop(store);
+        // reopen and check content
+        let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 1)?;
         for key_id in 0..1000 {
             let key = format!("key{}", key_id);
             assert_eq!(store.get(key).wait()?, Some(format!("{}", iter)));
