@@ -88,11 +88,11 @@ fn compaction() -> Result<()> {
     let dir_size = || {
         let entries = WalkDir::new(temp_dir.path()).into_iter();
         let len: walkdir::Result<u64> = entries
-                .map(|res| {
-                    res.and_then(|entry| entry.metadata())
-                            .map(|metadata| metadata.len())
-                })
-                .sum();
+            .map(|res| {
+                res.and_then(|entry| entry.metadata())
+                    .map(|metadata| metadata.len())
+            })
+            .sum();
         len.expect("fail to get directory size")
     };
 
