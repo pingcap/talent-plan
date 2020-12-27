@@ -33,7 +33,7 @@ None. This course is a great introduction for your first day on GitHub.
 
 * [Introduction to GitHub](https://lab.github.com/githubtraining/introduction-to-github), an open source course created by [The GitHub Training Team](https://lab.github.com/githubtraining)
  
-**Suggested Assignments: **
+**Suggested Assignments:**
 
 * Finish the lab.
 
