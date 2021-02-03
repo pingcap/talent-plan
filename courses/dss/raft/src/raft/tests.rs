@@ -182,7 +182,7 @@ fn test_fail_no_agree_2b() {
         .unwrap()
         .start(&Entry { x: 30 })
         .expect("leader2 rejected start");
-    if index2 < 2 || index2 > 3 {
+    if !(2..=3).contains(&index2) {
         panic!("unexpected index {}", index2);
     }
 
@@ -433,7 +433,7 @@ fn test_count_2b() {
     cfg.check_one_leader();
     let mut total1 = rpcs(&cfg);
 
-    if total1 > 30 || total1 < 1 {
+    if !(1..=30).contains(&total1) {
         panic!("too many or few RPCs ({}) to elect initial leader", total1);
     }
 

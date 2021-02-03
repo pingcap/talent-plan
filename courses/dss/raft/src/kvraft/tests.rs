@@ -677,19 +677,17 @@ fn test_one_partition_3a() {
 
     let timeout = Delay::new(Duration::from_secs(1));
 
-    let dones = block_on(async {
-        future::select(timeout, future::select(done0_rx, done1_rx))
-            .map(|res| match res {
-                future::Either::Left((_, dones)) => dones,
-                future::Either::Right((future::Either::Left((op, _)), _)) => {
-                    panic!("{} in minority completed", op.unwrap())
-                }
-                future::Either::Right((future::Either::Right((op, _)), _)) => {
-                    panic!("{} in minority completed", op.unwrap())
-                }
-            })
-            .await
-    });
+    let dones = block_on(
+        future::select(timeout, future::select(done0_rx, done1_rx)).map(|res| match res {
+            future::Either::Left((_, dones)) => dones,
+            future::Either::Right((future::Either::Left((op, _)), _)) => {
+                panic!("{} in minority completed", op.unwrap())
+            }
+            future::Either::Right((future::Either::Right((op, _)), _)) => {
+                panic!("{} in minority completed", op.unwrap())
+            }
+        }),
+    );
 
     check(&cfg, &ckp1, "1", "14");
     put(&cfg, &ckp1, "1", "16");
