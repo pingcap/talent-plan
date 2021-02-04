@@ -122,7 +122,11 @@ impl<P: ThreadPool> KvsEngine for KvStore<P> {
     /// # Errors
     ///
     /// It propagates I/O or serialization errors during writing the log.
-    fn set(&self, key: String, value: String) -> Box<dyn Future<Item = (), Error = KvsError> + Send> {
+    fn set(
+        &self,
+        key: String,
+        value: String,
+    ) -> Box<dyn Future<Item = (), Error = KvsError> + Send> {
         let writer = self.writer.clone();
         let (tx, rx) = oneshot::channel();
         self.thread_pool.spawn(move || {

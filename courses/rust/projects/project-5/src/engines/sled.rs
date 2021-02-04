@@ -23,7 +23,11 @@ impl<P: ThreadPool> SledKvsEngine<P> {
 }
 
 impl<P: ThreadPool> KvsEngine for SledKvsEngine<P> {
-    fn set(&self, key: String, value: String) -> Box<dyn Future<Item = (), Error = KvsError> + Send> {
+    fn set(
+        &self,
+        key: String,
+        value: String,
+    ) -> Box<dyn Future<Item = (), Error = KvsError> + Send> {
         let db = self.db.clone();
         let (tx, rx) = oneshot::channel();
         self.pool.spawn(move || {

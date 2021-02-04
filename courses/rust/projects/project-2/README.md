@@ -12,7 +12,7 @@ command line_.
 - Map in-memory key-indexes to on-disk values
 - Periodically compact the log to remove stale data
 
-**Topics**: log-structured file I/O, bitcask, the `failure` crate, `Read` /
+**Topics**: log-structured file I/O, bitcask, the `thiserror` crate, `Read` /
 `Write` traits, the `serde` crate.
 
 - [Introduction](#user-content-introduction)
@@ -187,10 +187,10 @@ is crucial to Rust projects: decide on an error handling strategy.
 <!-- TODO outline strategies? -->
 
 Rust's error handling is powerful, but involves a lot of boilerplate to use
-correctly. For this project the [`failure`] crate will provide the tools to
+correctly. For this project the [`thiserror`] crate will provide the tools to
 easily handle errors of all kinds.
 
-[`failure`]: https://docs.rs/failure/0.1.5/failure/
+[`thiserror`]: https://docs.rs/thiserror/1.0.18/thiserror/
 
 The [failure guide][fg] describes [several] error handling patterns.
 
@@ -198,7 +198,7 @@ The [failure guide][fg] describes [several] error handling patterns.
 [several]: https://boats.gitlab.io/failure/guidance.html
 
 Pick one of those strategies and, in your library, either define your own error
-type or import `failure`s `Error`. This is the error type you will use in all of
+type or import `thiserror`s `Error`. This is the error type you will use in all of
 your `Result`s, converting error types from other crates to your own with the
 `?` operator.
 
@@ -227,10 +227,10 @@ suite to compile (`cargo test --no-run`).
 -->
 
 _Note: Error-handling practices in Rust are still evolving. This course
-currently uses the [`failure`] crate to make defining error types easier. While
-`failure` has a good design, its use is [arguably not a best practice][nbp]. It
+currently uses the [`thiserror`] crate to make defining error types easier. While
+`thiserror` has a good design, its use is [arguably not a best practice][nbp]. It
 may not continue to be viewed favorably by Rust experts. Future iterations
-of the course will likely not use `failure`. In the meantime, it is fine, and
+of the course will likely not use `thiserror`. In the meantime, it is fine, and
 presents an opportunity to learn more of the history and nuance of Rust error
 handling._
 
@@ -258,7 +258,7 @@ This is the basic behavior of `kvs` with a log:
 - "set"
   - The user invokes `kvs set mykey myvalue`
    - `kvs` creates a value representing the "set" command, containing its key and
-    value
+      value
   - It then serializes that command to a `String`
   - It then appends the serialized command to a file containing the log
   - If that succeeds, it exits silently with error code 0
