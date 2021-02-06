@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crossbeam_skiplist::SkipMap;
+use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 
