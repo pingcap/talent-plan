@@ -1,9 +1,6 @@
 #![deny(missing_docs)]
 //! A simple key/value store.
 
-#[macro_use]
-extern crate log;
-
 pub use client::KvsClient;
 pub use engines::{KvStore, KvsEngine, SledKvsEngine};
 pub use error::{KvsError, Result};

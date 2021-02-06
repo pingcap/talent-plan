@@ -1,11 +1,8 @@
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate clap;
-
+use clap::arg_enum;
 use kvs::thread_pool::*;
 use kvs::*;
 use log::LevelFilter;
+use log::{error, info, warn};
 use std::env;
 use std::env::current_dir;
 use std::fs;
@@ -46,7 +43,9 @@ arg_enum! {
 }
 
 fn main() {
-    env_logger::builder().filter_level(LevelFilter::Info).init();
+    env_logger::builder()
+        .filter_level(LevelFilter::Info)
+        .init();
     let mut opt = Opt::from_args();
     let res = current_engine().and_then(move |curr_engine| {
         if opt.engine.is_none() {
@@ -78,7 +77,7 @@ fn run(opt: Opt) -> Result<()> {
     match engine {
         Engine::kvs => run_with(KvStore::open(env::current_dir()?)?, pool, opt.addr),
         Engine::sled => run_with(
-            SledKvsEngine::new(sled::Db::start_default(env::current_dir()?)?),
+            SledKvsEngine::new(sled::open(env::current_dir()?)?),
             pool,
             opt.addr,
         ),

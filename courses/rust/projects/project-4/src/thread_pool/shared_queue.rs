@@ -5,6 +5,8 @@ use crate::Result;
 
 use crossbeam::channel::{self, Receiver, Sender};
 
+use log::{debug, error};
+
 // Note for Rust training course: the thread pool is not implemented using
 // `catch_unwind` because it would require the task to be `UnwindSafe`.
 

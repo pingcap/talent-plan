@@ -16,7 +16,7 @@ impl SledKvsEngine {
 impl KvsEngine for SledKvsEngine {
     fn set(&self, key: String, value: String) -> Result<()> {
         let tree: &Tree = &self.0;
-        tree.set(key, value.into_bytes()).map(|_| ())?;
+        tree.insert(key, value.into_bytes()).map(|_| ())?;
         tree.flush()?;
         Ok(())
     }
@@ -32,7 +32,7 @@ impl KvsEngine for SledKvsEngine {
 
     fn remove(&self, key: String) -> Result<()> {
         let tree: &Tree = &self.0;
-        tree.del(key)?.ok_or(KvsError::KeyNotFound)?;
+        tree.remove(key)?.ok_or(KvsError::KeyNotFound)?;
         tree.flush()?;
         Ok(())
     }

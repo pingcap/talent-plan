@@ -1,10 +1,7 @@
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate clap;
-
+use clap::arg_enum;
 use kvs::*;
 use log::LevelFilter;
+use log::{error, info, warn};
 use std::env::current_dir;
 use std::fs;
 use std::net::SocketAddr;
@@ -73,10 +70,7 @@ fn run(opt: Opt) -> Result<()> {
 
     match engine {
         Engine::kvs => run_with_engine(KvStore::open(current_dir()?)?, opt.addr),
-        Engine::sled => run_with_engine(
-            SledKvsEngine::new(sled::Db::start_default(current_dir()?)?),
-            opt.addr,
-        ),
+        Engine::sled => run_with_engine(SledKvsEngine::new(sled::open(current_dir()?)?), opt.addr),
     }
 }
 
