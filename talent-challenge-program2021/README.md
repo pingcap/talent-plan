@@ -1,10 +1,10 @@
-# Talent Challenge Program
+# Talent Challenge Program 2021
 
-Talent Challenge program is a platform that offers a structured remote mentoring program for **college students** successfully completing talent plan courses or having contributed to TiDB projects. Open source projects related to TiDB ecosystems will be selected together with professional mentors. Students **successfully completing talent plan courses or having contributed to TiDB projects** can apply for the projects, one at a time, and finish the projects with the help of the mentors in a given time. Mentees gain real-world experience by working closely with mentors. Students who successfully complete the projects will receive **bonus and better job opportunities**.
+Talent Challenge program is a platform that offers a structured remote mentoring program for **college students** who have successfully completed talent plan courses or contributed to TiDB projects. Open source projects related to TiDB ecosystems will be selected together with professional mentors. Students can apply for the projects, one at a time, and finish the projects with the help of the mentors in a given time. Mentees gain real-world experiences by working closely with mentors. Students who successfully complete the projects will receive **bonus and better job opportunities**.
 
 ### Current cycle
 
-Talent Challenge program season 1 is ongoing, check the timeline and projects available on [dedicated page](s1.md).
+Talent Challenge program 2021 is ongoing, check the timeline and projects available on [dedicated page](s1.md).
 
 ## Communication
 
@@ -29,7 +29,8 @@ PMC(Project Management Committee) of TiDB community will select the projects tha
 
 *Note:*
 
-- Only **students who have completed talent plan courses or having contributed to TiDB projects** can apply for Talent Challenge program. 
+- Must be college students at school.
+- **Students who have completed talent plan courses or contributed to TiDB projects** are encouraged to apply for the program and they will be considered as priority, or who have proven capabilites on distributed database development.
 - You are eligible to participate as a mentee in a single project per-cycle.
 
 **Prior to the opening of applications, mentee candidates are encouraged to talk to mentors about the project.** This helps them refine their ideas and deepen their understanding of the project.

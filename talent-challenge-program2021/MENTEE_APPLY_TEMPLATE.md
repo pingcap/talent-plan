@@ -1,4 +1,4 @@
-# Mentee Apply Template
+# Mentee Application Form Template
 
 Mail to: talent-plan@tidb.io
 
@@ -10,11 +10,12 @@ TCP Mentee Application - {project name} - {personal name}
 
 Please make a self-introduction briefly, including but not limited to:
 
-* your name
-* your nationality
-* your education background
-* your performance in talent plan courses or what you have contributed to TiDB projects
-* the project you are applying for
+* Your name
+* Your nationality
+* Your education background
+* The project you are applying for
+* Your performance in talent plan courses or what you have contributed to TiDB projects
+* Any other evidences that prove your capabilities
 
 
 ## Attachments
