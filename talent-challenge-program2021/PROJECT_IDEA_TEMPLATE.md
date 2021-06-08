@@ -1,7 +1,4 @@
 ```
-## TiDB Ecosystem Project Name
-
-## Title
 
 ## Description
 
