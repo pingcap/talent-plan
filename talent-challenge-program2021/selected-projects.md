@@ -7,9 +7,6 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 ### Template
 
 ```
-## TiDB Ecosystem Project Name
-
-## Title
 
 ## Description
 
