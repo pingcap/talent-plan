@@ -4,7 +4,7 @@ Talent Challenge program is a platform that offers a structured remote mentoring
 
 ### Current cycle
 
-Talent Challenge program 2021 is ongoing, check the timeline and projects available on [dedicated page](s1.md).
+Talent Challenge program 2021 is ongoing, check the timeline and projects available on [dedicated page](schedule.md).
 
 ## Communication
 
