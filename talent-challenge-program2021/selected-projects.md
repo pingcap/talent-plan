@@ -38,3 +38,20 @@ Milestone 2: ${milestone descption}, Expected finish date: ${date}
 ```
 
 ## List of Selected Projects
+
+#### SQL
+
+* project 1:　[GBK charset](https://github.com/pingcap/tidb/issues/25152)　Jiwei Xiong
+* project 2:　[Expression index GA](https://github.com/pingcap/tidb/issues/25150)　Wenjun Huang
+* project 3:　[Optimize CTE performance](https://github.com/pingcap/tidb/issues/25149)　Wenjun Huang
+* project 4:　[Local temporary table](https://github.com/pingcap/tidb/issues/25204)　Ming Zhang
+* project 5:　[Implement missing JSON functions](https://github.com/pingcap/tidb/issues/14486)　Morgan Tocker
+* project 6:　[Only full group by check](https://github.com/pingcap/tidb/issues/14580)　Yiding Cui 　Needed things(relational algebra, graph theory)
+* project 7:　[Optimizing hotspot small tables](https://github.com/pingcap/tidb/issues/25293)　Kangli Mao
+
+#### Storage
+
+* project 1:　[Historical Hotspot Region](https://github.com/pingcap/tidb/issues/25281)　Shuning Chen
+* project 2:　[Placement rule in SQL](https://github.com/pingcap/tidb/issues/18030)　Shuning Chen
+* project 3:　[Build scheduling model with Simulink](https://github.com/tikv/pd/issues/3736)　Jian Tong
+
