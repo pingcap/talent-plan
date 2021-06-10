@@ -41,17 +41,17 @@ Milestone 2: ${milestone descption}, Expected finish date: ${date}
 
 #### SQL
 
-* project 1:　[GBK charset](https://github.com/pingcap/tidb/issues/25152)　Jiwei Xiong
-* project 2:　[Expression index GA](https://github.com/pingcap/tidb/issues/25150)　Wenjun Huang
-* project 3:　[Optimize CTE performance](https://github.com/pingcap/tidb/issues/25149)　Wenjun Huang
-* project 4:　[Local temporary table](https://github.com/pingcap/tidb/issues/25204)　Ming Zhang
-* project 5:　[Implement missing JSON functions](https://github.com/pingcap/tidb/issues/14486)　Morgan Tocker
-* project 6:　[Only full group by check](https://github.com/pingcap/tidb/issues/14580)　Yiding Cui 　Needed things(relational algebra, graph theory)
-* project 7:　[Optimizing hotspot small tables](https://github.com/pingcap/tidb/issues/25293)　Kangli Mao
+* [tidb/issues/25152](https://github.com/pingcap/tidb/issues/25152)　GBK charset, [@xiongjiwei](https://github.com/xiongjiwei)
+* [tidb/issues/25150](https://github.com/pingcap/tidb/issues/25150)　Expression index GA, [@wjhuang2016](https://github.com/wjhuang2016)
+* [tidb/issues/25149](https://github.com/pingcap/tidb/issues/25149)　Optimize CTE performance, [@wjhuang2016](https://github.com/wjhuang2016)
+* [tidb/issues/25204](https://github.com/pingcap/tidb/issues/25204)　Local temporary table, [@djshow832](https://github.com/djshow832)
+* [tidb/issues/14486](https://github.com/pingcap/tidb/issues/14486)　Implement missing JSON functions,[@nullnotnil](https://github.com/nullnotnil)
+* [tidb/issues/14580](https://github.com/pingcap/tidb/issues/14580)　Only full group by check，needed things(relational algebra, graph theory),[@winoros](https://github.com/winoros)
+* [tidb/issues/25293](https://github.com/pingcap/tidb/issues/25293)　Optimizing hotspot small tables,[@tiancaiamao](https://github.com/tiancaiamao)
 
 #### Storage
 
-* project 1:　[Historical Hotspot Region](https://github.com/pingcap/tidb/issues/25281)　Shuning Chen
-* project 2:　[Placement rule in SQL](https://github.com/pingcap/tidb/issues/18030)　Shuning Chen
-* project 3:　[Build scheduling model with Simulink](https://github.com/tikv/pd/issues/3736)　Jian Tong
+* [tidb/issues/25281](https://github.com/pingcap/tidb/issues/25281)　Historical Hotspot Region,[@nolouch](https://github.com/nolouch)
+* [tidb/issues/18030](https://github.com/pingcap/tidb/issues/18030)　Placement rule in SQL,[@nolouch](https://github.com/nolouch)
+* [pd/issues/3736](https://github.com/tikv/pd/issues/3736)　　Build scheduling model with Simulink,[@bufferflies](https://github.com/bufferflies)
 
