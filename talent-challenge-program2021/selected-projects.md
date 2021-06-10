@@ -55,3 +55,7 @@ Milestone 2: ${milestone descption}, Expected finish date: ${date}
 * [tidb/issues/18030](https://github.com/pingcap/tidb/issues/18030)　Placement rule in SQL, [@nolouch](https://github.com/nolouch)
 * [pd/issues/3736](https://github.com/tikv/pd/issues/3736)　　Build scheduling model with Simulink, [@bufferflies](https://github.com/bufferflies)
 
+#### Talent Plan
+
+* [forum#154](https://internals.tidb.io/t/topic/154) Optimize the TinySQL course and learning experience @rebelice
+
