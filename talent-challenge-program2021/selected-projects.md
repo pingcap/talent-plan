@@ -1,4 +1,4 @@
-## Selected Projects in Sprint 1
+## Selected Projects in Season 1
 
 Selected Projects in Sprint 1 are listed below. Mentee candidates who want to participate in a certain project please refer to [Mentee Selection Process](README.md#mentees)
 
