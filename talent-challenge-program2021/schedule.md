@@ -5,7 +5,7 @@ _Status: ongoing_
 ### Timeline
 _Note: this timeline is proposed and may be subject to change before the formal program launch announcement_
 
-#### Sprint I
+#### Season I
 
 - June 15 - July 15: mentees applications opened, projects are selecting mentees;
 - July 19 - mentees are selected by the mentors, coding starts;
@@ -17,7 +17,7 @@ _Note: this timeline is proposed and may be subject to change before the formal 
     - The other 50% of the stipend is being paid to the mentees;
     - results announced!
 
-#### Sprin II
+#### Season II
 
 - Sep 01 - Sep 15: mentees applications opened, projects are selecting mentees;
 - Sep 20 - mentees are selected by the mentors, coding starts;
@@ -29,7 +29,7 @@ _Note: this timeline is proposed and may be subject to change before the formal 
     - The other 50% of the stipend is being paid to the mentees;
     - results announced!
 
-#### Sprin III
+#### Season III
 
 - Nov 01 - Nov 15: mentees applications opened, projects are selecting mentees;
 - Nov 18 - mentees are selected by the mentors, coding starts;
