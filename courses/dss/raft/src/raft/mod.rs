@@ -98,7 +98,6 @@ impl Raft {
     fn restore(&mut self, data: &[u8]) {
         if data.is_empty() {
             // bootstrap without any state?
-            return;
         }
         // Your code here (2C).
         // Example:
