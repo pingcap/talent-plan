@@ -357,10 +357,8 @@ impl Config {
 impl Drop for Config {
     fn drop(&mut self) {
         let servers = self.servers.lock().unwrap();
-        for s in &servers.kvservers {
-            if let Some(s) = s {
-                s.kill();
-            }
+        for s in servers.kvservers.iter().flatten() {
+            s.kill();
         }
     }
 }

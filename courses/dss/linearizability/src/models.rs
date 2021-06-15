@@ -4,9 +4,9 @@ use super::model::{EventKind, Events, Model, Operations};
 
 #[derive(Clone, Debug)]
 pub enum Op {
-    GET,
-    PUT,
-    APPEND,
+    Get,
+    Put,
+    Append,
 }
 
 #[derive(Clone, Debug)]
@@ -84,9 +84,9 @@ impl Model for KvModel {
         output: &Self::Output,
     ) -> (bool, Self::State) {
         match input.op {
-            Op::GET => (&output.value == state, state.clone()),
-            Op::PUT => (true, input.value.clone()),
-            Op::APPEND => (true, state.clone() + &input.value),
+            Op::Get => (&output.value == state, state.clone()),
+            Op::Put => (true, input.value.clone()),
+            Op::Append => (true, state.clone() + &input.value),
         }
     }
 }
@@ -152,7 +152,7 @@ mod tests {
                 events.push(Event {
                     kind: EventKind::CallEvent,
                     value: Value::Input(KvInput {
-                        op: Op::GET,
+                        op: Op::Get,
                         key: args[2].to_string(),
                         value: "".to_string(),
                     }),
@@ -164,7 +164,7 @@ mod tests {
                 events.push(Event {
                     kind: EventKind::CallEvent,
                     value: Value::Input(KvInput {
-                        op: Op::PUT,
+                        op: Op::Put,
                         key: args[2].to_string(),
                         value: args[3].to_string(),
                     }),
@@ -176,7 +176,7 @@ mod tests {
                 events.push(Event {
                     kind: EventKind::CallEvent,
                     value: Value::Input(KvInput {
-                        op: Op::APPEND,
+                        op: Op::Append,
                         key: args[2].to_string(),
                         value: args[3].to_string(),
                     }),

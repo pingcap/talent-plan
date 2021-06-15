@@ -433,7 +433,7 @@ fn generic_test_linearizability(
                             j += 1;
                             (
                                 KvInput {
-                                    op: Op::APPEND,
+                                    op: Op::Append,
                                     key,
                                     value: nv,
                                 },
@@ -446,7 +446,7 @@ fn generic_test_linearizability(
                             j += 1;
                             (
                                 KvInput {
-                                    op: Op::PUT,
+                                    op: Op::Put,
                                     key,
                                     value: nv,
                                 },
@@ -458,7 +458,7 @@ fn generic_test_linearizability(
                             let v = get(&cfg1, myck, &key);
                             (
                                 KvInput {
-                                    op: Op::GET,
+                                    op: Op::Get,
                                     key,
                                     value: "".to_string(),
                                 },
