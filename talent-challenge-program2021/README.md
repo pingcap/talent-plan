@@ -37,7 +37,7 @@ PMC(Project Management Committee) of TiDB community will select the projects tha
 
 #### Mentee selection process
 
-1. Mentee candidates who want to participate in Talent Challenge are expected to join Slack Channel ([#talent-challenge](https://slack.tidb.io/invite?team=tidb-community&channel=talent-challenge-&ref=github/talent-plan)) to have self-introductions.
+1. Mentee candidates who want to participate in Talent Challenge are expected to join Slack Channel ([#talent-challenge2021](https://app.slack.com/client/TH91JCS4W/C025HPYNKV2)) to have self-introductions.
 2. The mentors would communicate with mentee candidates about the project they would focus on and assign mentee candidates coding tasks.
 3. Mentee candidates need to conduct coding tasks for their desired project under the guidance of mentors and submit their resumes to [talent-plan@tidb.io](maito:talent-plan@tidb.io) using the [template](MENTEE_APPLY_TEMPLATE.md). 
 4. The mentors would decide whether to accept mentee candidates in the project based on their scores of talent plan courses, coding assignments, and capabilities.
