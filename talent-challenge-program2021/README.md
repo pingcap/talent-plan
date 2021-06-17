@@ -8,7 +8,7 @@ Talent Challenge program 2021 is ongoing, check the timeline and projects availa
 
 ## Communication
 
-Feel free to contact us in the **#talent-challenge** channel of the [tidbcommunity](https://slack.tidb.io/invite?team=tidb-community&channel=talent-challenge-&ref=github/talent-plan) slack workspace if any questions and suggestions about Talent Challenge program arise.
+Feel free to contact us in the **#talent-challenge2021** channel of the [tidbcommunity](https://slack.tidb.io/invite?team=tidb-community&channel=talent-challenge-&ref=github/talent-plan) slack workspace if any questions and suggestions about Talent Challenge program arise.
 
 ## How to Participate
 
