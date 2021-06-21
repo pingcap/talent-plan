@@ -14,10 +14,20 @@ use self::errors::*;
 use self::persister::*;
 use crate::proto::raftpb::*;
 
-pub struct ApplyMsg {
-    pub command_valid: bool,
-    pub command: Vec<u8>,
-    pub command_index: u64,
+/// As each Raft peer becomes aware that successive log entries are committed,
+/// the peer should send an `ApplyMsg` to the service (or tester) on the same
+/// server, via the `apply_ch` passed to `Raft::new`.
+pub enum ApplyMsg {
+    Command {
+        data: Vec<u8>,
+        index: u64,
+    },
+    // For 2D:
+    Snapshot {
+        data: Vec<u8>,
+        term: u64,
+        index: u64,
+    },
 }
 
 /// State of a raft peer.

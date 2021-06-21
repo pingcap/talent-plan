@@ -378,39 +378,36 @@ impl Config {
         // listen to messages from Raft indicating newly committed messages.
         let (tx, apply_ch) = unbounded();
         let storage = self.storage.clone();
-        let apply = apply_ch.for_each(move |cmd: raft::ApplyMsg| {
-            if !cmd.command_valid {
-                // ignore other types of ApplyMsg
-                return future::ready(());
-            }
-            match labcodec::decode(&cmd.command) {
-                Ok(entry) => {
-                    let mut s = storage.lock().unwrap();
-                    for (j, log) in s.logs.iter().enumerate() {
-                        if let Some(old) = log.get(&cmd.command_index) {
-                            if *old != entry {
-                                // some server has already committed a different value for this entry!
-                                panic!(
-                                    "commit index={:?} server={:?} {:?} != server={:?} {:?}",
-                                    cmd.command_index, i, entry, j, old
-                                );
-                            }
+        let apply = apply_ch.for_each(move |cmd: raft::ApplyMsg| match cmd {
+            raft::ApplyMsg::Command { data, index } => {
+                let entry = match labcodec::decode(&data) {
+                    Ok(entry) => entry,
+                    Err(e) => panic!("committed command is not an entry {:?}", e),
+                };
+                let mut s = storage.lock().unwrap();
+                for (j, log) in s.logs.iter().enumerate() {
+                    if let Some(old) = log.get(&index) {
+                        if *old != entry {
+                            // some server has already committed a different value for this entry!
+                            panic!(
+                                "commit index={:?} server={:?} {:?} != server={:?} {:?}",
+                                index, i, entry, j, old
+                            );
                         }
                     }
-                    let log = &mut s.logs[i];
-                    if cmd.command_index > 1 && log.get(&(cmd.command_index - 1)).is_none() {
-                        panic!("server {} apply out of order {}", i, cmd.command_index);
-                    }
-                    log.insert(cmd.command_index, entry);
-                    if cmd.command_index > s.max_index {
-                        s.max_index = cmd.command_index;
-                    }
                 }
-                Err(e) => {
-                    panic!("committed command is not an entry {:?}", e);
+                let log = &mut s.logs[i];
+                if index > 1 && log.get(&(index - 1)).is_none() {
+                    panic!("server {} apply out of order {}", i, index);
                 }
+                log.insert(index, entry);
+                if index > s.max_index {
+                    s.max_index = index;
+                }
+                future::ready(())
             }
-            future::ready(())
+            // ignore other types of ApplyMsg
+            _ => future::ready(()),
         });
         self.net.spawn_poller(apply);
 
