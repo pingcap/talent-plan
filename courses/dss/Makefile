@@ -18,6 +18,8 @@ test_2b: cargo_test_2b
 
 test_2c: cargo_test_2c
 
+test_2d: cargo_test_2d
+
 test_3: test_3a test_3b
 
 test_3a: cargo_test_3a
