@@ -10,7 +10,7 @@ check:
 
 test: test_others test_2 test_3
 
-test_2: test_2a test_2b test_2c
+test_2: test_2a test_2b test_2c test_2d
 
 test_2a: cargo_test_2a
 

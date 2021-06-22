@@ -397,8 +397,12 @@ impl Config {
             self.net.connect(name, &format!("{}", j));
         }
 
-        // listen to messages from Raft indicating newly committed messages.
         let (tx, apply_ch) = unbounded();
+        let rf = raft::Raft::new(clients, i, Box::new(self.saved[i].clone()), tx);
+        let node = raft::Node::new(rf);
+        self.rafts.lock().unwrap()[i] = Some(node.clone());
+
+        // listen to messages from Raft indicating newly committed messages.
         let storage = self.storage.clone();
         let rafts = self.rafts.clone();
         let apply = apply_ch.for_each(move |cmd: raft::ApplyMsg| match cmd {
@@ -452,10 +456,6 @@ impl Config {
             _ => future::ready(()),
         });
         self.net.spawn_poller(apply);
-
-        let rf = raft::Raft::new(clients, i, Box::new(self.saved[i].clone()), tx);
-        let node = raft::Node::new(rf);
-        self.rafts.lock().unwrap()[i] = Some(node.clone());
 
         let mut builder = labrpc::ServerBuilder::new(format!("{}", i));
         raft::add_raft_service(node, &mut builder).unwrap();
