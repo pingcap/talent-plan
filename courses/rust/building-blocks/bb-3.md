@@ -13,7 +13,7 @@ Read all the readings and perform all the exercises.
   about how logging works in Rust.
 
 - **[Reading: `slog` crate API][sl]**. Another popular logging crate, designed
-  for "structured loging". Again, just read the crate-level docs, to compare to
+  for "structured logging". Again, just read the crate-level docs, to compare to
   `log`. You might also want to look at ["Introduction to structured logging
   with slog"][sli].
 
