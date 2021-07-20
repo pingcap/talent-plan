@@ -71,7 +71,7 @@ We recommend you first complete [TP 101: Introduction to Open Source Software](.
 
 ### Case Study
 
-* [Open Source Practice in TiDB](https://pingcap-incubator.github.io/tidb-in-action/session5/chapter1/a-brief-history-of-tidb.html)
+* [Open Source Practice in TiDB](https://github.com/tidb-incubator/tidb-in-action/tree/master/session5)
 
 ### Suggested Assignments
 
