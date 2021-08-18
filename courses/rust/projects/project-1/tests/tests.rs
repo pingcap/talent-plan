@@ -51,7 +51,6 @@ fn cli_version() {
 //         .failure()
 //         .stderr(contains("unimplemented"));
 // }
-
 #[test]
 fn cli_invalid_get() {
     Command::cargo_bin("kvs")
