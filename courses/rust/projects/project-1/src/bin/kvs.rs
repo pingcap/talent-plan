@@ -1,10 +1,21 @@
-use clap::{App, AppSettings, Arg, SubCommand};
+use structopt::clap::{AppSettings, Arg, SubCommand};
 use kvs::KvStore;
+use structopt::clap;
+use structopt::StructOpt;
 /*
 * env就是打印Cargo.toml里面的各种配置
 */
+// #[derive(StructOpt, Debug)]
+// #[structopt(name = "basic")]
+// struct Opt{
+//     opt:String,
+//     key:String,
+//     value:String
+// }
+
+
 fn main() {
-    let matches = App::new(env!("CARGO_PKG_NAME"))
+    let matches = clap::App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
@@ -16,7 +27,6 @@ fn main() {
         .setting(AppSettings::VersionlessSubcommands)
         //这是里自定义的各种子命令
         .subcommand(
-            //with_name 子命令
             SubCommand::with_name("set")
                 //子命令描述
                 .about("Set the value of a string key to a string")
@@ -49,13 +59,12 @@ fn main() {
         }
         ("get", Some(_matches)) => {
             let key = matches.value_of("KEY").unwrap();
-            let value = matches.value_of("VALUE").unwrap();
-            store.set(key.to_string(), value.to_string());
+            let value=store.get(key.to_string()).unwrap();
+            println!("{}",value);
         }
         ("rm", Some(_matches)) => {
             let key = matches.value_of("KEY").unwrap();
-            let value = matches.value_of("VALUE").unwrap();
-            store.set(key.to_string(), value.to_string());
+            store.remove(key.to_string());
         }
         //没匹配到的执行这个处理
         _ => unreachable!(),
