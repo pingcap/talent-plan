@@ -1,19 +1,9 @@
 use structopt::clap::{AppSettings, Arg, SubCommand};
 use kvs::KvStore;
 use structopt::clap;
-// use structopt::StructOpt;
 /*
 * env就是打印Cargo.toml里面的各种配置
 */
-// #[derive(StructOpt, Debug)]
-// #[structopt(name = "basic")]
-// struct Opt{
-//     opt:String,
-//     key:String,
-//     value:String
-// }
-
-
 fn main() {
     let matches = clap::App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
