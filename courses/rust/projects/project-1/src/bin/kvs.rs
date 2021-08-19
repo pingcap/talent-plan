@@ -39,7 +39,8 @@ fn main() {
                 .arg(Arg::with_name("KEY").help("A string key").required(true)),
         )
         .get_matches();
-    //匹配到具体的命令应该怎么处理,目前没有任何处理。直接退出
+
+    //具体的处理
     let mut store = KvStore::new();
     match matches.subcommand() {
         ("set", Some(matches)) => {
