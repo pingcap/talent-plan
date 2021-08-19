@@ -1,7 +1,7 @@
 use structopt::clap::{AppSettings, Arg, SubCommand};
 use kvs::KvStore;
 use structopt::clap;
-use structopt::StructOpt;
+// use structopt::StructOpt;
 /*
 * env就是打印Cargo.toml里面的各种配置
 */
@@ -52,17 +52,18 @@ fn main() {
     //匹配到具体的命令应该怎么处理,目前没有任何处理。直接退出
     let mut store = KvStore::new();
     match matches.subcommand() {
-        ("set", Some(_matches)) => {
+        ("set", Some(matches)) => {
             let key = matches.value_of("KEY").unwrap();
             let value = matches.value_of("VALUE").unwrap();
             store.set(key.to_string(), value.to_string());
+            println!("{},{}",key,value);
         }
-        ("get", Some(_matches)) => {
+        ("get", Some(matches)) => {
             let key = matches.value_of("KEY").unwrap();
             let value=store.get(key.to_string()).unwrap();
             println!("{}",value);
         }
-        ("rm", Some(_matches)) => {
+        ("rm", Some(matches)) => {
             let key = matches.value_of("KEY").unwrap();
             store.remove(key.to_string());
         }
