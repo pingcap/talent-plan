@@ -42,21 +42,20 @@ fn main() {
 
     //具体的处理
     let mut store = KvStore::new();
+    let key = matches.value_of("KEY").unwrap();
     match matches.subcommand() {
         ("set", Some(matches)) => {
-            let key = matches.value_of("KEY").unwrap();
             let value = matches.value_of("VALUE").unwrap();
             store.set(key.to_string(), value.to_string());
-            println!("{},{}",key,value);
+            println!("set:{},{}",key,value);
         }
         ("get", Some(matches)) => {
-            let key = matches.value_of("KEY").unwrap();
             let value=store.get(key.to_string()).unwrap();
-            println!("{}",value);
+            println!("get:{}",value);
         }
         ("rm", Some(matches)) => {
-            let key = matches.value_of("KEY").unwrap();
             store.remove(key.to_string());
+            println!("rm:{}",value);
         }
         //没匹配到的执行这个处理
         _ => unreachable!(),
