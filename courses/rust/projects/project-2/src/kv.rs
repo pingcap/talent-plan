@@ -53,6 +53,7 @@ impl KvStore {
     /// It propagates I/O or deserialization errors during the log replay.
     pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
         let path = path.into();
+        //如果文件不存在则创建文件
         fs::create_dir_all(&path)?;
 
         let mut readers = HashMap::new();
