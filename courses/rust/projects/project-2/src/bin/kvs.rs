@@ -37,7 +37,7 @@ fn main() -> Result<()> {
         ("set", Some(matches)) => {
             let key = matches.value_of("KEY").unwrap();
             let value = matches.value_of("VALUE").unwrap();
-
+            //current_dir()获取当前的文件路径
             let mut store = KvStore::open(current_dir()?)?;
             store.set(key.to_string(), value.to_string())?;
         }

@@ -58,16 +58,18 @@ impl KvStore {
 
         let mut readers = HashMap::new();
         let mut index = BTreeMap::new();
-
+        //获取所有后缀为log的文件,将文件名转成u64并排序,返回排序后的迭代器
         let gen_list = sorted_gen_list(&path)?;
         let mut uncompacted = 0;
 
         for &gen in &gen_list {
             let mut reader = BufReaderWithPos::new(File::open(log_path(&path, gen))?)?;
             uncompacted += load(gen, &mut reader, &mut index)?;
+            //所以说每个日志文件有一个单独的read流，他们公用一个压实标记
             readers.insert(gen, reader);
         }
 
+        //创建一个新的文件并获取write流
         let current_gen = gen_list.last().unwrap_or(&0) + 1;
         let writer = new_log_file(&path, current_gen, &mut readers)?;
 
@@ -252,17 +254,22 @@ fn load(
 ) -> Result<u64> {
     // To make sure we read from the beginning of the file.
     let mut pos = reader.seek(SeekFrom::Start(0))?;
+    //将读取出来的内容序列化
     let mut stream = Deserializer::from_reader(reader).into_iter::<Command>();
     let mut uncompacted = 0; // number of bytes that can be saved after a compaction.
     while let Some(cmd) = stream.next() {
+        //获取每一条命令的偏移量
         let new_pos = stream.byte_offset() as u64;
         match cmd? {
             Command::Set { key, .. } => {
+                //btree map是 k：key v：文件名和偏移量
+                //也就是说存的是当前key的最新的值
                 if let Some(old_cmd) = index.insert(key, (gen, pos..new_pos).into()) {
                     uncompacted += old_cmd.len;
                 }
             }
             Command::Remove { key } => {
+                //从当前btree map中删除kv
                 if let Some(old_cmd) = index.remove(&key) {
                     uncompacted += old_cmd.len;
                 }
