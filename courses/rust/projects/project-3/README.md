@@ -170,7 +170,7 @@ You need the following dev-dependencies in your `Cargo.toml`:
 ```toml
 [dev-dependencies]
 assert_cmd = "0.11"
-criterion = "0.2.11"
+criterion = "0.3"
 predicates = "1.0.0"
 rand = "0.6.5"
 tempfile = "3.0.7"
