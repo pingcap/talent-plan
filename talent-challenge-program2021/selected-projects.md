@@ -48,7 +48,8 @@ Milestone 2: ${milestone descption}, Expected finish date: ${date}
 * [tidb/issues/25204](https://github.com/pingcap/tidb/issues/25204) Local temporary table, [@djshow832](https://github.com/djshow832)
 * [tidb/issues/14580](https://github.com/pingcap/tidb/issues/14580) Only full group by check，needed things(relational algebra, graph theory), [@winoros](https://github.com/winoros)
 * [tidb/issues/25293](https://github.com/pingcap/tidb/issues/25293) Optimizing hotspot small tables, [@tiancaiamao](https://github.com/tiancaiamao)
-* [tidb/issues/13709](https://github.com/pingcap/tidb/issues/13709) Cascades planner,[@eurekaka](https://github.com/eurekaka)
+* [tidb/issues/13709](https://github.com/pingcap/tidb/issues/13709) Cascades planner,[@chrysanxia](https://github.com/chrysanxia)
+* [tidb/issues/18745](https://github.com/pingcap/tidb/issues/18745) Support to export historical statistics,[@qw4990](https://github.com/qw4990)
 
 #### Storage
 
