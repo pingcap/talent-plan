@@ -37,6 +37,7 @@ pub struct KvStore {
     // writer of the current log.
     writer: BufWriterWithPos<File>,
     current_gen: u64,
+    //cmd以及对应的文件偏移量
     index: BTreeMap<String, CommandPos>,
     // the number of bytes representing "stale" commands that could be
     // deleted during a compaction.
@@ -93,17 +94,19 @@ impl KvStore {
     pub fn set(&mut self, key: String, value: String) -> Result<()> {
         let cmd = Command::set(key, value);
         let pos = self.writer.pos;
+        //写入log
         serde_json::to_writer(&mut self.writer, &cmd)?;
         self.writer.flush()?;
         if let Command::Set { key, .. } = cmd {
             if let Some(old_cmd) = self
                 .index
+                //记录当前key的最新的偏移量pos.start-pos.end
                 .insert(key, (self.current_gen, pos..self.writer.pos).into())
             {
                 self.uncompacted += old_cmd.len;
             }
         }
-
+        //当写入到达一定长度的时候开始执行压缩
         if self.uncompacted > COMPACTION_THRESHOLD {
             self.compact()?;
         }
@@ -118,19 +121,25 @@ impl KvStore {
     ///
     /// It returns `KvsError::UnexpectedCommandType` if the given command type unexpected.
     pub fn get(&mut self, key: String) -> Result<Option<String>> {
+        //从索引中获取偏移量
         if let Some(cmd_pos) = self.index.get(&key) {
+            //获取对应文件的read流
             let reader = self
+                //获取了存储read流的map
                 .readers
+                //cmd所在文件的read流
                 .get_mut(&cmd_pos.gen)
                 .expect("Cannot find log reader");
             reader.seek(SeekFrom::Start(cmd_pos.pos))?;
             let cmd_reader = reader.take(cmd_pos.len);
+            //将读取到数据反序列化
             if let Command::Set { value, .. } = serde_json::from_reader(cmd_reader)? {
                 Ok(Some(value))
             } else {
                 Err(KvsError::UnexpectedCommandType)
             }
         } else {
+            //get如果过取不到值我们则返回none
             Ok(None)
         }
     }
@@ -143,12 +152,16 @@ impl KvStore {
     ///
     /// It propagates I/O or serialization errors during writing the log.
     pub fn remove(&mut self, key: String) -> Result<()> {
+        //先判断key是否存在
         if self.index.contains_key(&key) {
             let cmd = Command::remove(key);
+            //将命令写入log
             serde_json::to_writer(&mut self.writer, &cmd)?;
             self.writer.flush()?;
             if let Command::Remove { key } = cmd {
+                //移除索引中的key
                 let old_cmd = self.index.remove(&key).expect("key not found");
+                //增加压缩的标记
                 self.uncompacted += old_cmd.len;
             }
             Ok(())
@@ -160,14 +173,19 @@ impl KvStore {
     /// Clears stale entries in the log.
     pub fn compact(&mut self) -> Result<()> {
         // increase current gen by 2. current_gen + 1 is for the compaction file.
+        //压缩后的文件
         let compaction_gen = self.current_gen + 1;
         self.current_gen += 2;
+        //创建新的log文件用于写入
         self.writer = self.new_log_file(self.current_gen)?;
 
+        //创建用于压缩的log文件
         let mut compaction_writer = self.new_log_file(compaction_gen)?;
 
         let mut new_pos = 0; // pos in the new log file.
+        //遍历索引
         for cmd_pos in &mut self.index.values_mut() {
+            //获取当前cmd的read流
             let reader = self
                 .readers
                 .get_mut(&cmd_pos.gen)
@@ -177,7 +195,9 @@ impl KvStore {
             }
 
             let mut entry_reader = reader.take(cmd_pos.len);
+            //将当前cmd copy到压缩文件
             let len = io::copy(&mut entry_reader, &mut compaction_writer)?;
+            //修改cmd的对应的新文件和偏移量
             *cmd_pos = (compaction_gen, new_pos..new_pos + len).into();
             new_pos += len;
         }
@@ -246,7 +266,7 @@ fn sorted_gen_list(path: &Path) -> Result<Vec<u64>> {
 
 /// Load the whole log file and store value locations in the index map.
 ///
-/// Returns how many bytes can be saved after a compaction.
+/// Returns how many bytes can be saved after a compaction.  
 fn load(
     gen: u64,
     reader: &mut BufReaderWithPos<File>,
@@ -303,7 +323,7 @@ impl Command {
         Command::Remove { key }
     }
 }
-
+//文件，偏移量以及长度
 /// Represents the position and length of a json-serialized command in the log.
 struct CommandPos {
     gen: u64,
