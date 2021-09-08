@@ -54,6 +54,7 @@ Milestone 2: ${milestone descption}, Expected finish date: ${date}
 #### Storage
 
 * [tidb/issues/25281](https://github.com/pingcap/tidb/issues/25281) (Occupied)Historical Hotspot Region, [@nolouch](https://github.com/nolouch)
+* [pd/issues/4095](https://github.com/tikv/pd/issues/4095)(NEW)Enhance Split Table Stability and Usability,[@Yisaer](https://github.com/Yisaer)
 * [pd/issues/3736](https://github.com/tikv/pd/issues/3736) Build scheduling model with Simulink, [@bufferflies](https://github.com/bufferflies)
 * [tikv/issues/10867](https://github.com/tikv/tikv/issues/10867) Support limiting read flow for TiKV IO rate limiter,[@Connor1996](https://github.com/connor1996)
 
