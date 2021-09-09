@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-prost = "0.6"
+prost = "0.8"
 
 [build-dependencies]
-prost-build = "0.6"
+prost-build = "0.8"

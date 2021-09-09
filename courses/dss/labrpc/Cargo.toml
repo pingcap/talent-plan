@@ -9,7 +9,7 @@ async-trait = "0.1"
 futures = { version = "0.3", features = ["thread-pool"] }
 futures-timer = "3.0"
 log = "0.4"
-prost = "0.6"
+prost = "0.8"
 rand = "0.7"
 
 labcodec = { path = "../labcodec" }
@@ -17,7 +17,7 @@ labcodec = { path = "../labcodec" }
 [dev-dependencies]
 criterion = "0.3"
 env_logger = "0.7"
-prost-derive = "0.6"
+prost-derive = "0.8"
 
 [[bench]]
 name = "rpc"

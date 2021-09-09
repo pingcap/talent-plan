@@ -263,7 +263,7 @@ fn generic_test(
                                 j += 1;
                             } else {
                                 debug!("{}: client new get {:?}", cli, key);
-                                let v = get(&cfg1, &myck, &key);
+                                let v = get(&cfg1, myck, &key);
                                 if v != last {
                                     panic!(
                                         "get wrong value, key {:?}, wanted:\n{:?}\n, got\n{:?}",
