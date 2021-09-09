@@ -65,6 +65,7 @@ enum Command {
 }
 
 fn main() {
+    //解析参数执行命令
     let opt = Opt::from_args();
     if let Err(e) = run(opt) {
         eprintln!("{}", e);
@@ -73,6 +74,7 @@ fn main() {
 }
 
 fn run(opt: Opt) -> Result<()> {
+    //对应server端执行对应的cmd
     match opt.command {
         Command::Get { key, addr } => {
             let mut client = KvsClient::connect(addr)?;
