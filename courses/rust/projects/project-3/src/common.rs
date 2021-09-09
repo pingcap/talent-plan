@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+//这里定义了req 和 resp
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Request {
     Get { key: String },

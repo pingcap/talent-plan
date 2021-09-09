@@ -79,6 +79,7 @@ fn run(opt: Opt) -> Result<()> {
     }
 }
 
+//初始化服务器并运行
 fn run_with_engine<E: KvsEngine>(engine: E, addr: SocketAddr) -> Result<()> {
     let server = KvsServer::new(engine);
     server.run(addr)

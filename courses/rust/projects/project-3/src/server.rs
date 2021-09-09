@@ -18,6 +18,7 @@ impl<E: KvsEngine> KvsServer<E> {
 
     /// Run the server listening on the given address
     pub fn run<A: ToSocketAddrs>(mut self, addr: A) -> Result<()> {
+        //监听对应的端口
         let listener = TcpListener::bind(addr)?;
         for stream in listener.incoming() {
             match stream {
@@ -38,6 +39,7 @@ impl<E: KvsEngine> KvsServer<E> {
         let mut writer = BufWriter::new(&tcp);
         let req_reader = Deserializer::from_reader(reader).into_iter::<Request>();
 
+        //这里写了一段宏,尝试来理解他.我会传入一个resp这个resp json序列化返回
         macro_rules! send_resp {
             ($resp:expr) => {{
                 let resp = $resp;
@@ -48,6 +50,7 @@ impl<E: KvsEngine> KvsServer<E> {
             };
         }
 
+        //不断的迭代从网络链接传入的req
         for req in req_reader {
             let req = req?;
             debug!("Receive request from {}: {:?}", peer_addr, req);

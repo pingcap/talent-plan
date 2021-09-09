@@ -1,7 +1,7 @@
 //! This module provides various key value storage engines.
 
 use crate::Result;
-
+//这个文件是定义了存储引擎的规范,必须要实现的方法
 /// Trait for a key value storage engine.
 pub trait KvsEngine {
     /// Sets the value of a string key to a string.
