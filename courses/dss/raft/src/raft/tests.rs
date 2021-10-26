@@ -11,7 +11,7 @@ use futures::executor::block_on;
 use futures::future;
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::raft::config::{Config, Entry, Storage};
+use crate::raft::config::{Config, Entry, Storage, SNAPSHOT_INTERVAL};
 use crate::raft::Node;
 
 /// The tester generously allows solutions to complete elections in one second
@@ -27,7 +27,7 @@ fn random_entry(rnd: &mut ThreadRng) -> Entry {
 #[test]
 fn test_initial_election_2a() {
     let servers = 3;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
 
     cfg.begin("Test (2A): initial election");
 
@@ -55,7 +55,7 @@ fn test_initial_election_2a() {
 #[test]
 fn test_reelection_2a() {
     let servers = 3;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
     cfg.begin("Test (2A): election after network failure");
 
     let leader1 = cfg.check_one_leader();
@@ -87,9 +87,43 @@ fn test_reelection_2a() {
 }
 
 #[test]
+fn test_many_election_2a() {
+    let servers = 7;
+    let iters = 10;
+    let mut cfg = Config::new(servers);
+
+    cfg.begin("Test (2A): multiple elections");
+
+    cfg.check_one_leader();
+
+    let mut random = rand::thread_rng();
+    for _ in 0..iters {
+        // disconnect three nodes
+        let i1 = random.gen::<usize>() % servers;
+        let i2 = random.gen::<usize>() % servers;
+        let i3 = random.gen::<usize>() % servers;
+        cfg.disconnect(i1);
+        cfg.disconnect(i2);
+        cfg.disconnect(i3);
+
+        // either the current leader should still be alive,
+        // or the remaining four should elect a new one.
+        cfg.check_one_leader();
+
+        cfg.connect(i1);
+        cfg.connect(i2);
+        cfg.connect(i3);
+    }
+
+    cfg.check_one_leader();
+
+    cfg.end();
+}
+
+#[test]
 fn test_basic_agree_2b() {
     let servers = 5;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
     cfg.begin("Test (2B): basic agreement");
 
     let iters = 3;
@@ -111,7 +145,7 @@ fn test_basic_agree_2b() {
 #[test]
 fn test_fail_agree_2b() {
     let servers = 3;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
 
     cfg.begin("Test (2B): agreement despite follower disconnection");
 
@@ -142,7 +176,7 @@ fn test_fail_agree_2b() {
 #[test]
 fn test_fail_no_agree_2b() {
     let servers = 5;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
 
     cfg.begin("Test (2B): no agreement if too many followers disconnect");
 
@@ -194,7 +228,7 @@ fn test_fail_no_agree_2b() {
 #[test]
 fn test_concurrent_starts_2b() {
     let servers = 3;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
 
     cfg.begin("Test (2B): concurrent start()s");
     let mut success = false;
@@ -292,7 +326,7 @@ fn test_concurrent_starts_2b() {
 #[test]
 fn test_rejoin_2b() {
     let servers = 3;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
 
     cfg.begin("Test (2B): rejoin of partitioned leader");
 
@@ -339,7 +373,7 @@ fn test_rejoin_2b() {
 #[test]
 fn test_backup_2b() {
     let servers = 5;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
 
     cfg.begin("Test (2B): leader backs up quickly over incorrect follower logs");
 
@@ -426,7 +460,7 @@ fn test_count_2b() {
         n
     }
 
-    let mut cfg = Config::new(SERVERS, false);
+    let mut cfg = Config::new(SERVERS);
 
     cfg.begin("Test (2B): RPC counts aren't too high");
 
@@ -547,7 +581,7 @@ fn test_count_2b() {
 #[test]
 fn test_persist1_2c() {
     let servers = 3;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
 
     cfg.begin("Test (2C): basic persistence");
 
@@ -593,7 +627,7 @@ fn test_persist1_2c() {
 #[test]
 fn test_persist2_2c() {
     let servers = 5;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
 
     cfg.begin("Test (2C): more persistence");
 
@@ -639,7 +673,7 @@ fn test_persist2_2c() {
 #[test]
 fn test_persist3_2c() {
     let servers = 3;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
 
     cfg.begin("Test (2C): partitioned leader and one follower crash, leader restarts");
 
@@ -677,7 +711,7 @@ fn test_persist3_2c() {
 #[test]
 fn test_figure_8_2c() {
     let servers = 5;
-    let mut cfg = Config::new(servers, false);
+    let mut cfg = Config::new(servers);
 
     cfg.begin("Test (2C): Figure 8");
 
@@ -736,7 +770,7 @@ fn test_unreliable_agree_2c() {
     let servers = 5;
 
     let cfg = {
-        let mut cfg = Config::new(servers, true);
+        let mut cfg = Config::new_with(servers, true, false);
         cfg.begin("Test (2C): unreliable agreement");
         Arc::new(cfg)
     };
@@ -778,7 +812,7 @@ fn test_unreliable_agree_2c() {
 #[test]
 fn test_figure_8_unreliable_2c() {
     let servers = 5;
-    let mut cfg = Config::new(servers, true);
+    let mut cfg = Config::new_with(servers, true, false);
 
     cfg.begin("Test (2C): Figure 8 (unreliable)");
     let mut random = rand::thread_rng();
@@ -853,7 +887,7 @@ fn test_figure_8_unreliable_2c() {
 
 fn internal_churn(unreliable: bool) {
     let servers = 5;
-    let mut cfg = Config::new(servers, unreliable);
+    let mut cfg = Config::new_with(servers, unreliable, false);
     if unreliable {
         cfg.begin("Test (2C): unreliable churn")
     } else {
@@ -1011,4 +1045,102 @@ fn test_reliable_churn_2c() {
 #[test]
 fn test_unreliable_churn_2c() {
     internal_churn(true);
+}
+
+fn snap_common(name: &str, disconnect: bool, reliable: bool, crash: bool) {
+    const MAX_LOG_SIZE: usize = 2000;
+
+    let iters = 30;
+    let servers = 3;
+    let mut cfg = Config::new_with(servers, !reliable, true);
+
+    cfg.begin(name);
+
+    let mut random = rand::thread_rng();
+    cfg.one(random_entry(&mut random), servers, true);
+    let mut leader1 = cfg.check_one_leader();
+
+    for i in 0..iters {
+        let mut victim = (leader1 + 1) % servers;
+        let mut sender = leader1;
+        if i % 3 == 1 {
+            sender = (leader1 + 1) % servers;
+            victim = leader1;
+        }
+
+        if disconnect {
+            cfg.disconnect(victim);
+            cfg.one(random_entry(&mut random), servers - 1, true);
+        }
+        if crash {
+            cfg.crash1(victim);
+            cfg.one(random_entry(&mut random), servers - 1, true);
+        }
+        // send enough to get a snapshot
+        for _ in 0..=SNAPSHOT_INTERVAL {
+            let _ = cfg.rafts.lock().unwrap()[sender]
+                .as_ref()
+                .unwrap()
+                .start(&random_entry(&mut random));
+        }
+        // let applier threads catch up with the Start()'s
+        cfg.one(random_entry(&mut random), servers - 1, true);
+
+        assert!(cfg.log_size() < MAX_LOG_SIZE, "log size too large");
+
+        if disconnect {
+            // reconnect a follower, who maybe behind and
+            // needs to receive a snapshot to catch up.
+            cfg.connect(victim);
+            cfg.one(random_entry(&mut random), servers, true);
+            leader1 = cfg.check_one_leader();
+        }
+        if crash {
+            cfg.start1_snapshot(victim);
+            cfg.connect(victim);
+            cfg.one(random_entry(&mut random), servers, true);
+            leader1 = cfg.check_one_leader();
+        }
+    }
+    cfg.end();
+}
+
+#[test]
+fn test_snapshot_basic_2d() {
+    snap_common("Test (2D): snapshots basic", false, true, false);
+}
+
+#[test]
+fn test_snapshot_install_2d() {
+    snap_common(
+        "Test (2D): install snapshots (disconnect)",
+        true,
+        true,
+        false,
+    );
+}
+
+#[test]
+fn test_snapshot_install_unreliable_2d() {
+    snap_common(
+        "Test (2D): install snapshots (disconnect+unreliable)",
+        true,
+        false,
+        false,
+    );
+}
+
+#[test]
+fn test_snapshot_install_crash_2d() {
+    snap_common("Test (2D): install snapshots (crash)", false, true, true);
+}
+
+#[test]
+fn test_snapshot_install_unreliable_crash_2d() {
+    snap_common(
+        "Test (2D): install snapshots (unreliable+crash)",
+        false,
+        false,
+        true,
+    );
 }

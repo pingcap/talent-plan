@@ -13,9 +13,10 @@ use crate::proto::raftpb::*;
 use crate::raft;
 use crate::raft::persister::*;
 
-static ID: AtomicUsize = AtomicUsize::new(0);
+pub const SNAPSHOT_INTERVAL: u64 = 10;
 
 fn uniqstring() -> String {
+    static ID: AtomicUsize = AtomicUsize::new(0);
     format!("{}", ID.fetch_add(1, Ordering::Relaxed))
 }
 
@@ -88,7 +89,11 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(n: usize, unreliable: bool) -> Config {
+    pub fn new(n: usize) -> Config {
+        Config::new_with(n, false, false)
+    }
+
+    pub fn new_with(n: usize, unreliable: bool, snapshot: bool) -> Config {
         init_logger();
 
         let net = labrpc::Network::new();
@@ -121,7 +126,7 @@ impl Config {
         };
 
         for i in 0..n {
-            cfg.start1(i);
+            cfg.start1_ext(i, snapshot);
         }
 
         for i in 0..n {
@@ -137,6 +142,15 @@ impl Config {
 
     fn rpc_total(&self) -> usize {
         self.net.total_count()
+    }
+
+    /// Maximum log size across all servers
+    pub fn log_size(&self) -> usize {
+        self.saved
+            .iter()
+            .map(|s| s.raft_state().len())
+            .max()
+            .unwrap()
     }
 
     // check that there's exactly one leader.
@@ -355,6 +369,14 @@ impl Config {
     /// state persister, to isolate previous instance of
     /// this server. since we cannot really kill it.
     pub fn start1(&mut self, i: usize) {
+        self.start1_ext(i, false);
+    }
+
+    pub fn start1_snapshot(&mut self, i: usize) {
+        self.start1_ext(i, true);
+    }
+
+    fn start1_ext(&mut self, i: usize, snapshot: bool) {
         self.crash1(i);
 
         // a fresh set of outgoing ClientEnd names.
@@ -373,48 +395,65 @@ impl Config {
             self.net.connect(name, &format!("{}", j));
         }
 
-        // listen to messages from Raft indicating newly committed messages.
         let (tx, apply_ch) = unbounded();
-        let storage = self.storage.clone();
-        let apply = apply_ch.for_each(move |cmd: raft::ApplyMsg| {
-            if !cmd.command_valid {
-                // ignore other types of ApplyMsg
-                return future::ready(());
-            }
-            match labcodec::decode(&cmd.command) {
-                Ok(entry) => {
-                    let mut s = storage.lock().unwrap();
-                    for (j, log) in s.logs.iter().enumerate() {
-                        if let Some(old) = log.get(&cmd.command_index) {
-                            if *old != entry {
-                                // some server has already committed a different value for this entry!
-                                panic!(
-                                    "commit index={:?} server={:?} {:?} != server={:?} {:?}",
-                                    cmd.command_index, i, entry, j, old
-                                );
-                            }
-                        }
-                    }
-                    let log = &mut s.logs[i];
-                    if cmd.command_index > 1 && log.get(&(cmd.command_index - 1)).is_none() {
-                        panic!("server {} apply out of order {}", i, cmd.command_index);
-                    }
-                    log.insert(cmd.command_index, entry);
-                    if cmd.command_index > s.max_index {
-                        s.max_index = cmd.command_index;
-                    }
-                }
-                Err(e) => {
-                    panic!("committed command is not an entry {:?}", e);
-                }
-            }
-            future::ready(())
-        });
-        self.net.spawn_poller(apply);
-
         let rf = raft::Raft::new(clients, i, Box::new(self.saved[i].clone()), tx);
         let node = raft::Node::new(rf);
         self.rafts.lock().unwrap()[i] = Some(node.clone());
+
+        // listen to messages from Raft indicating newly committed messages.
+        let storage = self.storage.clone();
+        let rafts = self.rafts.clone();
+        let apply = apply_ch.for_each(move |cmd: raft::ApplyMsg| match cmd {
+            raft::ApplyMsg::Command { data, index } => {
+                // debug!("apply {}", index);
+                let entry = labcodec::decode(&data).expect("committed command is not an entry");
+                let mut s = storage.lock().unwrap();
+                for (j, log) in s.logs.iter().enumerate() {
+                    if let Some(old) = log.get(&index) {
+                        if *old != entry {
+                            // some server has already committed a different value for this entry!
+                            panic!(
+                                "commit index={:?} server={:?} {:?} != server={:?} {:?}",
+                                index, i, entry, j, old
+                            );
+                        }
+                    }
+                }
+                let log = &mut s.logs[i];
+                if index > 1 && log.get(&(index - 1)).is_none() {
+                    panic!("server {} apply out of order {}", i, index);
+                }
+                log.insert(index, entry);
+                if index > s.max_index {
+                    s.max_index = index;
+                }
+                if snapshot && (index + 1) % SNAPSHOT_INTERVAL == 0 {
+                    rafts.lock().unwrap()[i]
+                        .as_ref()
+                        .unwrap()
+                        .snapshot(index, &data);
+                }
+                future::ready(())
+            }
+            raft::ApplyMsg::Snapshot { data, index, term } if snapshot => {
+                // debug!("install snapshot {}", index);
+                if rafts.lock().unwrap()[i]
+                    .as_ref()
+                    .unwrap()
+                    .cond_install_snapshot(term, index, &data)
+                {
+                    let mut s = storage.lock().unwrap();
+                    let log = &mut s.logs[i];
+                    log.clear();
+                    let entry = labcodec::decode(&data).unwrap();
+                    log.insert(index, entry);
+                }
+                future::ready(())
+            }
+            // ignore other types of ApplyMsg
+            _ => future::ready(()),
+        });
+        self.net.spawn_poller(apply);
 
         let mut builder = labrpc::ServerBuilder::new(format!("{}", i));
         raft::add_raft_service(node, &mut builder).unwrap();
@@ -432,8 +471,10 @@ impl Config {
         // continues to update the Persister.
         // but copy old persister's content so that we always
         // pass Make() the last persisted state.
+        let raft_state = self.saved[i].raft_state();
+        let snapshot = self.saved[i].snapshot();
         let p = SimplePersister::new();
-        p.save_raft_state(self.saved[i].raft_state());
+        p.save_state_and_snapshot(raft_state, snapshot);
         self.saved[i] = Arc::new(p);
 
         if let Some(rf) = self.rafts.lock().unwrap()[i].take() {
