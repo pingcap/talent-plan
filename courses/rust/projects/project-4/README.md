@@ -76,7 +76,7 @@ it will become obvious by the end of this project.
 The second is that the library in this project contains a new _trait_,
 `ThreadPool`. It contains the following methods:
 
-- `ThreadPool::new(threads: u32) -> Result<ThreadPool>`
+- `ThreadPool::new(threads: u32) -> Result<Self> where Self: Sized`
 
   Creates a new thread pool, immediately spawning the specified number of
   threads.
