@@ -998,7 +998,7 @@ never changes &mdash; it is immutable, and immutable types are `Sync` in Rust,
 so it doesn't even need any protection at all. Every thread can read it at once
 through a shared reference.
 
-`readers: HashMap<u64, BufReaderWithPos<File>>` is the read handle to the
+`reader: BufReaderWithPos<File>` is the read handle to the
 current log file. It needs to change to a new log file after compaction.
 
 `writer: BufWriterWithPos<File>` is the write handle to the current log file.
