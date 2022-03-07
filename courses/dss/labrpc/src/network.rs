@@ -350,7 +350,7 @@ async fn server_dead(
 ) {
     loop {
         Delay::new(interval).await;
-        if net.is_server_dead(&client_name, &server_name, server_id) {
+        if net.is_server_dead(client_name, server_name, server_id) {
             debug!("{:?} is dead", server_name);
             return;
         }
