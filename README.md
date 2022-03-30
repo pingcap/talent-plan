@@ -60,7 +60,7 @@ We love our community and take great care to ensure it is fun, safe and rewardin
 
 ## We're here to help
 
-If you have questions about building (or taking) courses, you can ask in the channel **#wg-talent-plan-courses** of the [tidbcommunity](https://pingcap.com/tidbslack/) slack workspace.
+If you have questions about building (or taking) courses, you can ask in the channel **#wg-talent-plan-courses** of the [tidbcommunity](https://tidbcommunity.slack.com/join/shared_invite/enQtNzc0MzI4ODExMDc4LWYwYmIzMjZkYzJiNDUxMmZlN2FiMGJkZjAyMzQ5NGU0NGY0NzI3NTYwMjAyNGQ1N2I2ZjAxNzc1OGUwYWM0NzE#/shared-invite/email) slack workspace.
 
 ## License
 
