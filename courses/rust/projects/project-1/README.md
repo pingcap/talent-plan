@@ -1,5 +1,7 @@
 # PNA Rust Project 1: The Rust toolbox
 
+> Note: The following guide is based on `clap 2.x`, and now `clap 3.x` is released. You can read the changelog of clap to find the difference between 2.x and 3.x, and after knowing the difference, you can choose to skip some of the steps in this guide.
+
 **Task**: Create an in-memory key/value store that passes simple tests and responds
 to command-line arguments.
 
