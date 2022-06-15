@@ -547,7 +547,7 @@ fn generic_test_linearizability(
 
     if !check_operations_timeout(
         KvModel {},
-        Arc::try_unwrap(operations).unwrap().into_inner().unwrap(),
+        operations.lock().unwrap().clone(),
         LINEARIZABILITY_CHECK_TIMEOUT,
     ) {
         panic!("history is not linearizable");
@@ -646,7 +646,7 @@ fn test_one_partition_3a() {
     let (done1_tx, done1_rx) = oneshot::channel::<&'static str>();
 
     cfg.begin("Test: no progress in minority (3A)");
-    cfg.net.spawn(future::lazy(move |_| {
+    thread::spawn(move || {
         ckp2a.put("1".to_owned(), "15".to_owned());
         done0_tx
             .send("put")
@@ -654,13 +654,13 @@ fn test_one_partition_3a() {
                 warn!("done0 send failed: {:?}", e);
             })
             .unwrap();
-    }));
+    });
     let done0_rx = done0_rx.map(|op| {
         cfg.op();
         op
     });
 
-    cfg.net.spawn(future::lazy(move |_| {
+    thread::spawn(move || {
         // different clerk in p2
         ckp2b.get("1".to_owned());
         done1_tx
@@ -669,7 +669,7 @@ fn test_one_partition_3a() {
                 warn!("done0 send failed: {:?}", e);
             })
             .unwrap();
-    }));
+    });
     let done1_rx = done1_rx.map(|op| {
         cfg.op();
         op
