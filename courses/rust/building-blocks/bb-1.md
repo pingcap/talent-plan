@@ -13,6 +13,7 @@ Read all the readings and perform all the exercises.
   suggest. Follow along and write the same code. Can you reproduce their
   results?
     - The following content may be useful for you to understand the above `Exercise` and dive into rust's CLI ecosystem.
+        
         **[Reading: Official Documentation of `clap`]**
 
 - **[Reading: The Cargo manifest format]**. A single page in [The Cargo Book],
