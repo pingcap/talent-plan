@@ -200,7 +200,7 @@ impl Raft {
     pub fn __suppress_deadcode(&mut self) {
         let _ = self.start(&0);
         let _ = self.cond_install_snapshot(0, 0, &[]);
-        let _ = self.snapshot(0, &[]);
+        self.snapshot(0, &[]);
         let _ = self.send_request_vote(0, Default::default());
         self.persist();
         let _ = &self.state;
