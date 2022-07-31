@@ -350,7 +350,7 @@ struct BufWriterWithPos<W: Write + Seek> {
 
 impl<W: Write + Seek> BufWriterWithPos<W> {
     fn new(mut inner: W) -> Result<Self> {
-        let pos = inner.seek(SeekFrom::Current(0))?;
+        let pos = inner.seek(SeekFrom::End(0))?;
         Ok(BufWriterWithPos {
             writer: BufWriter::new(inner),
             pos,
