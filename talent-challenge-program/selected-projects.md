@@ -89,6 +89,7 @@ The difficulty of the project is divided into three levels: Very hard, Hard, and
 * Description: Currently TiDB only supports local partitioned indexes that compatible with mysql，but other database(e.g. Oracle) also supports global partitioned indexes
 * Recommended Skills: Go, DDL, SQL
 * Mentor(s): @tiancaiamao
+* Mentee: [@ldeng-ustc](https://github.com/ldeng-ustc)
 * Upstream Issue or RFC (URL): https://github.com/pingcap/tidb/issues/18032
 * Difficulty: Hard
 
