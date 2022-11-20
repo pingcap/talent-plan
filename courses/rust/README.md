@@ -141,7 +141,7 @@ discretion.
 [The Rust Book]: https://doc.rust-lang.org/book/
 [The Rust Book]: https://doc.rust-lang.org/stable/book/
 [TiKV]: https://github.com/tikv/tikv/
-[asynchronous programming]: todo
+[asynchronous programming]: https://en.wikipedia.org/wiki/Asynchrony_(computer_programming)
 [bitcask]: https://github.com/basho/bitcask/blob/develop/doc/bitcask-intro.pdf
 [building a command-line program]: https://doc.rust-lang.org/stable/book/ch12-00-an-io-project.html
 [building a multithreaded web server]: https://doc.rust-lang.org/stable/book/ch20-00-final-project-a-web-server.html
@@ -152,7 +152,7 @@ discretion.
 [futures]: https://docs.rs/futures/0.1.27/futures/
 [git]: https://git-scm.com/
 [kv]: https://en.wikipedia.org/wiki/Key-value_database
-[parallel programming]: todo
+[parallel programming]: https://en.wikipedia.org/wiki/Parallel_computing
 [plan]: ./docs/lesson-plan.md
 [post-project surveys]: ./docs/lesson-plan.md#user-content-making-pna-rust-better
 [pre]: ./docs/prerequisites.md
