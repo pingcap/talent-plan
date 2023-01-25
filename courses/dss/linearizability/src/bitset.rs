@@ -5,7 +5,7 @@ pub struct Bitset(Vec<u64>);
 
 impl Bitset {
     pub fn new(bits: usize) -> Self {
-        let extra = if bits % 64 != 0 { 1 } else { 0 };
+        let extra = usize::from(bits % 64 != 0);
         Bitset(vec![0; bits / 64 + extra])
     }
 
