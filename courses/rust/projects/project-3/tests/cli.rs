@@ -80,7 +80,7 @@ fn client_cli_invalid_set() {
 
     Command::cargo_bin("kvs-client")
         .unwrap()
-        .args(&["get", "key", "--unknown-flag"])
+        .args(&["set", "key", "--unknown-flag"])
         .current_dir(&temp_dir)
         .assert()
         .failure();
