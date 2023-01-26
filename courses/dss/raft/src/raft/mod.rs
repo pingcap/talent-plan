@@ -1,18 +1,34 @@
-use std::sync::mpsc::{sync_channel, Receiver};
-use std::sync::Arc;
+use std::collections::{HashMap, VecDeque};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex};
+use std::thread::{self, sleep};
+use std::time::Duration;
 
 use futures::channel::mpsc::UnboundedSender;
+use std::u64;
+
+use rand::Rng;
 
 #[cfg(test)]
 pub mod config;
 pub mod errors;
 pub mod persister;
+
+#[cfg(test)]
+mod paper_tests;
 #[cfg(test)]
 mod tests;
 
+mod append_entries;
+mod heartbeat;
+mod msg;
+mod state;
+mod vote;
+
 use self::errors::*;
 use self::persister::*;
-use crate::proto::raftpb::*;
+
+use crate::proto::{raftpb::*, ProtoMessage};
 
 /// As each Raft peer becomes aware that successive log entries are committed,
 /// the peer should send an `ApplyMsg` to the service (or tester) on the same
@@ -30,11 +46,28 @@ pub enum ApplyMsg {
     },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StateType {
+    Follower,
+    Candidate,
+    Leader,
+}
+
+impl Default for StateType {
+    fn default() -> StateType {
+        StateType::Follower
+    }
+}
+
 /// State of a raft peer.
 #[derive(Default, Clone, Debug)]
 pub struct State {
     pub term: u64,
     pub is_leader: bool,
+    pub state_type: StateType,
+    pub leader_id: Option<u64>,
+    pub voted_for: Option<u64>,
+    pub votes: HashMap<u64, bool>,
 }
 
 impl State {
@@ -44,22 +77,70 @@ impl State {
     }
     /// Whether this peer believes it is the leader.
     pub fn is_leader(&self) -> bool {
-        self.is_leader
+        self.state_type == StateType::Leader
+    }
+
+    /// The current state type of this peer
+    pub fn state_type(&self) -> StateType {
+        self.state_type
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Message {
+    pub from: Option<u64>,
+    pub to: Option<u64>,
+    pub message: ProtoMessage,
+}
+
+impl From<ProtoMessage> for Message {
+    fn from(m: ProtoMessage) -> Message {
+        Message {
+            from: None,
+            to: None,
+            message: m,
+        }
     }
 }
 
 // A single Raft peer.
 pub struct Raft {
     // RPC end points of all peers
-    peers: Vec<RaftClient>,
+    peers: Arc<Vec<RaftClient>>,
     // Object to hold this peer's persisted state
-    persister: Box<dyn Persister>,
+    persister: Mutex<Box<dyn Persister>>,
     // this peer's index into peers[]
     me: usize,
-    state: Arc<State>,
+    pub state: State,
     // Your data here (2A, 2B, 2C).
     // Look at the paper's Figure 2 for a description of what
     // state a Raft server must maintain.
+
+    // msgs need to send
+    msgs: Arc<Mutex<VecDeque<Message>>>,
+
+    // heartbeat interval, should send
+    heartbeat_timeout: usize,
+
+    // baseline of election interval
+    election_timeout: usize,
+
+    // number of ticks since it reached last heartbeatTimeout.
+    // only leader keeps heartbeatElapsed.
+    heartbeat_elapsed: usize,
+
+    // Ticks since it reached last electionTimeout when it is leader or candidate.
+    // Number of ticks since it reached last electionTimeout or received a
+    // valid message from current leader when it is a follower.
+    election_elapsed: usize,
+
+    // randomized election timeout
+    randomized_election_timeout: usize,
+
+    worker_handler: Option<thread::JoinHandle<()>>,
+
+    pub rx: Option<Receiver<errors::Result<Message>>>,
+    tx: Sender<errors::Result<Message>>,
 }
 
 impl Raft {
@@ -75,22 +156,367 @@ impl Raft {
         peers: Vec<RaftClient>,
         me: usize,
         persister: Box<dyn Persister>,
-        apply_ch: UnboundedSender<ApplyMsg>,
+        _apply_ch: UnboundedSender<ApplyMsg>,
     ) -> Raft {
         let raft_state = persister.raft_state();
 
+        let election_timeout = 15; // 750ms-1500ms
+        let heartbeat_timeout = 5; // 250ms
+
+        let msgs = Mutex::new(VecDeque::<Message>::new());
+        let ref_msgs = Arc::new(msgs);
+        let ref_peers = Arc::new(peers);
+        let (tx, rx) = mpsc::channel::<errors::Result<Message>>();
+
+        // let ref_persister = Arc::new(persister);
         // Your initialization code here (2A, 2B, 2C).
         let mut rf = Raft {
-            peers,
-            persister,
+            peers: ref_peers.clone(),
+            persister: Mutex::new(persister),
             me,
-            state: Arc::default(),
+            state: State::default(),
+            election_elapsed: 0,
+            heartbeat_elapsed: 0,
+            // unit tick
+            heartbeat_timeout,
+            election_timeout,
+            randomized_election_timeout: rand::thread_rng()
+                .gen_range(election_timeout, 2 * election_timeout),
+            msgs: ref_msgs.clone(),
+            worker_handler: None,
+            rx: rx.into(),
+            tx,
         };
 
+        info!(
+            "N{} randomized_election_timeout :{}",
+            rf.me, rf.randomized_election_timeout
+        );
+
+        rf.run_worker(ref_peers, ref_msgs);
         // initialize from state persisted before a crash
         rf.restore(&raft_state);
 
-        crate::your_code_here((rf, apply_ch))
+        // crate::your_code_here((rf, apply_ch))
+
+        rf
+    }
+
+    fn run_worker(&self, ref_peers: Arc<Vec<RaftClient>>, ref_msgs: Arc<Mutex<VecDeque<Message>>>) {
+        let tx = self.tx.clone();
+        thread::spawn(move || loop {
+            while let Some(m) = ref_msgs.lock().unwrap().pop_front() {
+                match m.message {
+                    ProtoMessage::AppendEntriesArgs(args) => {
+                        let target = m.to.unwrap() as usize;
+                        let peer = ref_peers.as_ref().get(target).unwrap();
+                        let peer_clone = peer.clone();
+                        let tx_clone = tx.clone();
+                        let to = m.to;
+                        let from = m.from;
+                        peer.spawn(async move {
+                            debug!("N{:?} -> N{:?} sending append_entries{:?}", from, to, args);
+                            let reply = peer_clone.append_entries(&args).await.map_err(Error::Rpc);
+                            match reply {
+                                Ok(r) => {
+                                    let _ = tx_clone.send(Ok(Message {
+                                        from: to,
+                                        to: from,
+                                        message: ProtoMessage::AppendEntriesReply(r),
+                                    }));
+                                }
+                                Err(err) => {
+                                    let _ = tx_clone.send(Err(err));
+                                }
+                            }
+                        });
+                    }
+                    ProtoMessage::HeartbeatArgs(args) => {
+                        let target = m.to.unwrap() as usize;
+                        let peer = ref_peers.as_ref().get(target).unwrap();
+                        let peer_clone = peer.clone();
+                        let tx_clone = tx.clone();
+                        let from = m.from;
+                        let to = m.to;
+
+                        peer.spawn(async move {
+                            // debug!("N{:?} -> N{:?} sending heartbeat{:?}", from, to, args);
+                            let reply = peer_clone.heartbeat(&args).await.map_err(Error::Rpc);
+                            match reply {
+                                Ok(r) => {
+                                    let _ = tx_clone.send(Ok(Message {
+                                        from: to,
+                                        to: from,
+                                        message: ProtoMessage::HeartbeatReply(r),
+                                    }));
+                                }
+                                Err(err) => {
+                                    debug!(
+                                        "N{:?} -> N{:?} sent heartbeat but received error{:?}",
+                                        from, to, err
+                                    );
+                                    let _ = tx_clone.send(Err(err));
+                                }
+                            }
+                        });
+                    }
+                    ProtoMessage::RequestVoteArgs(args) => {
+                        let target = m.to.unwrap() as usize;
+                        let peer = ref_peers.as_ref().get(target).unwrap();
+                        let peer_clone = peer.clone();
+                        let tx_clone = tx.clone();
+                        let from = m.from;
+                        let to = m.to;
+
+                        peer.spawn(async move {
+                            // debug!("N{:?} -> N{:?} sending request_vote{:?}", from, to, args);
+                            let reply = peer_clone.request_vote(&args).await.map_err(Error::Rpc);
+
+                            match reply {
+                                Ok(r) => {
+                                    let _ = tx_clone.send(Ok(Message {
+                                        from: to,
+                                        to: from,
+                                        message: ProtoMessage::RequestVoteReply(r),
+                                    }));
+                                }
+                                Err(err) => {
+                                    let _ = tx_clone.send(Err(err));
+                                }
+                            }
+                        });
+                    }
+                    _ => {
+                        debug!("run_worker: unexpected msg {:?}", m);
+                    }
+                }
+            }
+
+            sleep(Duration::from_millis(5));
+        });
+    }
+
+    fn update_config(&mut self, election_timeout: Option<usize>, heartbeat_timeout: Option<usize>) {
+        if let Some(election_timeout) = election_timeout {
+            self.election_elapsed = election_timeout;
+        }
+        if let Some(heartbeat_timeout) = heartbeat_timeout {
+            self.heartbeat_timeout = heartbeat_timeout;
+        }
+    }
+
+    /// tick advances the internal logical clock by a single tick.
+    ///
+    /// safe to modify data due to tick being called by a single thread
+    fn tick(&mut self) {
+        match self.state.state_type {
+            StateType::Leader => {
+                self.heartbeat_elapsed += 1;
+                if self.heartbeat_elapsed >= self.heartbeat_timeout {
+                    self.bcastbeat();
+                    self.heartbeat_elapsed = 0;
+                }
+            }
+            StateType::Candidate => {
+                self.election_elapsed += 1;
+                if self.election_elapsed >= self.randomized_election_timeout {
+                    debug!("Timeout: N{} reach timeout, re-elect", self.me);
+                    // sends a local message to self
+                    self.step(
+                        Message {
+                            message: ProtoMessage::MsgHup,
+                            from: None,
+                            to: None,
+                        },
+                        None,
+                    )
+                }
+            }
+            StateType::Follower => {
+                self.election_elapsed += 1;
+                if self.election_elapsed >= self.randomized_election_timeout {
+                    debug!("Timeout: N{} reach timeout, begin election", self.me);
+                    // sends a local message to self
+                    self.step(
+                        Message {
+                            message: ProtoMessage::MsgHup,
+                            from: None,
+                            to: None,
+                        },
+                        None,
+                    )
+                }
+            }
+        }
+    }
+
+    fn step(&mut self, msg: Message, sender: Option<Sender<ProtoMessage>>) {
+        match self.state.state_type {
+            StateType::Follower => match msg.message {
+                ProtoMessage::RequestVoteArgs(args) => {
+                    if args.term >= self.state.term {
+                        // handle
+                        let _ = sender
+                            .unwrap()
+                            .send(self.handle_request_vote(args.candidate_id, args));
+                    } else {
+                        //rejects the vote request
+                        debug!(
+                            "handle request_vote: N{:?} -> N{:?} rejects, latest term {} > {}",
+                            args.candidate_id, self.me, self.state.term, args.term,
+                        );
+
+                        let _ = sender.unwrap().send(ProtoMessage::RequestVoteReply(
+                            RequestVoteReply {
+                                term: self.state.term,
+                                vote_granted: false,
+                            },
+                        ));
+                    }
+                }
+                ProtoMessage::RequestVoteReply(reply) => {
+                    if reply.term > self.state.term {
+                        debug!(
+                            "N{}(follower) received higher term {} > {} vote response from N{:?}",
+                            self.me, reply.term, self.state.term, msg.from,
+                        );
+                        self.become_follower(reply.term, None)
+                    }
+                }
+                ProtoMessage::MsgHup => {
+                    info!(
+                        "N{} received msg hup message, term: {}",
+                        self.me, self.state.term,
+                    );
+                    self.become_candidate();
+                    self.request_vote();
+                }
+                ProtoMessage::HeartbeatArgs(args) => {
+                    if args.term >= self.state.term {
+                        self.update_state_from_heartbeat(args.leader_id, &args);
+                    }
+                    let _ = sender
+                        .unwrap()
+                        .send(self.handle_heartbeat(args.leader_id, args));
+                }
+                _ => {
+                    debug!("N {} follower unexpcted msg {:?}", self.me, msg.message)
+                }
+            },
+            StateType::Candidate => match msg.message {
+                ProtoMessage::RequestVoteArgs(args) => {
+                    if args.term >= self.state.term {
+                        // handle
+                        let _ = sender
+                            .unwrap()
+                            .send(self.handle_request_vote(args.candidate_id, args));
+                    } else {
+                        //rejects the vote request
+                        debug!(
+                            "handle request_vote: N{:?} -> N{:?} rejects, latest term {} > {}",
+                            args.candidate_id, self.me, self.state.term, args.term,
+                        );
+                        let _ = sender.unwrap().send(ProtoMessage::RequestVoteReply(
+                            RequestVoteReply {
+                                term: self.state.term,
+                                vote_granted: false,
+                            },
+                        ));
+                    }
+                }
+                ProtoMessage::HeartbeatArgs(args) => {
+                    if args.term >= self.state.term {
+                        self.become_follower(args.term, args.leader_id.into());
+                    }
+                    let _ = sender
+                        .unwrap()
+                        .send(self.handle_heartbeat(args.leader_id, args));
+                }
+                ProtoMessage::RequestVoteReply(reply) => {
+                    if reply.term >= self.state.term {
+                        self.handle_request_vote_reply(msg.from.unwrap(), reply);
+                    }
+                }
+                ProtoMessage::MsgHup => {
+                    info!(
+                        "N{} received msg hup message, term: {}",
+                        self.me, self.state.term,
+                    );
+                    self.become_candidate();
+                    self.request_vote();
+                }
+                ProtoMessage::AppendEntriesArgs(args) => {
+                    if args.term >= self.state.term {
+                        self.become_follower(args.term, args.leader_id.into());
+                        let _ = sender.unwrap().send(self.handle_append_entries(args));
+                    } else {
+                        let _ = sender.unwrap().send(ProtoMessage::AppendEntriesReply(
+                            AppendEntriesReply {
+                                term: self.state.term,
+                                success: false,
+                            },
+                        ));
+                    }
+                }
+                _ => {
+                    debug!("N{} candidate unexpcted msg {:?}", self.me, msg.message)
+                }
+            },
+            StateType::Leader => match msg.message {
+                ProtoMessage::RequestVoteArgs(args) => {
+                    if args.term >= self.state.term {
+                        // handle
+                        let _ = sender
+                            .unwrap()
+                            .send(self.handle_request_vote(args.candidate_id, args));
+                    } else {
+                        //rejects the vote request
+                        debug!(
+                            "handle request_vote: N{:?} -> N{:?} rejects, latest term {} > {}",
+                            args.candidate_id, self.me, self.state.term, args.term,
+                        );
+
+                        let _ = sender.unwrap().send(ProtoMessage::RequestVoteReply(
+                            RequestVoteReply {
+                                term: self.state.term,
+                                vote_granted: false,
+                            },
+                        ));
+                    }
+                }
+                ProtoMessage::MsgBeat => self.bcastbeat(),
+                ProtoMessage::HeartbeatArgs(args) => {
+                    if args.term > self.state.term {
+                        // updates term from the heartbeats
+                        self.update_state_from_heartbeat(args.leader_id, &args);
+
+                        let _ = sender
+                            .unwrap()
+                            .send(self.handle_heartbeat(args.leader_id, args));
+                    }
+                    // ignores
+                }
+                ProtoMessage::HeartbeatReply(reply) => {
+                    if reply.term == self.state.term {
+                        self.handle_heartbeat_reply(reply);
+                    } else if reply.term > self.state.term {
+                        self.become_follower(reply.term, None);
+                    }
+                }
+                ProtoMessage::RequestVoteReply(reply) => {
+                    if reply.term > self.state.term {
+                        debug!(
+                            "N{}(leader) received higher term {} > {} vote response from N{:?}",
+                            self.me, reply.term, self.state.term, msg.from
+                        );
+                        self.become_follower(reply.term, None)
+                    }
+                }
+                _ => {
+                    debug!("N{} leader unexpcted msg {:?}", self.me, msg.message)
+                }
+            },
+        }
     }
 
     /// save Raft's persistent state to stable storage,
@@ -122,45 +548,7 @@ impl Raft {
         // }
     }
 
-    /// example code to send a RequestVote RPC to a server.
-    /// server is the index of the target server in peers.
-    /// expects RPC arguments in args.
-    ///
-    /// The labrpc package simulates a lossy network, in which servers
-    /// may be unreachable, and in which requests and replies may be lost.
-    /// This method sends a request and waits for a reply. If a reply arrives
-    /// within a timeout interval, This method returns Ok(_); otherwise
-    /// this method returns Err(_). Thus this method may not return for a while.
-    /// An Err(_) return can be caused by a dead server, a live server that
-    /// can't be reached, a lost request, or a lost reply.
-    ///
-    /// This method is guaranteed to return (perhaps after a delay) *except* if
-    /// the handler function on the server side does not return.  Thus there
-    /// is no need to implement your own timeouts around this method.
-    ///
-    /// look at the comments in ../labrpc/src/lib.rs for more details.
-    fn send_request_vote(
-        &self,
-        server: usize,
-        args: RequestVoteArgs,
-    ) -> Receiver<Result<RequestVoteReply>> {
-        // Your code here if you want the rpc becomes async.
-        // Example:
-        // ```
-        // let peer = &self.peers[server];
-        // let peer_clone = peer.clone();
-        // let (tx, rx) = channel();
-        // peer.spawn(async move {
-        //     let res = peer_clone.request_vote(&args).await.map_err(Error::Rpc);
-        //     tx.send(res);
-        // });
-        // rx
-        // ```
-        let (tx, rx) = sync_channel::<Result<RequestVoteReply>>(1);
-        crate::your_code_here((server, args, tx, rx))
-    }
-
-    fn start<M>(&self, command: &M) -> Result<(u64, u64)>
+    fn start<M>(&mut self, command: &M) -> Result<(u64, u64)>
     where
         M: labcodec::Message,
     {
@@ -201,7 +589,7 @@ impl Raft {
         let _ = self.start(&0);
         let _ = self.cond_install_snapshot(0, 0, &[]);
         self.snapshot(0, &[]);
-        let _ = self.send_request_vote(0, Default::default());
+        // let _ = self.send_request_vote(0, Default::default());
         self.persist();
         let _ = &self.state;
         let _ = &self.me;
@@ -227,13 +615,21 @@ impl Raft {
 #[derive(Clone)]
 pub struct Node {
     // Your code here.
+    raft: Arc<Mutex<Raft>>,
 }
 
 impl Node {
     /// Create a new raft service.
     pub fn new(raft: Raft) -> Node {
         // Your code here.
-        crate::your_code_here(raft)
+        let n = Node {
+            raft: Arc::new(Mutex::new(raft)),
+        };
+
+        n.run_worker();
+        n.run_tick();
+
+        n
     }
 
     /// the service using Raft (e.g. a k/v server) wants to start
@@ -252,18 +648,48 @@ impl Node {
     where
         M: labcodec::Message,
     {
-        // Your code here.
-        // Example:
-        // self.raft.start(command)
-        crate::your_code_here(command)
+        debug!("call node start");
+        self.raft.lock().unwrap().start(command)
     }
 
+    fn run_tick(&self) {
+        let ref_raft = self.raft.clone();
+        thread::spawn(move || loop {
+            {
+                ref_raft.lock().unwrap().tick();
+            }
+            sleep(Duration::from_millis(100));
+        });
+    }
+
+    fn run_worker(&self) {
+        let ref_raft = self.raft.clone();
+        let rx = self.raft.lock().unwrap().rx.take().unwrap();
+        thread::spawn(move || loop {
+            match rx.recv() {
+                Ok(m) => match m {
+                    Ok(msg) => ref_raft.lock().unwrap().step(msg, None),
+                    Err(e) => {
+                        debug!("msg received {}", e)
+                    }
+                },
+                Err(e) => debug!("channel error {}", e),
+            };
+        });
+    }
+
+    fn update_config(&mut self, election_timeout: Option<usize>, heartbeat_timeout: Option<usize>) {
+        self.raft
+            .lock()
+            .unwrap()
+            .update_config(election_timeout, heartbeat_timeout);
+    }
     /// The current term of this peer.
     pub fn term(&self) -> u64 {
         // Your code here.
         // Example:
         // self.raft.term
-        crate::your_code_here(())
+        self.raft.lock().unwrap().state.term
     }
 
     /// Whether this peer believes it is the leader.
@@ -271,15 +697,20 @@ impl Node {
         // Your code here.
         // Example:
         // self.raft.leader_id == self.id
-        crate::your_code_here(())
+        self.raft.lock().unwrap().state.is_leader
+    }
+
+    pub fn state_type(&self) -> StateType {
+        self.raft.lock().unwrap().state.state_type
     }
 
     /// The current state of this peer.
     pub fn get_state(&self) -> State {
-        State {
-            term: self.term(),
-            is_leader: self.is_leader(),
-        }
+        self.raft.lock().unwrap().state.clone()
+    }
+
+    pub fn get_raft(&self) -> Arc<Mutex<Raft>> {
+        self.raft.clone()
     }
 
     /// the tester calls kill() when a Raft instance won't be
@@ -329,6 +760,71 @@ impl RaftService for Node {
     // CAVEATS: Please avoid locking or sleeping here, it may jam the network.
     async fn request_vote(&self, args: RequestVoteArgs) -> labrpc::Result<RequestVoteReply> {
         // Your code here (2A, 2B).
-        crate::your_code_here(args)
+        let (tx, rx) = mpsc::channel();
+
+        {
+            let mut raft = self.raft.lock().unwrap();
+            debug!(
+                "N{} -> N{} receiving request_vote {:?}",
+                args.candidate_id, raft.me, args
+            );
+            raft.step(
+                Message {
+                    to: None,
+                    from: None,
+                    message: ProtoMessage::RequestVoteArgs(args),
+                },
+                Some(tx),
+            );
+        }
+
+        match rx.recv().unwrap() {
+            ProtoMessage::RequestVoteReply(reply) => Ok(reply),
+            _ => Err(labrpc::Error::Other("unknown response".into())),
+        }
+    }
+
+    async fn append_entries(&self, args: AppendEntriesArgs) -> labrpc::Result<AppendEntriesReply> {
+        let (tx, rx) = mpsc::channel();
+
+        {
+            let mut raft = self.raft.lock().unwrap();
+            debug!("N{} -> N{} append_entries", args.leader_id, raft.me);
+            raft.step(
+                Message {
+                    to: None,
+                    from: None,
+                    message: ProtoMessage::AppendEntriesArgs(args),
+                },
+                Some(tx),
+            );
+        }
+
+        match rx.recv().unwrap() {
+            ProtoMessage::AppendEntriesReply(reply) => Ok(reply),
+            _ => Err(labrpc::Error::Other("unknown response".into())),
+        }
+    }
+
+    async fn heartbeat(&self, args: HeartbeatArgs) -> labrpc::Result<HeartbeatReply> {
+        let (tx, rx) = mpsc::channel();
+
+        {
+            let mut raft = self.raft.lock().unwrap();
+            debug!("N{} -> N{} heartbeat", args.leader_id, raft.me);
+            raft.step(
+                Message {
+                    to: None,
+                    from: None,
+                    message: ProtoMessage::HeartbeatArgs(args),
+                },
+                Some(tx),
+            );
+        }
+
+        match rx.recv().unwrap() {
+            ProtoMessage::HeartbeatReply(reply) => Ok(reply),
+            _ => Err(labrpc::Error::Other("unknown response".into())),
+        }
     }
 }

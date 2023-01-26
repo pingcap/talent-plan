@@ -13,6 +13,7 @@ use rand::{rngs::ThreadRng, Rng};
 
 use crate::raft::config::{Config, Entry, Storage, SNAPSHOT_INTERVAL};
 use crate::raft::Node;
+use crate::raft::*;
 
 /// The tester generously allows solutions to complete elections in one second
 /// (much more than the paper's range of timeouts).
@@ -23,7 +24,6 @@ fn random_entry(rnd: &mut ThreadRng) -> Entry {
         x: rnd.gen::<u64>(),
     }
 }
-
 #[test]
 fn test_initial_election_2a() {
     let servers = 3;
@@ -43,7 +43,10 @@ fn test_initial_election_2a() {
     thread::sleep(2 * RAFT_ELECTION_TIMEOUT);
     let term2 = cfg.check_terms();
     if term1 != term2 {
-        warn!("warning: term changed even though there were no failures")
+        warn!(
+            "warning: term changed even though there were no failures, term1 {} != term2 {}",
+            term1, term2
+        );
     }
 
     // there should still be a leader.

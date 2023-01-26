@@ -24,6 +24,8 @@ labcodec = { path = "../labcodec" }
 labrpc = { path = "../labrpc" }
 linearizability = { path = "../linearizability"}
 
+tokio = { version = "1", features = ["full"] }
+
 [dev-dependencies]
 env_logger = "0.7"
 
