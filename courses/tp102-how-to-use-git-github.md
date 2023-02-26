@@ -31,7 +31,7 @@ None. This course is a great introduction for your first day on GitHub.
 
 **Learning Material(s):**
 
-* [Introduction to GitHub](https://lab.github.com/githubtraining/introduction-to-github), an open source course created by [The GitHub Training Team](https://lab.github.com/githubtraining)
+* [Introduction to GitHub](https://github.com/githubtraining/introduction-to-github), an open source course created by [The GitHub Training Team](https://github.com/githubtraining)
  
 **Suggested Assignments:**
 
@@ -41,7 +41,7 @@ None. This course is a great introduction for your first day on GitHub.
 
 **Learning Material(s):**
 
-* [Reviewing pull requests](https://lab.github.com/githubtraining/reviewing-pull-requests), an open source course created by [The GitHub Training Team](https://lab.github.com/githubtraining)
+* [Reviewing pull requests](https://github.com/githubtraining/reviewing-pull-requests), an open source course created by [The GitHub Training Team](https://github.com/githubtraining)
  
 **Suggested Assignments:**
 
@@ -51,7 +51,7 @@ None. This course is a great introduction for your first day on GitHub.
 
 **Learning Material(s):**
 
-* [Managing merge conflicts](https://lab.github.com/githubtraining/managing-merge-conflicts), an open source course created by [The GitHub Training Team](https://lab.github.com/githubtraining)
+* [Managing merge conflicts](https://github.com/githubtraining/managing-merge-conflicts), an open source course created by [The GitHub Training Team](https://github.com/githubtraining)
  
 **Suggested Assignments:**
 
@@ -61,7 +61,7 @@ None. This course is a great introduction for your first day on GitHub.
 
 **Learning Material(s):**
 
-* [Communicating using Markdown](https://lab.github.com/githubtraining/communicating-using-markdown), an open source course created by [The GitHub Training Team](https://lab.github.com/githubtraining)
+* [Communicating using Markdown](https://github.com/githubtraining/communicating-using-markdown), an open source course created by [The GitHub Training Team](https://github.com/githubtraining)
  
 **Suggested Assignments:**
 
@@ -86,4 +86,4 @@ No assignments, the git skill will be tested all the time you participate in an 
 Special Thanks to:
 
 * `Producer Wen`, `Qinyao Yang`, and `Jason Zhang`for testing this course and updating the materials.
-* [The GitHub Training Team](https://lab.github.com/githubtraining) for creating open source courses above.
+* [The GitHub Training Team](https://github.com/githubtraining) for creating open source courses above.
