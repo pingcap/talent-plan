@@ -846,7 +846,7 @@ fn test_figure_8_unreliable_2c() {
 
         if (random.gen::<usize>() % 1000) < 100 {
             let ms = random.gen::<u64>() % (RAFT_ELECTION_TIMEOUT.as_millis() as u64 / 2);
-            thread::sleep(Duration::from_millis(ms as u64));
+            thread::sleep(Duration::from_millis(ms));
         } else {
             let ms = random.gen::<u64>() % 13;
             thread::sleep(Duration::from_millis(ms));
