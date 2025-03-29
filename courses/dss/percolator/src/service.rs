@@ -9,7 +9,7 @@ labrpc::service! {
     }
 }
 
-pub use timestamp::{add_service as add_tso_service, Client as TSOClient, Service};
+pub use timestamp::{add_service as add_tso_service, Client as TSOClient};
 
 labrpc::service! {
     service transaction {

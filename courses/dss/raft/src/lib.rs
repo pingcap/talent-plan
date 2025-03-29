@@ -1,3 +1,5 @@
+#![allow(clippy::four_forward_slashes)]
+
 #[allow(unused_imports)]
 #[macro_use]
 extern crate log;

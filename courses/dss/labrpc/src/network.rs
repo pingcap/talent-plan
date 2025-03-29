@@ -179,9 +179,10 @@ impl Network {
     fn is_server_dead(&self, client_name: &str, server_name: &str, server_id: usize) -> bool {
         let eps = self.core.endpoints.lock().unwrap();
         !eps.enabled[client_name]
-            || eps.servers.get(server_name).map_or(true, |o| {
-                o.as_ref().map(|s| s.core.id != server_id).unwrap_or(true)
-            })
+            || eps
+                .servers
+                .get(server_name)
+                .is_none_or(|o| o.as_ref().map(|s| s.core.id != server_id).unwrap_or(true))
     }
 
     async fn process_rpc(&self, rpc: Rpc) -> Result<Vec<u8>> {

@@ -233,7 +233,7 @@ fn check_single<M: Model>(
     subhistory.push_front(Rc::new(RefCell::new(Node {
         value: Value::None,
         matched: None,
-        id: usize::max_value(),
+        id: usize::MAX,
         prev: None,
         next: None,
     })));
