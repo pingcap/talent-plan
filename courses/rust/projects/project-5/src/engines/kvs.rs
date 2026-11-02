@@ -148,15 +148,15 @@ impl<P: ThreadPool> KvsEngine for KvStore<P> {
             let res = (|| {
                 if let Some(cmd_pos) = index.get(&key) {
                     let reader = reader_pool.pop().unwrap();
-                    let res = if let Command::Set { value, .. } =
-                        reader.read_command(*cmd_pos.value())?
-                    {
+                    // Return the reader to the pool before checking the result,
+                    // so a failed read doesn't leak it.
+                    let res = reader.read_command(*cmd_pos.value());
+                    reader_pool.push(reader).unwrap();
+                    if let Command::Set { value, .. } = res? {
                         Ok(Some(value))
                     } else {
                         Err(KvsError::UnexpectedCommandType)
-                    };
-                    reader_pool.push(reader).unwrap();
-                    res
+                    }
                 } else {
                     Ok(None)
                 }
@@ -328,17 +328,21 @@ impl KvStoreWriter {
         let mut compaction_writer = new_log_file(&self.path, compaction_gen)?;
 
         let mut new_pos = 0; // pos in the new log file
+        let mut new_index = Vec::new();
         for entry in self.index.iter() {
             let len = self.reader.read_and(*entry.value(), |mut entry_reader| {
                 Ok(io::copy(&mut entry_reader, &mut compaction_writer)?)
             })?;
-            self.index.insert(
-                entry.key().clone(),
-                (compaction_gen, new_pos..new_pos + len).into(),
-            );
+            new_index.push((entry.key().clone(), new_pos..new_pos + len));
             new_pos += len;
         }
         compaction_writer.flush()?;
+
+        // Readers don't take the lock, so only point the index at the compaction
+        // file after its contents are flushed.
+        for (key, range) in new_index {
+            self.index.insert(key, (compaction_gen, range).into());
+        }
 
         self.reader
             .safe_point
@@ -510,7 +514,7 @@ struct BufWriterWithPos<W: Write + Seek> {
 
 impl<W: Write + Seek> BufWriterWithPos<W> {
     fn new(mut inner: W) -> Result<Self> {
-        let pos = inner.seek(SeekFrom::Current(0))?;
+        let pos = inner.seek(SeekFrom::End(0))?;
         Ok(BufWriterWithPos {
             writer: BufWriter::new(inner),
             pos,

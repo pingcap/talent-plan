@@ -64,7 +64,10 @@ fn run_tasks(rx: TaskReceiver) {
             Ok(task) => {
                 task();
             }
-            Err(_) => debug!("Thread exits because the thread pool is destroyed."),
+            Err(_) => {
+                debug!("Thread exits because the thread pool is destroyed.");
+                break;
+            }
         }
     }
 }

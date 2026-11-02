@@ -318,10 +318,10 @@ dependencies = [
 [[package]]
 name = "crossbeam-epoch"
 version = "0.9.1"
-source = "git+https://github.com/crossbeam-rs/crossbeam.git?branch=master#90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a"
+source = "git+https://github.com/crossbeam-rs/crossbeam.git?rev=90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a#90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a"
 dependencies = [
  "cfg-if 1.0.0",
- "crossbeam-utils 0.8.1 (git+https://github.com/crossbeam-rs/crossbeam.git?branch=master)",
+ "crossbeam-utils 0.8.1 (git+https://github.com/crossbeam-rs/crossbeam.git?rev=90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a)",
  "lazy_static",
  "loom",
  "memoffset 0.6.1",
@@ -340,11 +340,11 @@ dependencies = [
 [[package]]
 name = "crossbeam-skiplist"
 version = "0.0.0"
-source = "git+https://github.com/crossbeam-rs/crossbeam.git?branch=master#90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a"
+source = "git+https://github.com/crossbeam-rs/crossbeam.git?rev=90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a#90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a"
 dependencies = [
  "cfg-if 1.0.0",
- "crossbeam-epoch 0.9.1 (git+https://github.com/crossbeam-rs/crossbeam.git?branch=master)",
- "crossbeam-utils 0.8.1 (git+https://github.com/crossbeam-rs/crossbeam.git?branch=master)",
+ "crossbeam-epoch 0.9.1 (git+https://github.com/crossbeam-rs/crossbeam.git?rev=90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a)",
+ "crossbeam-utils 0.8.1 (git+https://github.com/crossbeam-rs/crossbeam.git?rev=90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a)",
  "scopeguard 1.1.0",
 ]
 
@@ -383,7 +383,7 @@ dependencies = [
 [[package]]
 name = "crossbeam-utils"
 version = "0.8.1"
-source = "git+https://github.com/crossbeam-rs/crossbeam.git?branch=master#90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a"
+source = "git+https://github.com/crossbeam-rs/crossbeam.git?rev=90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a#90cd7dca89a58fd09e2fd92d6c0e9cfbe3f0a04a"
 dependencies = [
  "autocfg 1.0.1",
  "cfg-if 1.0.0",
