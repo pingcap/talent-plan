@@ -4,7 +4,7 @@ extern crate log;
 extern crate clap;
 
 use kvs::thread_pool::*;
-use kvs::{KvStore, KvsEngine, KvsServer, Result, SledKvsEngine};
+use kvs::{KvStore, KvsEngine, KvsError, KvsServer, Result, SledKvsEngine};
 use log::LevelFilter;
 use std::env;
 use std::env::current_dir;
@@ -102,9 +102,9 @@ fn current_engine() -> Result<Option<Engine>> {
 
     match fs::read_to_string(engine)?.parse() {
         Ok(engine) => Ok(Some(engine)),
-        Err(e) => {
-            warn!("The content of engine file is invalid: {}", e);
-            Ok(None)
-        }
+        Err(e) => Err(KvsError::StringError(format!(
+            "The content of engine file is invalid: {}",
+            e
+        ))),
     }
 }
