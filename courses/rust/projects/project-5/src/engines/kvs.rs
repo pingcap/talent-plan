@@ -145,20 +145,28 @@ impl<P: ThreadPool> KvsEngine for KvStore<P> {
         let index = self.index.clone();
         let (tx, rx) = oneshot::channel();
         self.thread_pool.spawn(move || {
-            let res = (|| {
-                if let Some(cmd_pos) = index.get(&key) {
-                    let reader = reader_pool.pop().unwrap();
-                    // Return the reader to the pool before checking the result,
-                    // so a failed read doesn't leak it.
-                    let res = reader.read_command(*cmd_pos.value());
-                    reader_pool.push(reader).unwrap();
-                    if let Command::Set { value, .. } = res? {
-                        Ok(Some(value))
-                    } else {
-                        Err(KvsError::UnexpectedCommandType)
+            let res = (|| loop {
+                let cmd_pos = match index.get(&key) {
+                    Some(entry) => *entry.value(),
+                    None => return Ok(None),
+                };
+                let reader = reader_pool.pop().unwrap();
+                // Return the reader to the pool before checking the result,
+                // so a failed read doesn't leak it.
+                let res = reader.read_command(cmd_pos);
+                reader_pool.push(reader).unwrap();
+                match res {
+                    Ok(Command::Set { value, .. }) => return Ok(Some(value)),
+                    Ok(_) => return Err(KvsError::UnexpectedCommandType),
+                    // A compaction can move the entry to a new log file and delete the old
+                    // file between the index lookup and the read, so look the key up again.
+                    Err(KvsError::Io(ref e))
+                        if e.kind() == io::ErrorKind::NotFound
+                            && index.get(&key).map(|e| e.value().gen) != Some(cmd_pos.gen) =>
+                    {
+                        continue
                     }
-                } else {
-                    Ok(None)
+                    Err(e) => return Err(e),
                 }
             })();
             if tx.send(res).is_err() {

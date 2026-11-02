@@ -114,14 +114,24 @@ impl KvsEngine for KvStore {
     ///
     /// Returns `None` if the given key does not exist.
     fn get(&self, key: String) -> Result<Option<String>> {
-        if let Some(cmd_pos) = self.index.get(&key) {
-            if let Command::Set { value, .. } = self.reader.read_command(*cmd_pos.value())? {
-                Ok(Some(value))
-            } else {
-                Err(KvsError::UnexpectedCommandType)
+        loop {
+            let cmd_pos = match self.index.get(&key) {
+                Some(entry) => *entry.value(),
+                None => return Ok(None),
+            };
+            match self.reader.read_command(cmd_pos) {
+                Ok(Command::Set { value, .. }) => return Ok(Some(value)),
+                Ok(_) => return Err(KvsError::UnexpectedCommandType),
+                // A compaction can move the entry to a new log file and delete the old
+                // file between the index lookup and the read, so look the key up again.
+                Err(KvsError::Io(ref e))
+                    if e.kind() == io::ErrorKind::NotFound
+                        && self.index.get(&key).map(|e| e.value().gen) != Some(cmd_pos.gen) =>
+                {
+                    continue
+                }
+                Err(e) => return Err(e),
             }
-        } else {
-            Ok(None)
         }
     }
 
