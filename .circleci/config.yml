@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   dss:
     docker:
-      - image: circleci/rust:stretch
+      - image: circleci/rust:stretch@sha256:5646e23b70685e1e57499c71358c2036134582f5c6d70ad27ff86725959446d8
     environment:
       RUST_BACKTRACE: "1"
       RUSTFLAGS: "-Dwarnings"
