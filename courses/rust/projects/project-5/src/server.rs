@@ -22,10 +22,23 @@ impl<E: KvsEngine> KvsServer<E> {
         let listener = TcpListener::bind(&addr)?;
         let server = listener
             .incoming()
-            .map_err(|e| error!("IO error: {}", e))
+            // Log a failed accept and keep listening instead of ending the server.
+            .then(|res| match res {
+                Ok(tcp) => Ok(Some(tcp)),
+                Err(e) => {
+                    error!("Connection failed: {}", e);
+                    Ok(None)
+                }
+            })
+            .filter_map(|tcp| tcp)
             .for_each(move |tcp| {
                 let engine = self.engine.clone();
-                serve(engine, tcp).map_err(|e| error!("Error on serving client: {}", e))
+                // Serve each connection on its own task, so connections are handled
+                // concurrently and one client's error doesn't stop the server.
+                tokio::spawn(
+                    serve(engine, tcp).map_err(|e| error!("Error on serving client: {}", e)),
+                );
+                Ok(())
             });
         tokio::run(server);
         Ok(())
@@ -35,27 +48,26 @@ impl<E: KvsEngine> KvsServer<E> {
 fn serve<E: KvsEngine>(engine: E, tcp: TcpStream) -> impl Future<Item = (), Error = KvsError> {
     let (read_half, write_half) = tcp.split();
     let read_json = ReadJson::new(FramedRead::new(read_half, LengthDelimitedCodec::new()));
-    let resp_stream = read_json
-        .map_err(KvsError::from)
-        .and_then(
-            move |req| -> Box<dyn Future<Item = Response, Error = KvsError> + Send> {
-                match req {
-                    Request::Get { key } => Box::new(engine.get(key).map(Response::Get)),
-                    Request::Set { key, value } => {
-                        Box::new(engine.set(key, value).map(|_| Response::Set))
-                    }
-                    Request::Remove { key } => {
-                        Box::new(engine.remove(key).map(|_| Response::Remove))
-                    }
+    let resp_stream = read_json.map_err(KvsError::from).and_then(
+        move |req| -> Box<dyn Future<Item = Response, Error = KvsError> + Send> {
+            let resp: Box<dyn Future<Item = Response, Error = KvsError> + Send> = match req {
+                Request::Get { key } => Box::new(engine.get(key).map(Response::Get)),
+                Request::Set { key, value } => {
+                    Box::new(engine.set(key, value).map(|_| Response::Set))
                 }
-            },
-        )
-        .then(|resp| -> Result<Response> {
-            match resp {
-                Ok(resp) => Ok(resp),
-                Err(e) => Ok(Response::Err(format!("{}", e))),
-            }
-        });
+                Request::Remove { key } => Box::new(engine.remove(key).map(|_| Response::Remove)),
+            };
+            // Only engine errors become error responses. Errors from reading or
+            // decoding the stream end the connection, so a bad frame can't make
+            // the server answer the same error forever.
+            Box::new(resp.then(|resp| -> Result<Response> {
+                match resp {
+                    Ok(resp) => Ok(resp),
+                    Err(e) => Ok(Response::Err(format!("{}", e))),
+                }
+            }))
+        },
+    );
     let write_json = WriteJson::new(FramedWrite::new(write_half, LengthDelimitedCodec::new()));
     write_json
         .sink_map_err(KvsError::from)
