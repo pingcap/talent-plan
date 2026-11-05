@@ -12,6 +12,9 @@ Read all the readings and perform all the exercises.
   techniques used by this author may provide an interesting contrast to those we
   suggest. Follow along and write the same code. Can you reproduce their
   results?
+    - The following content may be useful for you to understand the above `Exercise` and dive into rust's CLI ecosystem.
+        
+        **[Reading: Official Documentation of `clap`]**
 
 - **[Reading: The Cargo manifest format]**. A single page in [The Cargo Book],
   this will give you an idea of how your project can be customized a bit if you
@@ -41,4 +44,4 @@ Read all the readings and perform all the exercises.
 [`rust-lang-nursery`]: https://github.com/rust-lang-nursery
 [Reading: The rustup documentation]: https://github.com/rust-lang/rustup.rs/blob/master/README.md
 [Exercise: Write a Good CLI Program]: https://qiita.com/tigercosmos/items/678f39b1209e60843cc3
-
+[Reading: Official Documentation of `clap`]: https://docs.rs/clap/3.0.0-beta.2/clap/index.html

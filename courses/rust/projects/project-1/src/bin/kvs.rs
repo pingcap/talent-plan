@@ -8,7 +8,6 @@ fn main() {
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .setting(AppSettings::DisableHelpSubcommand)
         .setting(AppSettings::SubcommandRequiredElseHelp)
-        .setting(AppSettings::VersionlessSubcommands)
         .subcommand(
             SubCommand::with_name("set")
                 .about("Set the value of a string key to a string")
@@ -32,15 +31,15 @@ fn main() {
         .get_matches();
 
     match matches.subcommand() {
-        ("set", Some(_matches)) => {
+        Some(("set", _matches)) => {
             eprintln!("unimplemented");
             exit(1);
         }
-        ("get", Some(_matches)) => {
+        Some(("get", _matches)) => {
             eprintln!("unimplemented");
             exit(1);
         }
-        ("rm", Some(_matches)) => {
+        Some(("rm", _matches)) => {
             eprintln!("unimplemented");
             exit(1);
         }
