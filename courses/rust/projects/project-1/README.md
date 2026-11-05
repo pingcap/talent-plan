@@ -462,8 +462,7 @@ to disk.
 
 In this part you will make the `cli_*` test cases pass.
 
-Recall how to run individual test cases from previous sections
-of 
+Recall how to run individual test cases from the previous section.
 
 Again, the interface for the CLI is:
 
